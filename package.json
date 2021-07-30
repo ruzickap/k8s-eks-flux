@@ -1,0 +1,31 @@
+{
+  "name": "k8s-eks-flux-test",
+  "version": "0.0.1",
+  "description": "Amazon EKS and Flux",
+  "author": "Petr Ruzicka <petr.ruzicka@gmail.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://ruzickap.github.io/k8s-eks-flux-test",
+  "keywords": [
+    "amazon",
+    "aws",
+    "kubernetes",
+    "bottlerocket",
+    "flux",
+    "demo"
+  ],
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruzickap/k8s-eks-flux-test.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ruzickap/k8s-eks-flux-test/issues"
+  },
+  "scripts": {
+    "docs:dev": "vuepress dev docs",
+    "docs:build": "vuepress build docs"
+  },
+  "devDependencies": {
+    "vuepress": "^2.0.0-beta.22"
+  }
+}
