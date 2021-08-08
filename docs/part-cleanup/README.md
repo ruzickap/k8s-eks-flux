@@ -57,16 +57,24 @@ export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export AWS_DEFAULT_REGION="eu-west-1"
 ```
 
-Remove CloudFormation stacks [Route53+IAM+S3+EBS]
+Remove CloudFormation stacks:
 
 ```bash
-aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-route53-iam-s3-kms-asm"
+aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-efs"
+aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-efs"
 ```
 
-Wait for CloudFormation to be deleted:
+Delete CloudFormation stack which created VPC, Subnets, Route53:
 
 ```bash
-aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-route53-iam-s3-kms-asm"
+aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-route53"
+aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-route53"
+```
+
+Remove `tmp/${CLUSTER_NAME}` directory:
+
+```bash
+rm -rf "tmp/${CLUSTER_NAME}"
 ```
 
 Clean-up completed:
