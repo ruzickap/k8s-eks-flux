@@ -72,5 +72,5 @@ fi
 Create initial git repository in GitHub which will be used by Flux:
 
 ```bash
-git clone "https://${GITHUB_TOKEN_K8S_EKS}@github.com/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}.git" "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"
+git clone "https://${GH_TOKEN_K8S_EKS}@github.com/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}.git" "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"
 ```
