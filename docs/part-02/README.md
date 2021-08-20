@@ -1,245 +1,76 @@
-# Create additional AWS structure
+# Create EKS cluster
 
 [[toc]]
 
-## Create EFS
+## Create Amazon EKS
 
-Create EFS which will be used by Amazon EKS cluster:
+Create temporary directory for files used for creating/configuring/ EKS Cluster:
 
 ```bash
-cat > "tmp/${CLUSTER_FQDN}/efs.yml" << \EOF
-AWSTemplateFormatVersion: 2010-09-09
-Description: Create EFS, mount points, security groups for EKS
-Parameters:
-  ClusterName:
-    Description: "K8s Cluster name. Ex: kube1"
-    Type: String
-Resources:
-  MountTargetSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      VpcId:
-        Fn::ImportValue:
-          Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-route53-VpcId"
-      GroupName: !Sub "${ClusterName}-efs-sg"
-      GroupDescription: Security group for mount target
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 2049
-          ToPort: 2049
-          CidrIp:
-            Fn::ImportValue:
-              Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-route53-VpcCidrBlock"
-      Tags:
-        - Key: Name
-          Value: !Sub "${ClusterName}-efs-sg"
-  FileSystemDrupal:
-    Type: AWS::EFS::FileSystem
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Retain
-    Properties:
-      Encrypted: true
-      FileSystemTags:
-      - Key: Name
-        Value: !Sub "${ClusterName}-efs-drupal"
-  MountTargetAZ1:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId:
-        Ref: FileSystemDrupal
-      SubnetId:
-        Fn::Select:
-        - 0
-        - Fn::Split:
-          - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-route53-SubnetsIdsPrivate"
-      SecurityGroups:
-      - Ref: MountTargetSecurityGroup
-  MountTargetAZ2:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId:
-        Ref: FileSystemDrupal
-      SubnetId:
-        Fn::Select:
-        - 1
-        - Fn::Split:
-          - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-route53-SubnetsIdsPrivate"
-      SecurityGroups:
-      - Ref: MountTargetSecurityGroup
-  AccessPointDrupal1:
-    Type: AWS::EFS::AccessPoint
-    Properties:
-      FileSystemId: !Ref FileSystemDrupal
-      # Set proper uid/gid: https://github.com/bitnami/bitnami-docker-drupal/blob/02f7e41c88eee96feb90c8b7845ee7aeb5927c38/9/debian-10/Dockerfile#L49
-      PosixUser:
-        Uid: "1001"
-        Gid: "1001"
-      RootDirectory:
-        CreationInfo:
-          OwnerGid: "1001"
-          OwnerUid: "1001"
-          Permissions: "700"
-        Path: "/drupal1"
-      AccessPointTags:
-        - Key: Name
-          Value: !Sub "${ClusterName}-drupal1-ap"
-  AccessPointDrupal2:
-    Type: AWS::EFS::AccessPoint
-    Properties:
-      FileSystemId: !Ref FileSystemDrupal
-      # Set proper uid/gid: https://github.com/bitnami/bitnami-docker-drupal/blob/02f7e41c88eee96feb90c8b7845ee7aeb5927c38/9/debian-10/Dockerfile#L49
-      PosixUser:
-        Uid: "1001"
-        Gid: "1001"
-      RootDirectory:
-        CreationInfo:
-          OwnerGid: "1001"
-          OwnerUid: "1001"
-          Permissions: "700"
-        Path: "/drupal2"
-      AccessPointTags:
-        - Key: Name
-          Value: !Sub "${ClusterName}-drupal2-ap"
-  FileSystemMyuser1:
-    Type: AWS::EFS::FileSystem
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Retain
-    Properties:
-      Encrypted: true
-      FileSystemTags:
-      - Key: Name
-        Value: !Sub "${ClusterName}-myuser1"
-  MountTargetAZ1Myuser1:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId:
-        Ref: FileSystemMyuser1
-      SubnetId:
-        Fn::Select:
-        - 0
-        - Fn::Split:
-          - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-route53-SubnetsIdsPrivate"
-      SecurityGroups:
-      - Ref: MountTargetSecurityGroup
-  MountTargetAZ2Myuser1:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId:
-        Ref: FileSystemMyuser1
-      SubnetId:
-        Fn::Select:
-        - 1
-        - Fn::Split:
-          - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-route53-SubnetsIdsPrivate"
-      SecurityGroups:
-      - Ref: MountTargetSecurityGroup
-  AccessPointMyuser1:
-    Type: AWS::EFS::AccessPoint
-    Properties:
-      FileSystemId: !Ref FileSystemMyuser1
-      # Set proper uid/gid: https://github.com/bitnami/bitnami-docker-drupal/blob/02f7e41c88eee96feb90c8b7845ee7aeb5927c38/9/debian-10/Dockerfile#L49
-      RootDirectory:
-        CreationInfo:
-          OwnerGid: "1000"
-          OwnerUid: "1000"
-          Permissions: "700"
-        Path: "/myuser1"
-      AccessPointTags:
-        - Key: Name
-          Value: !Sub "${ClusterName}-myuser1"
-  FileSystemMyuser2:
-    Type: AWS::EFS::FileSystem
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Retain
-    Properties:
-      Encrypted: true
-      FileSystemTags:
-      - Key: Name
-        Value: !Sub "${ClusterName}-myuser2"
-  MountTargetAZ1Myuser2:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId:
-        Ref: FileSystemMyuser2
-      SubnetId:
-        Fn::Select:
-        - 0
-        - Fn::Split:
-          - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-route53-SubnetsIdsPrivate"
-      SecurityGroups:
-      - Ref: MountTargetSecurityGroup
-  MountTargetAZ2Myuser2:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId:
-        Ref: FileSystemMyuser2
-      SubnetId:
-        Fn::Select:
-        - 1
-        - Fn::Split:
-          - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-route53-SubnetsIdsPrivate"
-      SecurityGroups:
-      - Ref: MountTargetSecurityGroup
-  AccessPointMyuser2:
-    Type: AWS::EFS::AccessPoint
-    Properties:
-      FileSystemId: !Ref FileSystemMyuser2
-      # Set proper uid/gid: https://github.com/bitnami/bitnami-docker-drupal/blob/02f7e41c88eee96feb90c8b7845ee7aeb5927c38/9/debian-10/Dockerfile#L49
-      RootDirectory:
-        CreationInfo:
-          OwnerGid: "1000"
-          OwnerUid: "1000"
-          Permissions: "700"
-        Path: "/myuser2"
-      AccessPointTags:
-        - Key: Name
-          Value: !Sub "${ClusterName}-myuser2"
-Outputs:
-  FileSystemIdDrupal:
-    Description: Id of Elastic File System
-    Value:
-      Ref: FileSystemDrupal
-  AccessPointIdDrupal1:
-    Description: EFS AccessPoint ID for Drupal1
-    Value:
-      Ref: AccessPointDrupal1
-  AccessPointIdDrupal2:
-    Description: EFS AccessPoint2 ID for Drupal2
-    Value:
-      Ref: AccessPointDrupal2
-  FileSystemIdMyuser1:
-    Description: Id of Elastic File System Myuser1
-    Value:
-      Ref: FileSystemMyuser1
-  AccessPointIdMyuser1:
-    Description: EFS AccessPoint2 ID for Myuser1
-    Value:
-      Ref: AccessPointMyuser1
-  FileSystemIdMyuser2:
-    Description: ID of Elastic File System Myuser2
-    Value:
-      Ref: FileSystemMyuser2
-  AccessPointIdMyuser2:
-    Description: EFS AccessPoint2 ID for Myuser2
-    Value:
-      Ref: AccessPointMyuser2
+mkdir -p "tmp/${CLUSTER_FQDN}"
+```
+
+![EKS](https://raw.githubusercontent.com/aws-samples/eks-workshop/65b766c494a5b4f5420b2912d8373c4957163541/static/images/3-service-animated.gif
+"EKS")
+
+Create [Amazon EKS](https://aws.amazon.com/eks/) in AWS by using [eksctl](https://eksctl.io/).
+
+![eksctl](https://raw.githubusercontent.com/weaveworks/eksctl/c365149fc1a0b8d357139cbd6cda5aee8841c16c/logo/eksctl.png
+"eksctl")
+
+Create the Amazon EKS cluster with Calico using `eksctl`:
+
+```bash
+cat > "tmp/${CLUSTER_FQDN}/eksctl.yaml" << EOF
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: ${CLUSTER_NAME}
+  region: ${AWS_DEFAULT_REGION}
+  version: "1.21"
+  tags: &tags
+$(echo "${TAGS}" | sed "s/ /\\n    /g; s/^/    /g; s/=/: /g")
+availabilityZones:
+  - ${AWS_DEFAULT_REGION}a
+  - ${AWS_DEFAULT_REGION}b
+iam:
+  withOIDC: true
+vpc:
+  nat:
+    gateway: Disable
+managedNodeGroups:
+  - name: managed-ng-1
+    amiFamily: Bottlerocket
+    instanceType: t3.xlarge
+    instancePrefix: ${GITHUB_USER}
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 5
+    volumeSize: 30
+    ssh:
+      enableSsm: true
+    tags: *tags
+    volumeEncrypted: true
+    disableIMDSv1: true
+gitops:
+  flux:
+    gitProvider: github
+    flags:
+      owner: "${GITHUB_USER}"
+      repository: "${GITHUB_FLUX_REPOSITORY}"
+      personal: "true"
+      private: "false"
+      branch: "master"
+      path: "clusters/${CLUSTER_FQDN}"
 EOF
 
-if ! aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-efs" ; then
-  CLOUDFORMATION_ACTION='create-stack'
-else
-  CLOUDFORMATION_ACTION='update-stack'
+if ! eksctl get clusters --name="${CLUSTER_NAME}" &> /dev/null ; then
+  eksctl create cluster --config-file "tmp/${CLUSTER_FQDN}/eksctl.yaml" --kubeconfig "${KUBECONFIG}"
 fi
+```
 
-eval aws cloudformation "${CLOUDFORMATION_ACTION}" \
-  --parameters "ParameterKey=ClusterName,ParameterValue=${CLUSTER_NAME}" \
-  --stack-name "${CLUSTER_NAME}-efs" \
-  --template-body "file://tmp/${CLUSTER_FQDN}/efs.yml" \
-  --tags "$(echo $TAGS | sed  -e 's/\([^ =]*\)=\([^ ]*\)/Key=\1,Value=\2/g')" || true
+Create initial git repository in GitHub which will be used by Flux:
+
+```bash
+git clone "https://${GITHUB_TOKEN_K8S_EKS}@github.com/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}.git" "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"
 ```

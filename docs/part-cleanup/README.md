@@ -8,35 +8,7 @@ Install necessary software:
 ```bash
 if command -v apt-get &> /dev/null; then
   apt update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq less curl gnupg2 jq python3 sudo unzip > /dev/null
-fi
-```
-
-Install [AWS CLI](https://aws.amazon.com/cli/) binary:
-
-```bash
-if ! command -v aws &> /dev/null; then
-  curl -sL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
-  unzip -q -o /tmp/awscliv2.zip -d /tmp/
-  sudo /tmp/aws/install
-fi
-```
-
-Install [kubectl](https://github.com/kubernetes/kubectl) binary:
-
-```bash
-if ! command -v kubectl &> /dev/null; then
-  sudo curl -s -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.21.1/bin/$(uname | sed "s/./\L&/g" )/amd64/kubectl"
-  sudo chmod a+x /usr/local/bin/kubectl
-fi
-```
-
-Install [AWS IAM Authenticator for Kubernetes](https://github.com/kubernetes-sigs/aws-iam-authenticator):
-
-```bash
-if ! command -v aws-iam-authenticator &> /dev/null; then
-  sudo curl -s -Lo /usr/local/bin/aws-iam-authenticator "https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/$(uname | sed "s/./\L&/g")/amd64/aws-iam-authenticator"
-  sudo chmod a+x /usr/local/bin/aws-iam-authenticator
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl sudo unzip > /dev/null
 fi
 ```
 
@@ -52,23 +24,25 @@ Set necessary variables:
 
 ```bash
 export BASE_DOMAIN=${BASE_DOMAIN:-k8s.mylabs.dev}
-export CLUSTER_NAME=${CLUSTER_NAME:-kube1}
+export CLUSTER_NAME=${CLUSTER_NAME:-kube2}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export AWS_DEFAULT_REGION="eu-west-1"
+export GITHUB_USER="ruzickap"
+export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
 ```
 
-Remove CloudFormation stacks:
+Remove EKS cluster:
 
 ```bash
-aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-efs"
-aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-efs"
+if eksctl get cluster --name=${CLUSTER_NAME} 2>/dev/null ; then
+  eksctl delete cluster --wait --name=${CLUSTER_NAME}
+fi
 ```
 
-Delete CloudFormation stack which created VPC, Subnets, Route53:
+Remove GitHub repository created for Flux:
 
 ```bash
-aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-route53"
-aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-route53"
+curl -H "Authorization: token ${GITHUB_TOKEN_K8S_EKS}" -X DELETE "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}"
 ```
 
 Remove `tmp/${CLUSTER_NAME}` directory:
