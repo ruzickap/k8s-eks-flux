@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-if [ -n "${GITHUB_TOKEN_K8S_EKS+x}" ]; then
-  export GITHUB_TOKEN="${GITHUB_TOKEN_K8S_EKS}"
+if [ -n "${GH_TOKEN_K8S_EKS+x}" ]; then
+  export GITHUB_TOKEN="${GH_TOKEN_K8S_EKS}"
 fi
 
 set -euxo pipefail
@@ -10,7 +10,7 @@ docker run -it --rm \
   -e CLUSTER_NAME="kube3" \
   -e AWS_ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY \
-  -e GITHUB_TOKEN="${GITHUB_TOKEN_K8S_EKS}" \
+  -e GITHUB_TOKEN="${GH_TOKEN_K8S_EKS}" \
   -v "${PWD}:/mnt" \
   -w /mnt \
   ubuntu \
