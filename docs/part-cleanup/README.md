@@ -46,7 +46,9 @@ fi
 Remove GitHub repository created for Flux:
 
 ```bash
-curl -H "Authorization: token ${GITHUB_TOKEN}" -X DELETE "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}"
+if ! curl -s "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}" | grep -q '"message": "Not Found"' ; then
+  curl -s -H "Authorization: token ${GITHUB_TOKEN}" -X DELETE "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}"
+fi
 ```
 
 Remove `tmp/${CLUSTER_NAME}` directory:

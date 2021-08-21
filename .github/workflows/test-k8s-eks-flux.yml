@@ -35,7 +35,7 @@ jobs:
         run: |
           echo "::add-mask::${{ secrets.MASK_AWS_ACCOUNT_NUMBER }}"
 
-      - name: Create AWS Environment
+      - name: Create EKS cluster + environment
         run: |
           docker run -i --rm \
             -e CLUSTER_NAME \
@@ -60,7 +60,7 @@ jobs:
         run: |
           echo "::add-mask::${{ secrets.MASK_AWS_ACCOUNT_NUMBER }}"
 
-      - name: Delete AWS Environment
+      - name: Delete EKS cluster + environment
         run: |
           docker run -i --rm \
             -e CLUSTER_NAME \
