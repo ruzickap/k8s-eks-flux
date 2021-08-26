@@ -1,11 +1,10 @@
 Ansible
+aws-auth
 awscli
 CloudFlare
-CloudFormation
+ConfigMap
 eksctl
 kubectl
 Kubernetes
 nameservers
-Route53
 toc
-Velero

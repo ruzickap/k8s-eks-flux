@@ -16,4 +16,5 @@
 
 ## Content
 
-* [Part 01 - Create Route53 zone, VPC and Subnets in AWS](part-01/README.md)
+* [Part 01 - Create initial AWS structure](part-01/README.md)
+* [Part 02 - Create EKS cluster](part-02/README.md)
