@@ -35,9 +35,6 @@ availabilityZones:
   - ${AWS_DEFAULT_REGION}b
 iam:
   withOIDC: true
-vpc:
-  nat:
-    gateway: Disable
 managedNodeGroups:
   - name: managed-ng-1
     amiFamily: Bottlerocket
@@ -77,4 +74,14 @@ the AWS Console to see EKS Workloads in Cluster's tab.
 if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn=${AWS_CONSOLE_ADMIN_ROLE_ARN} &> /dev/null ; then
   eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" --group system:masters --username admin
 fi
+
+if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn=${AWS_USER_ROLE_ARN} &> /dev/null ; then
+  eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_USER_ROLE_ARN}" --group system:masters --username admin
+fi
+```
+
+Check the nodes+pods:
+
+```bash
+kubectl get nodes,pods -o wide --all-namespaces
 ```
