@@ -7,17 +7,12 @@
 If you would like to follow this documents and it's task you will need to set up
 few environment variables.
 
-The `LETSENCRYPT_ENVIRONMENT` variable should be one of:
-
-* `staging` - Let’s Encrypt will create testing certificate (not valid)
-* `production` - Let’s Encrypt will create valid certificate (use with care)
-
 `BASE_DOMAIN` contains DNS records for all your Kubernetes clusters. The cluster
 names will look like `CLUSTER_NAME`.`BASE_DOMAIN` (`kube1.k8s.mylabs.dev`).
 
 ```bash
 # Hostname / FQDN definitions
-export BASE_DOMAIN=${BASE_DOMAIN:-k8s.mylabs.dev}
+export BASE_DOMAIN=${BASE_DOMAIN:-k8s.dev.mylabs.dev}
 export CLUSTER_NAME=${CLUSTER_NAME:-kube2}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export KUBECONFIG=${PWD}/tmp/${CLUSTER_FQDN}/kubeconfig-${CLUSTER_NAME}.conf
@@ -27,8 +22,11 @@ export GITHUB_USER="ruzickap"
 export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
 # AWS Region
 export AWS_DEFAULT_REGION="eu-west-1"
+# Set dev, prd, stg environment which ie extracted from k8s.prd.mylabs.dev
+ENVIRONMENT=$(echo $BASE_DOMAIN | sed 's/.*k8s\.\([^.]*\)\.*\..*/\1/')
+export ENVIRONMENT
 # Tags used to tag the AWS resources
-export TAGS="Owner=${MY_EMAIL} Environment=Dev Group=Cloud_Native Squad=Cloud_Container_Platform"
+export TAGS="Owner=${MY_EMAIL} Environment=${ENVIRONMENT} Group=Cloud_Native Squad=Cloud_Container_Platform"
 echo -e "${MY_EMAIL} | ${CLUSTER_NAME} | ${BASE_DOMAIN} | ${CLUSTER_FQDN}\n${TAGS}"
 ```
 

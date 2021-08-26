@@ -61,7 +61,7 @@ gitops:
       personal: "true"
       private: "false"
       branch: "master"
-      path: "clusters/${CLUSTER_FQDN}"
+      path: "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
 EOF
 
 if ! eksctl get clusters --name="${CLUSTER_NAME}" &> /dev/null ; then
@@ -69,8 +69,12 @@ if ! eksctl get clusters --name="${CLUSTER_NAME}" &> /dev/null ; then
 fi
 ```
 
-Create initial git repository in GitHub which will be used by Flux:
+Add add the user or role to the aws-auth ConfigMap. This is handy if you are
+using different user for CLI operations and different user/role for accessing
+the AWS Console to see EKS Workloads in Cluster's tab.
 
 ```bash
-git clone "https://${GITHUB_TOKEN}@github.com/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}.git" "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"
+if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn=${AWS_CONSOLE_ADMIN_ROLE_ARN} &> /dev/null ; then
+  eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" --group system:masters --username admin
+fi
 ```

@@ -24,6 +24,8 @@ env:
   GH_TOKEN_K8S_EKS: ${{ secrets.GH_TOKEN_K8S_EKS }}
   CLUSTER_NAME: kube3
 
+concurrency: test-k8s-eks-flux
+
 jobs:
   create-k8s-eks-flux:
     runs-on: ubuntu-latest
