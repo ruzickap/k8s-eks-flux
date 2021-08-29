@@ -6,4 +6,4 @@ fi
 
 set -euo pipefail
 
-sed -n "/^\`\`\`bash.*/,/^\`\`\`$/p" docs/part-??/README.md | sed "/^\`\`\`*/d" | bash -euxo pipefail
+sed -n "/^\`\`\`bash.*/,/^\`\`\`$/p" docs/part-??/README.md | sed "/^\`\`\`*/d" | bash -exo pipefail

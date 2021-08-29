@@ -86,7 +86,7 @@ Install [eksctl](https://eksctl.io/):
 ```bash
 if ! command -v eksctl &> /dev/null; then
   # https://github.com/weaveworks/eksctl/releases
-  curl -s -L "https://github.com/weaveworks/eksctl/releases/download/0.62.0/eksctl_$(uname)_amd64.tar.gz" | sudo tar xz -C /usr/local/bin/
+  curl -s -L "https://github.com/weaveworks/eksctl/releases/download/0.63.0/eksctl_$(uname)_amd64.tar.gz" | sudo tar xz -C /usr/local/bin/
 fi
 ```
 

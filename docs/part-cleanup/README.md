@@ -51,10 +51,10 @@ if ! curl -s -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/r
 fi
 ```
 
-Remove `tmp/${CLUSTER_NAME}` directory:
+Remove `tmp/${CLUSTER_FQDN}` directory:
 
 ```bash
-rm -rf "tmp/${CLUSTER_NAME}"
+rm -rf "tmp/${CLUSTER_FQDN}"
 ```
 
 Clean-up completed:
