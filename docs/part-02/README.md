@@ -44,8 +44,6 @@ managedNodeGroups:
     minSize: 2
     maxSize: 5
     volumeSize: 30
-    ssh:
-      enableSsm: true
     tags: *tags
     volumeEncrypted: true
     disableIMDSv1: true
@@ -71,11 +69,11 @@ using different user for CLI operations and different user/role for accessing
 the AWS Console to see EKS Workloads in Cluster's tab.
 
 ```bash
-if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn=${AWS_CONSOLE_ADMIN_ROLE_ARN} &> /dev/null ; then
+if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" &> /dev/null && [[ -z ${AWS_CONSOLE_ADMIN_ROLE_ARN+x} ]] ; then
   eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" --group system:masters --username admin
 fi
 
-if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn=${AWS_USER_ROLE_ARN} &> /dev/null ; then
+if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_USER_ROLE_ARN}" &> /dev/null && [[ -z ${AWS_USER_ROLE_ARN+x} ]] ; then
   eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_USER_ROLE_ARN}" --group system:masters --username admin
 fi
 ```

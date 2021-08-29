@@ -75,6 +75,11 @@ jobs:
         run: |
           echo "::add-mask::${{ secrets.MASK_AWS_ACCOUNT_NUMBER }}"
 
+      - name: Replace CLUSTER_NAME variable if defined manually
+        if: ${{ github.event.inputs.cluster_name }}
+        run: |
+          echo "CLUSTER_NAME=${{ github.event.inputs.cluster_name }}" >> "${GITHUB_ENV}"
+
       - name: Delete EKS cluster + environment
         run: |
           docker run -i --rm \
