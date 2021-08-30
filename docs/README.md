@@ -18,3 +18,4 @@
 
 * [Part 01 - Create initial AWS structure](part-01/README.md)
 * [Part 02 - Create EKS cluster](part-02/README.md)
+* [Part 03 - Applications](part-03/README.md)
