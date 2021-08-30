@@ -531,6 +531,18 @@ spec:
 EOF
 ```
 
+## Flux
+
+Commit changes to git repository and "refresh" flux:
+
+```bash
+git add .
+git commit -m "Initial applications commit"
+git push
+flux reconcile source git flux-system
+sleep 120
+```
+
 Check Flux errors:
 
 ```bash
@@ -540,6 +552,7 @@ flux logs --level=error --all-namespaces
 Check `helmreleases`, `helmrepositories`, `kustomizations`, ...
 
 ```bash
+kubectl get pods -A
 kubectl get helmreleases.helm.toolkit.fluxcd.io -A
 kubectl get helmrepositories.source.toolkit.fluxcd.io -A
 kubectl get kustomizations.kustomize.toolkit.fluxcd.io -A
