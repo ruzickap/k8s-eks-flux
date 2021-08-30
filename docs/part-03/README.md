@@ -533,6 +533,13 @@ EOF
 
 ## Flux
 
+Set `user.name` and `user.email` for git:
+
+```bash
+git config user.name || git config --global user.name "My Name"
+git config user.email || git config --global user.email "you@example.com"
+```
+
 Commit changes to git repository and "refresh" flux:
 
 ```bash
