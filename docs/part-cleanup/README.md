@@ -20,6 +20,16 @@ if ! command -v eksctl &> /dev/null; then
 fi
 ```
 
+Install [AWS CLI](https://aws.amazon.com/cli/) binary:
+
+```bash
+if ! command -v aws &> /dev/null; then
+  curl -sL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+  unzip -q -o /tmp/awscliv2.zip -d /tmp/
+  sudo /tmp/aws/install
+fi
+```
+
 Set necessary variables and verify if all the necessary variables were set:
 
 ```bash

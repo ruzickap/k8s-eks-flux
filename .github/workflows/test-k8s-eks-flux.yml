@@ -18,7 +18,6 @@ env:
   AWS_CONSOLE_ADMIN_ROLE_ARN: ${{ secrets.AWS_CONSOLE_ADMIN_ROLE_ARN }}
   AWS_USER_ROLE_ARN: ${{ secrets.AWS_USER_ROLE_ARN }}
   GH_TOKEN_K8S_EKS: ${{ secrets.GH_TOKEN_K8S_EKS }}
-  CLUSTER_NAME: kube3
 
 concurrency: test-k8s-eks-flux
 
@@ -64,7 +63,6 @@ jobs:
       - name: Create masks to hide parts in GH logs
         run: |
           echo "::add-mask::${{ secrets.MASK_AWS_ACCOUNT_NUMBER }}"
-          echo "::add-mask::${{ secrets.MASK_AWS_ROUTE53_HOSTED_ZONE_K8S_MYLABS_DEV }}"
 
       - name: Replace CLUSTER_NAME variable if defined manually
         if: ${{ github.event.inputs.cluster_name }}

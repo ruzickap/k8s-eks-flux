@@ -377,6 +377,8 @@ EOF
 
 if ! eksctl get clusters --name="${CLUSTER_NAME}" &> /dev/null ; then
   eksctl create cluster --config-file "tmp/${CLUSTER_FQDN}/eksctl.yaml" --kubeconfig "${KUBECONFIG}"
+else
+  eksctl utils write-kubeconfig --cluster=${CLUSTER_NAME}
 fi
 ```
 
@@ -385,12 +387,12 @@ using different user for CLI operations and different user/role for accessing
 the AWS Console to see EKS Workloads in Cluster's tab.
 
 ```bash
-if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" &> /dev/null && [[ -z ${AWS_CONSOLE_ADMIN_ROLE_ARN+x} ]] ; then
-  eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" --group system:masters --username admin
+if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" &> /dev/null && [[ ! -z ${AWS_CONSOLE_ADMIN_ROLE_ARN+x} ]] ; then
+  eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" --group system:masters --username admin
 fi
 
-if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_USER_ROLE_ARN}" &> /dev/null && [[ -z ${AWS_USER_ROLE_ARN+x} ]] ; then
-  eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --region="${AWS_DEFAULT_REGION}" --arn="${AWS_USER_ROLE_ARN}" --group system:masters --username admin
+if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_USER_ROLE_ARN}" &> /dev/null && [[ ! -z ${AWS_USER_ROLE_ARN+x} ]] ; then
+  eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_USER_ROLE_ARN}" --group system:masters --username admin
 fi
 ```
 
