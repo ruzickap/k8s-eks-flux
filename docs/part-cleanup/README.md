@@ -35,11 +35,17 @@ export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
 : "${GITHUB_TOKEN?}"
 ```
 
+Remove CloudFormation stacks:
+
+```bash
+aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-route53-efs"
+```
+
 Remove EKS cluster:
 
 ```bash
 if eksctl get cluster --name=${CLUSTER_NAME} 2>/dev/null ; then
-  eksctl delete cluster --wait --name=${CLUSTER_NAME}
+  eksctl delete cluster --name=${CLUSTER_NAME}
 fi
 ```
 
@@ -49,6 +55,13 @@ Remove GitHub repository created for Flux:
 if ! curl -s -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}" | grep -q '"message": "Not Found"' ; then
   curl -s -H "Authorization: token ${GITHUB_TOKEN}" -X DELETE "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}"
 fi
+```
+
+Delete CloudFormation stack which created VPC, Subnets, Route53:
+
+```bash
+aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets"
+aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets"
 ```
 
 Remove `tmp/${CLUSTER_FQDN}` directory:

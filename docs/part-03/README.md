@@ -1,5 +1,12 @@
 # Applications
 
+[[toc]]
+
+Flux disadvantages:
+
+* `dependsOn` can not be used between `HelmRelease` and `Kustomization`:
+  [HelmRelease, Kustomization DependsOn](https://github.com/fluxcd/kustomize-controller/issues/242)
+
 ## Create basic Flux structure in git repository
 
 Clone initial git repository created by `eksctl` used by Flux:
@@ -27,36 +34,13 @@ Create initial git repository structure which will be used by Flux:
 
 ```bash
 mkdir -vp tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}
-mkdir -vp tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/apps/{helmrelease,helmrepository,prd,dev,mygroup}
+mkdir -vp tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/apps/{base,helmrepository,prd,dev,mygroup}
 cd tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/
 ```
 
 ## HelmRepository
 
 Create `HelmRepository` definitions
-
-### crossplane-stable
-
-```bash
-mkdir -vp apps/helmrepository/crossplane-stable
-cat > apps/helmrepository/crossplane-stable/kustomization.yaml << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - crossplane-stable.yaml
-EOF
-
-cat > apps/helmrepository/crossplane-stable/crossplane-stable.yaml << EOF
-apiVersion: source.toolkit.fluxcd.io/v1beta1
-kind: HelmRepository
-metadata:
-  name: crossplane-stable
-  namespace: flux-system
-spec:
-  interval: 1h
-  url: https://charts.crossplane.io/stable
-EOF
-```
 
 ### eks
 
@@ -173,73 +157,58 @@ spec:
 EOF
 ```
 
-## HelmReleases
+## Basic Applications
 
-Create `HelmReleases` definitions:
-
-### Crossplane
-
-```bash
-mkdir -vp apps/helmrelease/crossplane
-cat > apps/helmrelease/crossplane/kustomization.yaml << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - namespace.yaml
-  - crossplane.yaml
-EOF
-
-cat > apps/helmrelease/crossplane/namespace.yaml << EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: crossplane-system
-EOF
-
-cat > apps/helmrelease/crossplane/crossplane.yaml << EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-metadata:
-  name: crossplane
-  namespace: crossplane-system
-spec:
-  interval: 1m
-  chart:
-    spec:
-      chart: crossplane
-      version: 1.2.1
-      sourceRef:
-        kind: HelmRepository
-        name: crossplane-stable
-        namespace: flux-system
-EOF
-```
+> Due to [https://github.com/fluxcd/flux2/discussions/730](https://github.com/fluxcd/flux2/discussions/730),
+> [https://github.com/fluxcd/flux2/discussions/1010](https://github.com/fluxcd/flux2/discussions/1010)
+> it is necessary to "pack" HelmRelease "inside" Kustomization to be able to do
+> dependency using `dependsOn` later...
 
 ### AWS Load Balancer Controller
 
+[AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/)
+
+* [aws-load-balancer-controller](https://artifacthub.io/packages/helm/aws/aws-load-balancer-controller)
+* [default values.yaml](https://github.com/aws/eks-charts/blob/master/stable/aws-load-balancer-controller/values.yaml).
+
 ```bash
-mkdir -vp apps/helmrelease/aws-load-balancer-controller
-cat > apps/helmrelease/aws-load-balancer-controller/kustomization.yaml << EOF
+mkdir -vp apps/base/aws-load-balancer-controller/helmrelease
+cat > apps/base/aws-load-balancer-controller/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace.yaml
   - aws-load-balancer-controller.yaml
 EOF
 
-cat > apps/helmrelease/aws-load-balancer-controller/namespace.yaml << EOF
-apiVersion: v1
-kind: Namespace
+cat > apps/base/aws-load-balancer-controller/aws-load-balancer-controller.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
 metadata:
   name: aws-load-balancer-controller
+  namespace: kube-system
+spec:
+  interval: 5m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: aws-load-balancer-controller
+      namespace: kube-system
+  path: "./apps/base/aws-load-balancer-controller/helmrelease"
+  prune: true
+  validation: client
 EOF
 
-cat > apps/helmrelease/aws-load-balancer-controller/aws-load-balancer-controller.yaml << EOF
+cat > apps/base/aws-load-balancer-controller/helmrelease/aws-load-balancer-controller.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
+# | eks | https://aws.github.io/eks-charts | aws-load-balancer-controller | 1.2.6
 metadata:
   name: aws-load-balancer-controller
-  namespace: aws-load-balancer-controller
+  namespace: kube-system
 spec:
   releaseName: aws-load-balancer-controller
   chart:
@@ -249,10 +218,13 @@ spec:
         kind: HelmRepository
         name: eks
         namespace: flux-system
-      version: 1.2.6
+      version: 1.2.7
   interval: 1h0m0s
   values:
     clusterName: ${CLUSTER_NAME}
+    serviceAccount:
+      create: false
+      name: aws-load-balancer-controller-sa
     enableShield: false
     enableWaf: false
     enableWafv2: false
@@ -263,29 +235,54 @@ EOF
 
 ### Amazon EFS CSI Driver
 
+Install [Amazon EFS CSI Driver](https://github.com/kubernetes-sigs/aws-efs-csi-driver),
+which supports ReadWriteMany PVC. Details can be found here:
+[Introducing Amazon EFS CSI dynamic provisioning](https://aws.amazon.com/blogs/containers/introducing-efs-csi-dynamic-provisioning/)
+
+[Amazon EFS CSI Driver](https://github.com/kubernetes-sigs/aws-efs-csi-driver)
+
+* [aws-efs-csi-driver](https://github.com/kubernetes-sigs/aws-efs-csi-driver/tree/master/charts/aws-efs-csi-driver)
+* [default values.yaml](https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/charts/aws-efs-csi-driver/values.yaml):
+
 ```bash
-mkdir -vp apps/helmrelease/aws-efs-csi-driver
-cat > apps/helmrelease/aws-efs-csi-driver/kustomization.yaml << EOF
+mkdir -vp apps/base/aws-efs-csi-driver/{helmrelease,manifests-pv}
+cat > apps/base/aws-efs-csi-driver/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace.yaml
   - aws-efs-csi-driver.yaml
+  - aws-efs-csi-driver-manifests-pv.yaml
 EOF
 
-cat > apps/helmrelease/aws-efs-csi-driver/namespace.yaml << EOF
-apiVersion: v1
-kind: Namespace
+cat > apps/base/aws-efs-csi-driver/aws-efs-csi-driver.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
 metadata:
   name: aws-efs-csi-driver
+  namespace: kube-system
+spec:
+  interval: 5m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: aws-efs-csi-driver
+      namespace: kube-system
+  path: "./apps/base/aws-efs-csi-driver/helmrelease"
+  prune: true
+  validation: client
 EOF
 
-cat > apps/helmrelease/aws-efs-csi-driver/aws-efs-csi-driver.yaml << EOF
+cat > apps/base/aws-efs-csi-driver/helmrelease/aws-efs-csi-driver.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
+# | aws-efs-csi-driver | https://kubernetes-sigs.github.io/aws-efs-csi-driver/ | aws-efs-csi-driver | 2.1.5
 metadata:
   name: aws-efs-csi-driver
-  namespace: aws-efs-csi-driver
+  namespace: kube-system
 spec:
   releaseName: aws-efs-csi-driver
   chart:
@@ -297,34 +294,150 @@ spec:
         namespace: flux-system
       version: 2.1.5
   interval: 1h0m0s
+  values:
+    controller:
+      serviceAccount:
+        create: false
+        name: efs-csi-controller-sa
+    storageClasses:
+    - name: efs-drupal-dynamic
+      parameters:
+        provisioningMode: efs-ap
+        fileSystemId: "${AWS_EFS_FS_ID_DRUPAL}"
+        directoryPerms: "700"
+        basePath: "/dynamic_provisioning"
+      reclaimPolicy: Delete
+    - name: efs-drupal-static
+      parameters:
+        provisioningMode: efs-ap
+        fileSystemId: "${AWS_EFS_FS_ID_DRUPAL}"
+        directoryPerms: "700"
+      reclaimPolicy: Delete
+    - name: efs-myuser1-sc
+      parameters:
+        provisioningMode: efs-ap
+        fileSystemId: "${AWS_EFS_FS_ID_MYUSER1}"
+        directoryPerms: "700"
+      reclaimPolicy: Delete
+    - name: efs-myuser2-sc
+      parameters:
+        provisioningMode: efs-ap
+        fileSystemId: "${AWS_EFS_FS_ID_MYUSER2}"
+        directoryPerms: "700"
+      reclaimPolicy: Delete
+EOF
+```
+
+Create `PersistentVolume`s which can be consumed by users (`myuser1`, `myuser2`)
+using `PersistentVolumeClaim`:
+
+```bash
+cat > apps/base/aws-efs-csi-driver/aws-efs-csi-driver-manifests-pv.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: aws-efs-csi-driver-manifests-pv
+  namespace: kube-system
+spec:
+  interval: 5m0s
+  dependsOn:
+    - name: aws-efs-csi-driver
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: v1
+      kind: PersistentVolume
+      name: efs-myuser1-pv
+    - apiVersion: v1
+      kind: PersistentVolume
+      name: efs-myuser2-pv
+  path: "./apps/base/aws-efs-csi-driver/manifests-pv"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/aws-efs-csi-driver/manifests-pv/pv.yaml << EOF
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: efs-myuser1-pv
+spec:
+  storageClassName: efs-myuser1-sc
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Delete
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: ${AWS_EFS_FS_ID_MYUSER1}::${AWS_EFS_AP_ID_MYUSER1}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: efs-myuser2-pv
+spec:
+  storageClassName: efs-myuser2-sc
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Delete
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: ${AWS_EFS_FS_ID_MYUSER2}::${AWS_EFS_AP_ID_MYUSER2}
 EOF
 ```
 
 ### Amazon Elastic Block Store (EBS) CSI driver
 
+[Amazon Elastic Block Store (EBS) CSI driver](https://github.com/kubernetes-sigs/aws-ebs-csi-driver)
+
+* [aws-ebs-csi-driver](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/charts/aws-ebs-csi-driver)
+* [default values.yaml](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/charts/aws-ebs-csi-driver/values.yaml):
+
 ```bash
-mkdir -vp apps/helmrelease/aws-ebs-csi-driver
-cat > apps/helmrelease/aws-ebs-csi-driver/kustomization.yaml << EOF
+mkdir -vp apps/base/aws-ebs-csi-driver/helmrelease
+cat > apps/base/aws-ebs-csi-driver/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace.yaml
   - aws-ebs-csi-driver.yaml
 EOF
 
-cat > apps/helmrelease/aws-ebs-csi-driver/namespace.yaml << EOF
-apiVersion: v1
-kind: Namespace
+cat > apps/base/aws-ebs-csi-driver/aws-ebs-csi-driver.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
 metadata:
   name: aws-ebs-csi-driver
+  namespace: kube-system
+spec:
+  interval: 5m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: aws-ebs-csi-driver
+      namespace: kube-system
+  path: "./apps/base/aws-ebs-csi-driver/helmrelease"
+  prune: true
+  validation: client
 EOF
 
-cat > apps/helmrelease/aws-ebs-csi-driver/aws-ebs-csi-driver.yaml << EOF
+cat > apps/base/aws-ebs-csi-driver/helmrelease/aws-ebs-csi-driver.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
+# | aws-ebs-csi-driver | https://kubernetes-sigs.github.io/aws-ebs-csi-driver | aws-ebs-csi-driver | 2.1.0
 metadata:
   name: aws-ebs-csi-driver
-  namespace: aws-ebs-csi-driver
+  namespace: kube-system
 spec:
   releaseName: aws-ebs-csi-driver
   chart:
@@ -341,6 +454,9 @@ spec:
       extraVolumeTags:
         Cluster: ${CLUSTER_FQDN}
         $(echo "${TAGS}" | sed "s/ /\\n        /g; s/=/: /g")
+      serviceAccount:
+        create: false
+        name: ebs-csi-controller-sa
     storageClasses:
     - name: gp3
       annotations:
@@ -350,11 +466,35 @@ spec:
 EOF
 ```
 
-### Kubernetes Metrics Server
+### external-snapshotter
+
+Details about EKS and `external-snapshotter` can be found here:
+[Using EBS Snapshots for persistent storage with your EKS cluster](https://aws.amazon.com/blogs/containers/using-ebs-snapshots-for-persistent-storage-with-your-eks-cluster)
 
 ```bash
-mkdir -vp apps/helmrelease/metrics-server
-cat > apps/helmrelease/metrics-server/kustomization.yaml << EOF
+mkdir -vp apps/base/external-snapshotter
+cat > apps/base/external-snapshotter/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.2.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+  - https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.2.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+  - https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.2.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+  - https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.2.1/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml
+  - https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.2.1/deploy/kubernetes/snapshot-controller/setup-snapshot-controller.yaml
+EOF
+```
+
+### Kubernetes Metrics Server
+
+[Kubernetes Metrics Server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/)
+
+* [metrics-server](https://artifacthub.io/packages/helm/bitnami/metrics-server)
+* [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/metrics-server/values.yaml):
+
+```bash
+mkdir -vp apps/base/metrics-server
+cat > apps/base/metrics-server/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -362,16 +502,17 @@ resources:
   - metrics-server.yaml
 EOF
 
-cat > apps/helmrelease/metrics-server/namespace.yaml << EOF
+cat > apps/base/metrics-server/namespace.yaml << EOF
 apiVersion: v1
 kind: Namespace
 metadata:
   name: metrics-server
 EOF
 
-cat > apps/helmrelease/metrics-server/metrics-server.yaml << EOF
+cat > apps/base/metrics-server/metrics-server.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
+# | bitnami | https://charts.bitnami.com/bitnami | metrics-server | 5.9.2
 metadata:
   name: metrics-server
   namespace: metrics-server
@@ -384,50 +525,11 @@ spec:
         kind: HelmRepository
         name: bitnami
         namespace: flux-system
-      version: 5.9.2
+      version: 5.9.3
   interval: 1h0m0s
   values:
     apiService:
       create: true
-EOF
-```
-
-### Prometheus Adapter for Kubernetes Metrics APIs
-
-```bash
-mkdir -vp apps/helmrelease/prometheus-adapter
-cat > apps/helmrelease/prometheus-adapter/kustomization.yaml << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - namespace.yaml
-  - prometheus-adapter.yaml
-EOF
-
-cat > apps/helmrelease/prometheus-adapter/namespace.yaml << EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: prometheus-adapter
-EOF
-
-cat > apps/helmrelease/prometheus-adapter/prometheus-adapter.yaml << EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-metadata:
-  name: prometheus-adapter
-  namespace: prometheus-adapter
-spec:
-  releaseName: prometheus-adapter
-  chart:
-    spec:
-      chart: prometheus-adapter
-      sourceRef:
-        kind: HelmRepository
-        name: prometheus-community
-        namespace: flux-system
-      version: 2.16.0
-  interval: 1h0m0s
 EOF
 ```
 
@@ -437,44 +539,41 @@ Create application group called `dev` which will contain all the
 `HelmRepository` and `HelmRelease` used by this group.
 
 ```bash
-mkdir -vp apps/dev/helmrepository
-cat > apps/dev/helmrepository/kustomization.yaml << EOF
+mkdir -vp apps/${ENVIRONMENT}/helmrepository
+cat > apps/${ENVIRONMENT}/helmrepository/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../helmrepository/crossplane-stable
   - ../../helmrepository/eks
   - ../../helmrepository/aws-ebs-csi-driver
   - ../../helmrepository/aws-efs-csi-driver
   - ../../helmrepository/bitnami
-  - ../../helmrepository/prometheus-community
 EOF
 
-mkdir -vp apps/dev/helmrelease
-cat > apps/dev/helmrelease/kustomization.yaml << EOF
+mkdir -vp apps/${ENVIRONMENT}/base
+cat > apps/${ENVIRONMENT}/base/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../helmrelease/crossplane
-  - ../../helmrelease/aws-load-balancer-controller
-  - ../../helmrelease/aws-efs-csi-driver
-  - ../../helmrelease/aws-ebs-csi-driver
-  - ../../helmrelease/metrics-server
-  - ../../helmrelease/prometheus-adapter
+  - ../../base/aws-load-balancer-controller
+  - ../../base/aws-efs-csi-driver
+  - ../../base/aws-ebs-csi-driver
+  - ../../base/external-snapshotter
+  - ../../base/metrics-server
 patchesStrategicMerge:
   - helmrelease.yaml
 EOF
 
-cat > apps/dev/helmrelease/helmrelease.yaml << EOF
+cat > apps/${ENVIRONMENT}/base/helmrelease.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
 metadata:
-  name: prometheus-adapter
-  namespace: prometheus-adapter
+  name: metrics-server
+  namespace: metrics-server
 spec:
   chart:
     spec:
-      version: 2.15.2
+      version: 5.9.2
 EOF
 ```
 
@@ -485,8 +584,8 @@ are many errors in flux logs. `HelmRepository` should be always installed
 before `HelmRelease` using `dependsOn`.
 
 ```bash
-mkdir -pv clusters/dev/${CLUSTER_FQDN}
-cat > clusters/dev/${CLUSTER_FQDN}/apps-helmrepository.yaml << EOF
+mkdir -pv clusters/${ENVIRONMENT}/${CLUSTER_FQDN}
+cat > clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-helmrepository.yaml << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -497,16 +596,16 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: "./apps/dev/helmrepository"
+  path: "./apps/${ENVIRONMENT}/helmrepository"
   prune: true
   validation: client
 EOF
 
-cat > clusters/dev/${CLUSTER_FQDN}/apps-helmrelease.yaml << EOF
+cat > clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: apps-helmrelease
+  name: apps-base
   namespace: flux-system
 spec:
   interval: 5m0s
@@ -515,7 +614,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: "./apps/dev/helmrelease"
+  path: "./apps/${ENVIRONMENT}/base"
   prune: true
   validation: client
   patchesStrategicMerge:
@@ -544,15 +643,22 @@ Commit changes to git repository and "refresh" flux:
 
 ```bash
 git add .
-git commit -m "Initial applications commit"
+git commit -m "Initial applications commit" || true
 git push
 flux reconcile source git flux-system
-sleep 120
+```
+
+Go back to the main directory:
+
+```bash
+cd -
 ```
 
 Check Flux errors:
 
 ```bash
+kubectl wait -A --for=condition=Ready --timeout=20m kustomizations.kustomize.toolkit.fluxcd.io --all
+kubectl wait -A --for=condition=Ready --timeout=20m helmreleases.helm.toolkit.fluxcd.io --all
 flux logs --level=error --all-namespaces
 ```
 
@@ -563,4 +669,11 @@ kubectl get pods -A
 kubectl get helmreleases.helm.toolkit.fluxcd.io -A
 kubectl get helmrepositories.source.toolkit.fluxcd.io -A
 kubectl get kustomizations.kustomize.toolkit.fluxcd.io -A
+helm ls -A
+```
+
+Export command for kubeconfig:
+
+```bash
+echo 'export KUBECONFIG="$PWD/tmp/kube2.k8s.mylabs.dev/kubeconfig-kube2.conf"'
 ```
