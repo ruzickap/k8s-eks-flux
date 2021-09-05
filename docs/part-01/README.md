@@ -228,12 +228,12 @@ mkdir -p "tmp/${CLUSTER_FQDN}"
 Create CloudFormation template with Networking for Amazon EKS:
 
 ```bash
-cat > "tmp/${CLUSTER_FQDN}/cf-amazon-eks-vpc-private-subnets.yml" << \EOF
+cat > "tmp/${CLUSTER_FQDN}/cf-amazon-eks-vpc-private-subnets-kms.yml" << \EOF
 ---
 # Taken from https://s3.us-west-2.amazonaws.com/amazon-eks/cloudformation/2020-10-29/amazon-eks-vpc-private-subnets.yaml
 
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Amazon EKS VPC with Private and Public subnets'
+Description: 'Amazon EKS VPC with Private and Public subnets and KMS key'
 
 Parameters:
 
@@ -264,6 +264,10 @@ Parameters:
 
   ClusterFQDN:
     Description: "Cluster domain where all necessary app subdomains will live (subdomain of BaseDomain). Ex: kube1.k8s.mylabs.dev"
+    Type: String
+
+  ClusterName:
+    Description: "K8s Cluster name. Ex: kube1"
     Type: String
 
 Metadata:
@@ -512,6 +516,45 @@ Resources:
       SubnetId: !Ref PrivateSubnet02
       RouteTableId: !Ref PrivateRouteTable02
 
+  KMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/eks-${ClusterName}"
+      TargetKeyId: !Ref KMSKey
+
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub "KMS key for secrets related to ${ClusterFQDN}"
+      EnableKeyRotation: true
+      PendingWindowInDays: 7
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: !Sub "eks-key-policy-${ClusterName}"
+        Statement:
+        # https://docs.aws.amazon.com/autoscaling/ec2/userguide/key-policy-requirements-EBS-encryption.html
+        - Sid: Allow use of the key
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+          Action:
+          - kms:Encrypt
+          - kms:Decrypt
+          - kms:ReEncrypt*
+          - kms:GenerateDataKey*
+          - kms:DescribeKey
+          Resource: "*"
+        - Sid: Allow attachment of persistent resources
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+          Action:
+          - kms:CreateGrant
+          Resource: "*"
+          Condition:
+            Bool:
+              kms:GrantIsForAWSResource: true
+
 Outputs:
 
   SubnetIds:
@@ -554,23 +597,36 @@ Outputs:
     Export:
       Name:
         'Fn::Sub': '${AWS::StackName}-VpcCidrBlock'
+
+  KMSKeyArn:
+    Description: The ARN of the created KMS Key
+    Value: !GetAtt KMSKey.Arn
+
+  KMSKeyId:
+    Description: The ID of the created KMS Key to encrypt EKS related services
+    Value: !Ref KMSKey
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-KMSKeyId'
 EOF
 
 eval aws cloudformation deploy \
-  --parameter-overrides "ClusterFQDN=${CLUSTER_FQDN}" \
-  --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets" \
-  --template-file "tmp/${CLUSTER_FQDN}/cf-amazon-eks-vpc-private-subnets.yml" \
+  --parameter-overrides "ClusterFQDN=${CLUSTER_FQDN} ClusterName=${CLUSTER_NAME}" \
+  --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" \
+  --template-file "tmp/${CLUSTER_FQDN}/cf-amazon-eks-vpc-private-subnets-kms.yml" \
   --tags "${TAGS}"
 ```
 
 Get the variables form CloudFormation:
 
 ```bash
-aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets" > "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets.json"
-AWS_VPC_ID=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcId\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets.json")
-AWS_VPC_CIDR=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcCidrBlock\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets.json")
-AWS_PUBLICSUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PublicSubnetId1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets.json")
-AWS_PUBLICSUBNETID2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PublicSubnetId2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets.json")
-AWS_PRIVATESUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PrivateSubnetId1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets.json")
-AWS_PRIVATESUBNETID2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PrivateSubnetId2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets.json")
+aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" > "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json"
+AWS_VPC_ID=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcId\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+AWS_VPC_CIDR=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcCidrBlock\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+AWS_PUBLICSUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PublicSubnetId1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+AWS_PUBLICSUBNETID2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PublicSubnetId2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+AWS_PRIVATESUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PrivateSubnetId1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+AWS_PRIVATESUBNETID2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PrivateSubnetId2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+AWS_KMS_KEY_ARN=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"KMSKeyArn\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+AWS_KMS_KEY_ID=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"KMSKeyId\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 ```

@@ -70,8 +70,8 @@ fi
 Delete CloudFormation stack which created VPC, Subnets, Route53:
 
 ```bash
-aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets"
-aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets"
+aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
+aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
 ```
 
 Remove `tmp/${CLUSTER_FQDN}` directory:

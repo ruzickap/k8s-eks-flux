@@ -52,7 +52,7 @@ Resources:
     Properties:
       VpcId:
         Fn::ImportValue:
-          Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-VpcId"
+          Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-kms-VpcId"
       GroupName: !Sub "${ClusterName}-efs-sg"
       GroupDescription: Security group for mount target
       SecurityGroupIngress:
@@ -61,7 +61,7 @@ Resources:
           ToPort: 2049
           CidrIp:
             Fn::ImportValue:
-              Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-VpcCidrBlock"
+              Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-kms-VpcCidrBlock"
       Tags:
         - Key: Name
           Value: !Sub "${ClusterName}-efs-sg"
@@ -75,6 +75,9 @@ Resources:
       FileSystemTags:
       - Key: Name
         Value: !Sub "${ClusterName}-efs-drupal"
+      KmsKeyId:
+        Fn::ImportValue:
+          Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-kms-KMSKeyId"
 
   MountTargetAZ1:
     Type: AWS::EFS::MountTarget
@@ -86,7 +89,7 @@ Resources:
         - 0
         - Fn::Split:
           - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-SubnetsIdsPrivate"
+          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-kms-SubnetsIdsPrivate"
       SecurityGroups:
       - Ref: MountTargetSecurityGroup
 
@@ -100,7 +103,7 @@ Resources:
         - 1
         - Fn::Split:
           - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-SubnetsIdsPrivate"
+          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-kms-SubnetsIdsPrivate"
       SecurityGroups:
       - Ref: MountTargetSecurityGroup
 
@@ -149,6 +152,9 @@ Resources:
       FileSystemTags:
       - Key: Name
         Value: !Sub "${ClusterName}-myuser1"
+      KmsKeyId:
+        Fn::ImportValue:
+          Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-kms-KMSKeyId"
 
   MountTargetAZ1Myuser1:
     Type: AWS::EFS::MountTarget
@@ -160,7 +166,7 @@ Resources:
         - 0
         - Fn::Split:
           - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-SubnetsIdsPrivate"
+          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-kms-SubnetsIdsPrivate"
       SecurityGroups:
       - Ref: MountTargetSecurityGroup
 
@@ -174,7 +180,7 @@ Resources:
         - 1
         - Fn::Split:
           - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-SubnetsIdsPrivate"
+          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-kms-SubnetsIdsPrivate"
       SecurityGroups:
       - Ref: MountTargetSecurityGroup
 
@@ -202,6 +208,9 @@ Resources:
       FileSystemTags:
       - Key: Name
         Value: !Sub "${ClusterName}-myuser2"
+      KmsKeyId:
+        Fn::ImportValue:
+          Fn::Sub: "${ClusterName}-amazon-eks-vpc-private-subnets-kms-KMSKeyId"
 
   MountTargetAZ1Myuser2:
     Type: AWS::EFS::MountTarget
@@ -213,7 +222,7 @@ Resources:
         - 0
         - Fn::Split:
           - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-SubnetsIdsPrivate"
+          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-kms-SubnetsIdsPrivate"
       SecurityGroups:
       - Ref: MountTargetSecurityGroup
 
@@ -227,7 +236,7 @@ Resources:
         - 1
         - Fn::Split:
           - ","
-          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-SubnetsIdsPrivate"
+          - Fn::ImportValue: !Sub "${ClusterName}-amazon-eks-vpc-private-subnets-kms-SubnetsIdsPrivate"
       SecurityGroups:
       - Ref: MountTargetSecurityGroup
 
@@ -337,6 +346,22 @@ iam:
         namespace: kube-system
       wellKnownPolicies:
         efsCSIController: true
+    - metadata:
+        name: kustomize-controller
+        namespace: flux-system
+      attachPolicy:
+        Version: 2012-10-17
+        Statement:
+        - Sid: FluxKMS
+          Effect: Allow
+          Action:
+            - kms:Encrypt
+            - kms:Decrypt
+            - kms:ReEncrypt*
+            - kms:GenerateDataKey*
+            - kms:DescribeKey
+          Resource:
+          - ${AWS_KMS_KEY_ARN}
 vpc:
   id: "${AWS_VPC_ID}"
   subnets:
@@ -350,7 +375,6 @@ vpc:
           id: "${AWS_PUBLICSUBNETID1}"
       ${AWS_DEFAULT_REGION}b:
           id: "${AWS_PUBLICSUBNETID2}"
-
 managedNodeGroups:
   - name: managed-ng-1
     amiFamily: Bottlerocket
@@ -362,7 +386,10 @@ managedNodeGroups:
     volumeSize: 30
     tags: *tags
     volumeEncrypted: true
+    volumeKmsKeyID: ${AWS_KMS_KEY_ID}
     disableIMDSv1: true
+secretsEncryption:
+  keyARN: ${AWS_KMS_KEY_ARN}
 gitops:
   flux:
     gitProvider: github
