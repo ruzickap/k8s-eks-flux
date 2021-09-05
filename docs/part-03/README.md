@@ -646,6 +646,7 @@ git add .
 git commit -m "Initial applications commit" || true
 git push
 flux reconcile source git flux-system
+sleep 5
 ```
 
 Go back to the main directory:
@@ -658,6 +659,7 @@ Check Flux errors:
 
 ```bash
 kubectl wait -A --for=condition=Ready --timeout=20m kustomizations.kustomize.toolkit.fluxcd.io --all
+sleep 5
 kubectl wait -A --for=condition=Ready --timeout=20m helmreleases.helm.toolkit.fluxcd.io --all
 flux logs --level=error --all-namespaces
 ```

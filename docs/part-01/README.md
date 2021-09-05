@@ -57,7 +57,7 @@ Install necessary software:
 ```bash
 if command -v apt-get &> /dev/null; then
   apt update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl git sudo unzip > /dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl git jq sudo unzip > /dev/null
 fi
 ```
 
@@ -105,6 +105,15 @@ Install [flux](https://toolkit.fluxcd.io/):
 ```bash
 if ! command -v flux &> /dev/null; then
   curl -s https://fluxcd.io/install.sh | sudo bash
+fi
+```
+
+Install [Helm](https://helm.sh/):
+
+```bash
+if ! command -v helm &> /dev/null; then
+  # https://github.com/helm/helm/releases
+  curl -s https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash -s -- --version v3.6.3
 fi
 ```
 
