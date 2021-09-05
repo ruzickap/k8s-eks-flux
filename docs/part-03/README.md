@@ -35,10 +35,30 @@ Create initial git repository structure which will be used by Flux:
 ```bash
 mkdir -vp tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}
 mkdir -vp tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/apps/{base,helmrepository,prd,dev,mygroup}
-cd tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/
+```
+
+## Manage Kubernetes secrets with Mozilla SOPS and Amazon Secret Manager
+
+```bash
+cat > tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/.sops.yaml << EOF
+sops:
+  kms:
+  - arn: ${AWS_KMS_KEY_ARN}
+
+creation_rules:
+  - path_regex: .*.yaml
+    encrypted_regex: ^(data|stringData)$
+    kms: ${AWS_KMS_KEY_ARN}
+EOF
 ```
 
 ## HelmRepository
+
+Go to the "git directory":
+
+```bash
+cd tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/
+```
 
 Create `HelmRepository` definitions
 
@@ -187,7 +207,7 @@ metadata:
   name: aws-load-balancer-controller
   namespace: kube-system
 spec:
-  interval: 5m0s
+  interval: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -261,7 +281,7 @@ metadata:
   name: aws-efs-csi-driver
   namespace: kube-system
 spec:
-  interval: 5m0s
+  interval: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -339,7 +359,7 @@ metadata:
   name: aws-efs-csi-driver-manifests-pv
   namespace: kube-system
 spec:
-  interval: 5m0s
+  interval: 5m
   dependsOn:
     - name: aws-efs-csi-driver
   sourceRef:
@@ -416,7 +436,7 @@ metadata:
   name: aws-ebs-csi-driver
   namespace: kube-system
 spec:
-  interval: 5m0s
+  interval: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -452,8 +472,10 @@ spec:
   values:
     controller:
       extraVolumeTags:
+        Name: ${GITHUB_USER}-${CLUSTER_NAME}
         Cluster: ${CLUSTER_FQDN}
         $(echo "${TAGS}" | sed "s/ /\\n        /g; s/=/: /g")
+      k8sTagClusterId: ${CLUSTER_FQDN}
       serviceAccount:
         create: false
         name: ebs-csi-controller-sa
@@ -463,6 +485,7 @@ spec:
         storageclass.kubernetes.io/is-default-class: "true"
       parameters:
         encrypted: "true"
+        # kmsKeyId: "${AWS_KMS_KEY_ARN}" - not working
 EOF
 ```
 
@@ -472,8 +495,39 @@ Details about EKS and `external-snapshotter` can be found here:
 [Using EBS Snapshots for persistent storage with your EKS cluster](https://aws.amazon.com/blogs/containers/using-ebs-snapshots-for-persistent-storage-with-your-eks-cluster)
 
 ```bash
-mkdir -vp apps/base/external-snapshotter
+mkdir -vp apps/base/external-snapshotter/manifests-install
 cat > apps/base/external-snapshotter/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - external-snapshotter.yaml
+EOF
+
+cat > apps/base/external-snapshotter/external-snapshotter.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: external-snapshotter
+  namespace: kube-system
+spec:
+  interval: 5m
+  dependsOn:
+    - name: aws-ebs-csi-driver
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: snapshot-controller
+      namespace: kube-system
+  path: "./apps/base/external-snapshotter/manifests-install"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/external-snapshotter/manifests-install/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -493,7 +547,7 @@ EOF
 * [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/metrics-server/values.yaml):
 
 ```bash
-mkdir -vp apps/base/metrics-server
+mkdir -vp apps/base/metrics-server/helmrelease
 cat > apps/base/metrics-server/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -510,6 +564,28 @@ metadata:
 EOF
 
 cat > apps/base/metrics-server/metrics-server.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: metrics-server
+  namespace: metrics-server
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: metrics-server
+      namespace: metrics-server
+  path: "./apps/base/metrics-server/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/metrics-server/helmrelease/metrics-server.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
 # | bitnami | https://charts.bitnami.com/bitnami | metrics-server | 5.9.2
@@ -533,6 +609,463 @@ spec:
 EOF
 ```
 
+### kube-prometheus-stack
+
+[kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
+
+* [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
+* [default values.yaml](https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml):
+
+```bash
+mkdir -vp apps/base/kube-prometheus-stack/helmrelease
+cat > apps/base/kube-prometheus-stack/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - kube-prometheus-stack.yaml
+EOF
+
+cat > apps/base/kube-prometheus-stack/namespace.yaml << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-prometheus-stack
+EOF
+
+cat > apps/base/kube-prometheus-stack/kube-prometheus-stack.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: kube-prometheus-stack
+  namespace: kube-prometheus-stack
+spec:
+  interval: 5m
+  dependsOn:
+    - name: aws-ebs-csi-driver
+      namespace: kube-system
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: kube-prometheus-stack
+      namespace: kube-prometheus-stack
+  path: "./apps/base/kube-prometheus-stack/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/kube-prometheus-stack/helmrelease/kube-prometheus-stack.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | prometheus-community | https://prometheus-community.github.io/helm-charts | kube-prometheus-stack | 18.0.3
+metadata:
+  name: kube-prometheus-stack
+  namespace: kube-prometheus-stack
+spec:
+  releaseName: kube-prometheus-stack
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+      version: 18.0.3
+  interval: 1h0m0s
+  values:
+    defaultRules:
+      rules:
+        etcd: false
+        kubernetesSystem: false
+        kubeScheduler: false
+    additionalPrometheusRulesMap:
+      # Flux rule: https://toolkit.fluxcd.io/guides/monitoring/
+      rule-name:
+        groups:
+        - name: GitOpsToolkit
+          rules:
+          - alert: ReconciliationFailure
+            expr: max(gotk_reconcile_condition{status="False",type="Ready"}) by (namespace, name, kind) + on(namespace, name, kind) (max(gotk_reconcile_condition{status="Deleted"}) by (namespace, name, kind)) * 2 == 1
+            for: 10m
+            labels:
+              severity: page
+            annotations:
+              summary: "{{ \$labels.kind }} {{ \$labels.namespace }}/{{ \$labels.name }} reconciliation has been failing for more than ten minutes."
+    alertmanager:
+      config:
+        global:
+          slack_api_url: "SLACK_INCOMING_WEBHOOK_URL - secret must be overridden from cluster level"
+          smtp_smarthost: "mailhog.mailhog.svc.cluster.local:1025"
+          smtp_from: "alertmanager@${CLUSTER_FQDN}"
+        route:
+          group_by: ["alertname", "job"]
+          receiver: slack-notifications
+          routes:
+            - match:
+                severity: warning
+              continue: true
+              receiver: slack-notifications
+            - match:
+                severity: warning
+              receiver: email-notifications
+        receivers:
+          - name: "email-notifications"
+            email_configs:
+            - to: "notification@${CLUSTER_FQDN}"
+              require_tls: false
+          - name: "slack-notifications"
+            slack_configs:
+              - channel: "#SLACK_CHANNEL - secret must be overridden from cluster level"
+                send_resolved: True
+                icon_url: "https://avatars3.githubusercontent.com/u/3380462"
+                title: "{{ template \"slack.cp.title\" . }}"
+                text: "{{ template \"slack.cp.text\" . }}"
+                footer: "https://${CLUSTER_FQDN}"
+                actions:
+                  - type: button
+                    text: "Runbook :blue_book:"
+                    url: "{{ (index .Alerts 0).Annotations.runbook_url }}"
+                  - type: button
+                    text: "Query :mag:"
+                    url: "{{ (index .Alerts 0).GeneratorURL }}"
+                  - type: button
+                    text: "Silence :no_bell:"
+                    url: "{{ template \"__alert_silence_link\" . }}"
+        templates:
+          - "/etc/alertmanager/config/cp-slack-templates.tmpl"
+      templateFiles:
+        cp-slack-templates.tmpl: |-
+          {{ define "slack.cp.title" -}}
+            [{{ .Status | toUpper -}}
+            {{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{- end -}}
+            ] {{ template "__alert_severity_prefix_title" . }} {{ .CommonLabels.alertname }}
+          {{- end }}
+          {{/* The test to display in the alert */}}
+          {{ define "slack.cp.text" -}}
+            {{ range .Alerts }}
+                *Alert:* {{ .Annotations.message}}
+                *Details:*
+                {{ range .Labels.SortedPairs }} - *{{ .Name }}:* \`{{ .Value }}\`
+                {{ end }}
+                *-----*
+              {{ end }}
+          {{- end }}
+          {{ define "__alert_silence_link" -}}
+            {{ .ExternalURL }}/#/silences/new?filter=%7B
+            {{- range .CommonLabels.SortedPairs -}}
+              {{- if ne .Name "alertname" -}}
+                {{- .Name }}%3D"{{- .Value -}}"%2C%20
+              {{- end -}}
+            {{- end -}}
+              alertname%3D"{{ .CommonLabels.alertname }}"%7D
+          {{- end }}
+          {{ define "__alert_severity_prefix" -}}
+              {{ if ne .Status "firing" -}}
+              :white_check_mark:
+              {{- else if eq .Labels.severity "critical" -}}
+              :fire:
+              {{- else if eq .Labels.severity "warning" -}}
+              :warning:
+              {{- else -}}
+              :question:
+              {{- end }}
+          {{- end }}
+          {{ define "__alert_severity_prefix_title" -}}
+              {{ if ne .Status "firing" -}}
+              :white_check_mark:
+              {{- else if eq .CommonLabels.severity "critical" -}}
+              :fire:
+              {{- else if eq .CommonLabels.severity "warning" -}}
+              :warning:
+              {{- else if eq .CommonLabels.severity "info" -}}
+              :information_source:
+              {{- else if eq .CommonLabels.status_icon "information" -}}
+              :information_source:
+              {{- else -}}
+              :question:
+              {{- end }}
+          {{- end }}
+      ingress:
+        enabled: true
+        annotations:
+          nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+          nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=\$scheme://\$host\$request_uri
+        hosts:
+          - alertmanager.${CLUSTER_FQDN}
+        paths: ["/"]
+        pathType: ImplementationSpecific
+        tls:
+          - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+            hosts:
+              - alertmanager.${CLUSTER_FQDN}
+    # https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+    grafana:
+      serviceAccount:
+        create: false
+        name: grafana
+      ingress:
+        enabled: true
+        annotations:
+          nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+          nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=\$scheme://\$host\$request_uri
+        hosts:
+          - grafana.${CLUSTER_FQDN}
+        paths: ["/"]
+        pathType: ImplementationSpecific
+        tls:
+          - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+            hosts:
+              - grafana.${CLUSTER_FQDN}
+      plugins:
+        - digiapulssi-breadcrumb-panel
+        - grafana-piechart-panel
+        # Needed for MySQL Instances Overview -> Table Openings details
+        - grafana-polystat-panel
+      env:
+        GF_AUTH_SIGV4_AUTH_ENABLED: true
+      datasources:
+        datasources.yaml:
+          apiVersion: 1
+          datasources:
+          - name: Loki
+            type: loki
+            access: proxy
+            url: http://loki.loki:3100
+          - name: CloudWatch
+            type: cloudwatch
+            jsonData:
+              defaultRegion: ${AWS_DEFAULT_REGION}
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+            - name: "default"
+              orgId: 1
+              folder: ""
+              type: file
+              disableDeletion: false
+              editable: true
+              options:
+                path: /var/lib/grafana/dashboards/default
+      dashboards:
+        default:
+          k8s-cluster-summary:
+            gnetId: 8685
+            revision: 1
+            datasource: Prometheus
+          node-exporter-full:
+            gnetId: 1860
+            revision: 21
+            datasource: Prometheus
+          prometheus-2-0-overview:
+            gnetId: 3662
+            revision: 2
+            datasource: Prometheus
+          stians-disk-graphs:
+            gnetId: 9852
+            revision: 1
+            datasource: Prometheus
+          kubernetes-apiserver:
+            gnetId: 12006
+            revision: 1
+            datasource: Prometheus
+          ingress-nginx:
+            gnetId: 9614
+            revision: 1
+            datasource: Prometheus
+          ingress-nginx2:
+            gnetId: 11875
+            revision: 1
+            datasource: Prometheus
+          istio-mesh:
+            gnetId: 7639
+            revision: 54
+            datasource: Prometheus
+          istio-performance:
+            gnetId: 11829
+            revision: 54
+            datasource: Prometheus
+          istio-service:
+            gnetId: 7636
+            revision: 54
+            datasource: Prometheus
+          istio-workload:
+            gnetId: 7630
+            revision: 54
+            datasource: Prometheus
+          istio-control-plane:
+            gnetId: 7645
+            revision: 54
+            datasource: Prometheus
+          velero-stats:
+            gnetId: 11055
+            revision: 2
+            datasource: Prometheus
+          jaeger:
+            gnetId: 10001
+            revision: 2
+            datasource: Prometheus
+          loki-promtail:
+            gnetId: 10880
+            revision: 1
+            datasource: Prometheus
+          # https://github.com/fluxcd/flux2/blob/main/manifests/monitoring/grafana/dashboards/cluster.json
+          gitops-toolkit-control-plane:
+            url: https://raw.githubusercontent.com/fluxcd/flux2/9916a5376123b4bcdc0f11999a8f8781ce5ee78c/manifests/monitoring/grafana/dashboards/control-plane.json
+            datasource: Prometheus
+          gitops-toolkit-cluster:
+            url: https://raw.githubusercontent.com/fluxcd/flux2/344a909d19498f1f02b936882b529d84bbd460b8/manifests/monitoring/grafana/dashboards/cluster.json
+            datasource: Prometheus
+          kyverno-cluster-policy-report:
+            gnetId: 13996
+            revision: 3
+            datasource: Prometheus
+          kyverno-policy-report:
+            gnetId: 13995
+            revision: 3
+            datasource: Prometheus
+          kyverno-policy-reports:
+            gnetId: 13968
+            revision: 1
+            datasource: Prometheus
+          harbor:
+            gnetId: 14075
+            revision: 2
+            datasource: Prometheus
+          aws-efs:
+            gnetId: 653
+            revision: 4
+            datasource: CloudWatch
+          amazon-rds-os-metrics:
+            gnetId: 702
+            revision: 1
+            datasource: CloudWatch
+          aws-rds:
+            gnetId: 707
+            revision: 5
+            datasource: CloudWatch
+          aws-rds-opt:
+            gnetId: 11698
+            revision: 1
+            datasource: CloudWatch
+          aws-ec2:
+            gnetId: 617
+            revision: 4
+            datasource: CloudWatch
+          aws-network-load-balancer:
+            gnetId: 12111
+            revision: 2
+            datasource: CloudWatch
+          aws-ebs:
+            gnetId: 623
+            revision: 4
+            datasource: CloudWatch
+          CPU_Utilization_Details:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/CPU_Utilization_Details.json
+            datasource: Prometheus
+          Disk_Details:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Disk_Details.json
+            datasource: Prometheus
+          Memory_Details:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Memory_Details.json
+            datasource: Prometheus
+          MySQL_Command_Handler_Counters_Compare:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_Command_Handler_Counters_Compare.json
+            datasource: Prometheus
+          MySQL_InnoDB_Compression_Details:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_InnoDB_Compression_Details.json
+            datasource: Prometheus
+          MySQL_InnoDB_Details:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_InnoDB_Details.json
+            datasource: Prometheus
+          MySQL_Instance_Summary:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_Instance_Summary.json
+            datasource: Prometheus
+          MySQL_Instances_Compare:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_Instances_Compare.json
+            datasource: Prometheus
+          MySQL_Instances_Overview:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_Instances_Overview.json
+            datasource: Prometheus
+          MySQL_MyISAM_Aria_Details:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_MyISAM_Aria_Details.json
+            datasource: Prometheus
+          Network_Details:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Network_Details.json
+            datasource: Prometheus
+          Nodes_Compare:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Nodes_Compare.json
+            datasource: Prometheus
+          Nodes_Overview:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Nodes_Overview.json
+            datasource: Prometheus
+          Prometheus_Exporters_Overview:
+            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Prometheus_Exporters_Overview.json
+            datasource: Prometheus
+      grafana.ini:
+        server:
+          root_url: https://grafana.${CLUSTER_FQDN}
+        # Using oauth2-proxy instead of default Grafana Oauth
+        auth.anonymous:
+          enabled: true
+          org_role: Admin
+      smtp:
+        enabled: true
+        host: "mailhog.mailhog.svc.cluster.local:1025"
+        from_address: grafana@${CLUSTER_FQDN}
+    kubeControllerManager:
+      enabled: false
+    kubeEtcd:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+    kubeProxy:
+      enabled: false
+    prometheusOperator:
+      tls:
+        enabled: false
+      # admissionWebhooks:
+      #   enabled: false
+    prometheus:
+      serviceAccount:
+        create: false
+        name: kube-prometheus-stack-prometheus
+      ingress:
+        enabled: true
+        annotations:
+          nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+          nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=\$scheme://\$host\$request_uri
+        paths: ["/"]
+        pathType: ImplementationSpecific
+        hosts:
+          - prometheus.${CLUSTER_FQDN}
+        tls:
+          - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+            hosts:
+              - prometheus.${CLUSTER_FQDN}
+      prometheusSpec:
+        externalUrl: https://prometheus.${CLUSTER_FQDN}
+        # ruleSelectorNilUsesHelmValues: false
+        # serviceMonitorSelectorNilUsesHelmValues: false
+        # podMonitorSelectorNilUsesHelmValues: false
+        retention: 7d
+        retentionSize: 1GB
+        walCompression: true
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: gp3
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 1Gi
+EOF
+```
+
 ## Apps dev group
 
 Create application group called `dev` which will contain all the
@@ -548,6 +1081,7 @@ resources:
   - ../../helmrepository/aws-ebs-csi-driver
   - ../../helmrepository/aws-efs-csi-driver
   - ../../helmrepository/bitnami
+  - ../../helmrepository/prometheus-community
 EOF
 
 mkdir -vp apps/${ENVIRONMENT}/base
@@ -560,20 +1094,28 @@ resources:
   - ../../base/aws-ebs-csi-driver
   - ../../base/external-snapshotter
   - ../../base/metrics-server
+  - ../../base/kube-prometheus-stack
 patchesStrategicMerge:
-  - helmrelease.yaml
+  - patches.yaml
 EOF
 
-cat > apps/${ENVIRONMENT}/base/helmrelease.yaml << EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
+cat > apps/${ENVIRONMENT}/base/patches.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
 metadata:
   name: metrics-server
   namespace: metrics-server
 spec:
-  chart:
-    spec:
-      version: 5.9.2
+  patchesStrategicMerge:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      metadata:
+        name: metrics-server
+        namespace: metrics-server
+      spec:
+        chart:
+          spec:
+            version: 5.9.2
 EOF
 ```
 
@@ -592,7 +1134,7 @@ metadata:
   name: apps-helmrepository
   namespace: flux-system
 spec:
-  interval: 5m0s
+  interval: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -608,7 +1150,9 @@ metadata:
   name: apps-base
   namespace: flux-system
 spec:
-  interval: 5m0s
+  # decryption:
+  #   provider: sops
+  interval: 5m
   dependsOn:
     - name: apps-helmrepository
   sourceRef:
@@ -618,15 +1162,43 @@ spec:
   prune: true
   validation: client
   patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+      kind: Kustomization
       metadata:
         name: metrics-server
         namespace: metrics-server
       spec:
-        chart:
-          spec:
-            version: 5.9.1
+        patchesStrategicMerge:
+          - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+            kind: HelmRelease
+            metadata:
+              name: metrics-server
+              namespace: metrics-server
+            spec:
+              chart:
+                spec:
+                  version: 5.9.1
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+      kind: Kustomization
+      metadata:
+        name: kube-prometheus-stack
+        namespace: kube-prometheus-stack
+      spec:
+        patchesStrategicMerge:
+          - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+            kind: HelmRelease
+            metadata:
+              name: kube-prometheus-stack
+              namespace: kube-prometheus-stack
+            spec:
+              chart:
+                spec:
+                  version: 18.0.3
+              values:
+                alertmanager:
+                  config:
+                    global:
+                      slack_api_url: test12345
 EOF
 ```
 
@@ -646,7 +1218,7 @@ git add .
 git commit -m "Initial applications commit" || true
 git push
 flux reconcile source git flux-system
-sleep 5
+sleep 15
 ```
 
 Go back to the main directory:
