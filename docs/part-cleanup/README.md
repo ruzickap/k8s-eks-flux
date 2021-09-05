@@ -67,6 +67,22 @@ if ! curl -s -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/r
 fi
 ```
 
+Remove Volumes and Snapshots related to the cluster:
+
+```bash
+VOLUMES=$(aws ec2 describe-volumes --filter Name=tag:Cluster,Values=${CLUSTER_FQDN} --query 'Volumes[].VolumeId' --output text) && \
+for VOLUME in ${VOLUMES}; do
+  echo "Removing Volume: ${VOLUME}"
+  aws ec2 delete-volume --volume-id "${VOLUME}"
+done
+
+SNAPSHOTS=$(aws ec2 describe-snapshots --filter Name=tag:Cluster,Values=${CLUSTER_FQDN} --query 'Snapshots[].SnapshotId' --output text) && \
+for SNAPSHOT in ${SNAPSHOTS}; do
+  echo "Removing Snapshot: ${SNAPSHOT}"
+  aws ec2 delete-snapshot --snapshot-id "${SNAPSHOT}"
+done
+```
+
 Delete CloudFormation stack which created VPC, Subnets, Route53:
 
 ```bash

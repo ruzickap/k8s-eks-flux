@@ -18,6 +18,7 @@ env:
   AWS_CONSOLE_ADMIN_ROLE_ARN: ${{ secrets.AWS_CONSOLE_ADMIN_ROLE_ARN }}
   AWS_USER_ROLE_ARN: ${{ secrets.AWS_USER_ROLE_ARN }}
   GH_TOKEN_K8S_EKS: ${{ secrets.GH_TOKEN_K8S_EKS }}
+  SLACK_INCOMING_WEBHOOK_URL: ${{ secrets.SLACK_INCOMING_WEBHOOK_URL }}
 
 concurrency: test-k8s-eks-flux
 
@@ -27,10 +28,6 @@ jobs:
     if: ${{ contains(github.event.inputs.version, 'create') || ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) }}
     steps:
       - uses: actions/checkout@v2
-
-      - name: Create masks to hide parts in GH logs
-        run: |
-          echo "::add-mask::${{ secrets.MASK_AWS_ACCOUNT_NUMBER }}"
 
       - name: Replace CLUSTER_NAME variable if defined manually
         if: ${{ github.event.inputs.cluster_name }}
@@ -46,6 +43,7 @@ jobs:
             -e AWS_CONSOLE_ADMIN_ROLE_ARN \
             -e AWS_USER_ROLE_ARN \
             -e GITHUB_TOKEN="${GH_TOKEN_K8S_EKS}" \
+            -e SLACK_INCOMING_WEBHOOK_URL \
             -v "${PWD}:/mnt" \
             -w /mnt \
             ubuntu \
@@ -59,10 +57,6 @@ jobs:
     if: ${{ contains(github.event.inputs.version, 'delete') || ( github.event_name == 'push' && github.ref == 'refs/heads/master' && always() ) }}
     steps:
       - uses: actions/checkout@v2
-
-      - name: Create masks to hide parts in GH logs
-        run: |
-          echo "::add-mask::${{ secrets.MASK_AWS_ACCOUNT_NUMBER }}"
 
       - name: Replace CLUSTER_NAME variable if defined manually
         if: ${{ github.event.inputs.cluster_name }}

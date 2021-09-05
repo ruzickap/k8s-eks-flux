@@ -20,10 +20,14 @@ export MY_EMAIL="petr.ruzicka@gmail.com"
 # Flux GitHub repository
 export GITHUB_USER="ruzickap"
 export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
+export SLACK_CHANNEL="mylabs"
 # AWS Region
 export AWS_DEFAULT_REGION="eu-west-1"
 # Set dev, prd, stg or eny other environment
 export ENVIRONMENT=dev
+# * "production" - valid certificates signed by Lets Encrypt ""
+# * "staging" - not trusted certs signed by Lets Encrypt "Fake LE Intermediate X1"
+export LETSENCRYPT_ENVIRONMENT="staging"
 # Tags used to tag the AWS resources
 export TAGS="Owner=${MY_EMAIL} Environment=${ENVIRONMENT} Group=Cloud_Native Squad=Cloud_Container_Platform"
 echo -e "${MY_EMAIL} | ${CLUSTER_NAME} | ${BASE_DOMAIN} | ${CLUSTER_FQDN}\n${TAGS}"
@@ -35,6 +39,7 @@ You will need to configure AWS CLI: [https://docs.aws.amazon.com/cli/latest/user
 export AWS_ACCESS_KEY_ID="AxxxxxxxxxxxxxxxxxxY"
 export AWS_SECRET_ACCESS_KEY="txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxh"
 export GITHUB_TOKEN="xxxxx"
+export SLACK_INCOMING_WEBHOOK_URL="xxxx"
 ```
 
 Verify if all the necessary variables were set:
@@ -43,6 +48,7 @@ Verify if all the necessary variables were set:
 : "${AWS_ACCESS_KEY_ID?}"
 : "${AWS_SECRET_ACCESS_KEY?}"
 : "${GITHUB_TOKEN?}"
+: "${SLACK_INCOMING_WEBHOOK_URL?}"
 ```
 
 ## Prepare the local working environment
@@ -532,6 +538,12 @@ Resources:
         Version: "2012-10-17"
         Id: !Sub "eks-key-policy-${ClusterName}"
         Statement:
+        - Sid: Enable IAM User Permissions
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Action: kms:*
+          Resource: "*"
         # https://docs.aws.amazon.com/autoscaling/ec2/userguide/key-policy-requirements-EBS-encryption.html
         - Sid: Allow use of the key
           Effect: Allow

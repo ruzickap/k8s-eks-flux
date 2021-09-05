@@ -17,6 +17,7 @@ external-snapshotter
 HelmRelease
 HelmReleases
 HelmRepository
+kube-prometheus-stack
 kubeconfig
 kubectl
 Kubernetes
