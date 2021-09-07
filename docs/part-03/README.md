@@ -225,7 +225,7 @@ EOF
 cat > apps/base/aws-load-balancer-controller/helmrelease/aws-load-balancer-controller.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
-# | eks | https://aws.github.io/eks-charts | aws-load-balancer-controller | 1.2.6
+# | eks | https://aws.github.io/eks-charts | aws-load-balancer-controller | 1.2.7
 metadata:
   name: aws-load-balancer-controller
   namespace: kube-system

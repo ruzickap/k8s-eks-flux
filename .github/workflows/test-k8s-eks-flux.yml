@@ -49,6 +49,7 @@ jobs:
             ubuntu \
             bash -eu -c " \
               ./create-k8s-eks-flux.sh ;\
+              ./create-k8s-eks-flux.sh ;\
             "
 
   delete-k8s-eks-flux:
