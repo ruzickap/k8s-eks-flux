@@ -33,34 +33,66 @@ Create basic Flux structure in git with following requirements or statements:
 Create initial git repository structure which will be used by Flux:
 
 ```bash
-mkdir -vp tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}
-mkdir -vp tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/apps/{base,helmrepository,prd,dev,mygroup}
+mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}"
+mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/apps/{base,helmrepository,prd,dev,mygroup}"
 ```
 
-## Manage Kubernetes secrets with Mozilla SOPS and Amazon Secret Manager
+Set `user.name` and `user.email` for git:
 
 ```bash
-cat > tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/.sops.yaml << EOF
-sops:
-  kms:
-  - arn: ${AWS_KMS_KEY_ARN}
-
-creation_rules:
-  - path_regex: .*.yaml
-    encrypted_regex: ^(data|stringData)$
-    kms: ${AWS_KMS_KEY_ARN}
-EOF
+git config user.name || git config --global user.name "${GITHUB_USER}"
+git config user.email || git config --global user.email "${MY_EMAIL}"
 ```
-
-## HelmRepository
 
 Go to the "git directory":
 
 ```bash
-cd tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/
+cd "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}" || exit
 ```
 
-Create `HelmRepository` definitions
+## Manage Kubernetes secrets with Mozilla SOPS and Amazon Secret Manager
+
+Configure the Git directory for encryption:
+
+```bash
+cat > .sops.yaml << EOF
+creation_rules:
+  - path_regex: .*.yaml
+    encrypted_regex: ^(data|stringData|slack_api_url)$
+    kms: ${AWS_KMS_KEY_ARN}
+EOF
+```
+
+Add SOPS configuration to git repository and sync it with Flux:
+
+```bash
+if ! grep -q 'gotk-patches.yaml' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/kustomization.yaml" ; then
+  cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/kustomization.yaml" << EOF
+patchesStrategicMerge:
+- gotk-patches.yaml
+EOF
+
+  cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/gotk-patches.yaml" << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  decryption:
+    provider: sops
+EOF
+
+  git add .sops.yaml "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system"
+  git commit -m "Add SOPS configuration"
+  git push
+  flux reconcile source git flux-system
+fi
+```
+
+## HelmRepository
+
+Create `HelmRepository` definitions...
 
 ### eks
 
@@ -1028,8 +1060,8 @@ spec:
     prometheusOperator:
       tls:
         enabled: false
-      # admissionWebhooks:
-      #   enabled: false
+      admissionWebhooks:
+        enabled: false
     prometheus:
       serviceAccount:
         create: false
@@ -1072,8 +1104,8 @@ Create application group called `dev` which will contain all the
 `HelmRepository` and `HelmRelease` used by this group.
 
 ```bash
-mkdir -vp apps/${ENVIRONMENT}/helmrepository
-cat > apps/${ENVIRONMENT}/helmrepository/kustomization.yaml << EOF
+mkdir -vp "apps/${ENVIRONMENT}/helmrepository"
+cat > "apps/${ENVIRONMENT}/helmrepository/kustomization.yaml" << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1084,8 +1116,8 @@ resources:
   - ../../helmrepository/prometheus-community
 EOF
 
-mkdir -vp apps/${ENVIRONMENT}/base
-cat > apps/${ENVIRONMENT}/base/kustomization.yaml << EOF
+mkdir -vp "apps/${ENVIRONMENT}/base"
+cat > "apps/${ENVIRONMENT}/base/kustomization.yaml" << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1099,7 +1131,7 @@ patchesStrategicMerge:
   - patches.yaml
 EOF
 
-cat > apps/${ENVIRONMENT}/base/patches.yaml << EOF
+cat > "apps/${ENVIRONMENT}/base/patches.yaml" << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1126,8 +1158,8 @@ are many errors in flux logs. `HelmRepository` should be always installed
 before `HelmRelease` using `dependsOn`.
 
 ```bash
-mkdir -pv clusters/${ENVIRONMENT}/${CLUSTER_FQDN}
-cat > clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-helmrepository.yaml << EOF
+mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-helmrepository.yaml" << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1143,15 +1175,13 @@ spec:
   validation: client
 EOF
 
-cat > clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml << EOF
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml" << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: apps-base
   namespace: flux-system
 spec:
-  # decryption:
-  #   provider: sops
   interval: 5m
   dependsOn:
     - name: apps-helmrepository
@@ -1198,18 +1228,13 @@ spec:
                 alertmanager:
                   config:
                     global:
-                      slack_api_url: test12345
+                      slack_api_url: ${SLACK_INCOMING_WEBHOOK_URL}
 EOF
+
+sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml"
 ```
 
 ## Flux
-
-Set `user.name` and `user.email` for git:
-
-```bash
-git config user.name || git config --global user.name "My Name"
-git config user.email || git config --global user.email "you@example.com"
-```
 
 Commit changes to git repository and "refresh" flux:
 
@@ -1218,21 +1243,19 @@ git add .
 git commit -m "Initial applications commit" || true
 git push
 flux reconcile source git flux-system
-sleep 15
 ```
 
 Go back to the main directory:
 
 ```bash
-cd -
+cd - || exit
 ```
 
 Check Flux errors:
 
 ```bash
-kubectl wait -A --for=condition=Ready --timeout=20m kustomizations.kustomize.toolkit.fluxcd.io --all
-sleep 5
-kubectl wait -A --for=condition=Ready --timeout=20m helmreleases.helm.toolkit.fluxcd.io --all
+kubectl wait -A --for=condition=Ready --timeout=10m kustomizations.kustomize.toolkit.fluxcd.io --all
+kubectl wait -A --for=condition=Ready --timeout=10m helmreleases.helm.toolkit.fluxcd.io --all
 flux logs --level=error --all-namespaces
 ```
 
@@ -1249,5 +1272,5 @@ helm ls -A
 Export command for kubeconfig:
 
 ```bash
-echo 'export KUBECONFIG="$PWD/tmp/kube2.k8s.mylabs.dev/kubeconfig-kube2.conf"'
+echo "export KUBECONFIG=\"\$PWD/tmp/kube2.k8s.mylabs.dev/kubeconfig-kube2.conf\""
 ```

@@ -54,8 +54,8 @@ aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-route53-efs"
 Remove EKS cluster:
 
 ```bash
-if eksctl get cluster --name=${CLUSTER_NAME} 2>/dev/null ; then
-  eksctl delete cluster --name=${CLUSTER_NAME}
+if eksctl get cluster --name="${CLUSTER_NAME}" 2>/dev/null ; then
+  eksctl delete cluster --name="${CLUSTER_NAME}"
 fi
 ```
 
@@ -70,13 +70,13 @@ fi
 Remove Volumes and Snapshots related to the cluster:
 
 ```bash
-VOLUMES=$(aws ec2 describe-volumes --filter Name=tag:Cluster,Values=${CLUSTER_FQDN} --query 'Volumes[].VolumeId' --output text) && \
+VOLUMES=$(aws ec2 describe-volumes --filter "Name=tag:Cluster,Values=${CLUSTER_FQDN}" --query 'Volumes[].VolumeId' --output text) && \
 for VOLUME in ${VOLUMES}; do
   echo "Removing Volume: ${VOLUME}"
   aws ec2 delete-volume --volume-id "${VOLUME}"
 done
 
-SNAPSHOTS=$(aws ec2 describe-snapshots --filter Name=tag:Cluster,Values=${CLUSTER_FQDN} --query 'Snapshots[].SnapshotId' --output text) && \
+SNAPSHOTS=$(aws ec2 describe-snapshots --filter "Name=tag:Cluster,Values=${CLUSTER_FQDN}" --query 'Snapshots[].SnapshotId' --output text) && \
 for SNAPSHOT in ${SNAPSHOTS}; do
   echo "Removing Snapshot: ${SNAPSHOT}"
   aws ec2 delete-snapshot --snapshot-id "${SNAPSHOT}"
