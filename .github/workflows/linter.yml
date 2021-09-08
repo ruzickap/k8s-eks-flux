@@ -53,6 +53,7 @@ jobs:
               -e 's/^```$//' \
             >> README.sh
           done
+          chmod a+x README.sh
 
       ################################
       # Run Linter against code base #
@@ -62,3 +63,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ERROR_ON_MISSING_EXEC_BIT: true
+          USE_FIND_ALGORITHM: true

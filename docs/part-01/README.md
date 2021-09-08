@@ -29,7 +29,7 @@ export ENVIRONMENT=dev
 # * "staging" - not trusted certs signed by Lets Encrypt "Fake LE Intermediate X1"
 export LETSENCRYPT_ENVIRONMENT="staging"
 # Tags used to tag the AWS resources
-export TAGS="Owner=${MY_EMAIL} Environment=${ENVIRONMENT} Group=Cloud_Native Squad=Cloud_Container_Platform"
+export TAGS="Owner=${MY_EMAIL} Environment=${ENVIRONMENT} Group=Cloud_Native Squad=Cloud_Container_Platform compliance:na:defender=bottlerocket"
 echo -e "${MY_EMAIL} | ${CLUSTER_NAME} | ${BASE_DOMAIN} | ${CLUSTER_FQDN}\n${TAGS}"
 ```
 
@@ -120,6 +120,15 @@ Install [Helm](https://helm.sh/):
 if ! command -v helm &> /dev/null; then
   # https://github.com/helm/helm/releases
   curl -s https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash -s -- --version v3.6.3
+fi
+```
+
+Install [Mozilla SOPS](https://github.com/mozilla/sops):
+
+```bash
+if ! command -v sops &> /dev/null; then
+  curl -sL "https://github.com/mozilla/sops/releases/download/v3.7.1/sops_3.7.1_amd64.deb" -o "/tmp/sops_amd64.deb"
+  apt install -y /tmp/sops_amd64.deb > /dev/null
 fi
 ```
 
@@ -634,7 +643,7 @@ Get the variables form CloudFormation:
 ```bash
 aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" > "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json"
 AWS_VPC_ID=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcId\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
-AWS_VPC_CIDR=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcCidrBlock\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+# AWS_VPC_CIDR=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcCidrBlock\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 AWS_PUBLICSUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PublicSubnetId1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 AWS_PUBLICSUBNETID2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PublicSubnetId2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 AWS_PRIVATESUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PrivateSubnetId1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")

@@ -299,11 +299,12 @@ else
   CLOUDFORMATION_ACTION='update-stack'
 fi
 
+# shellcheck disable=SC2001
 eval aws cloudformation "${CLOUDFORMATION_ACTION}" \
   --parameters "ParameterKey=BaseDomain,ParameterValue=${BASE_DOMAIN} ParameterKey=ClusterName,ParameterValue=${CLUSTER_NAME} ParameterKey=ClusterFQDN,ParameterValue=${CLUSTER_FQDN}" \
   --stack-name "${CLUSTER_NAME}-route53-efs" \
   --template-body "file://tmp/${CLUSTER_FQDN}/cf-route53-efs.yml" \
-  --tags "$(echo $TAGS | sed  -e 's/\([^ =]*\)=\([^ ]*\)/Key=\1,Value=\2/g')" || true
+  --tags "$(echo "${TAGS}" | sed  -e 's/\([^ =]*\)=\([^ ]*\)/Key=\1,Value=\2/g')" || true
 ```
 
 ## Create Amazon EKS
@@ -431,7 +432,7 @@ EOF
 if ! eksctl get clusters --name="${CLUSTER_NAME}" &> /dev/null ; then
   eksctl create cluster --config-file "tmp/${CLUSTER_FQDN}/eksctl.yaml" --kubeconfig "${KUBECONFIG}"
 else
-  eksctl utils write-kubeconfig --cluster=${CLUSTER_NAME}
+  eksctl utils write-kubeconfig --cluster="${CLUSTER_NAME}"
 fi
 ```
 
@@ -440,11 +441,11 @@ using different user for CLI operations and different user/role for accessing
 the AWS Console to see EKS Workloads in Cluster's tab.
 
 ```bash
-if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" &> /dev/null && [[ ! -z ${AWS_CONSOLE_ADMIN_ROLE_ARN+x} ]] ; then
+if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" &> /dev/null && [[ -n ${AWS_CONSOLE_ADMIN_ROLE_ARN+x} ]] ; then
   eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" --group system:masters --username admin
 fi
 
-if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_USER_ROLE_ARN}" &> /dev/null && [[ ! -z ${AWS_USER_ROLE_ARN+x} ]] ; then
+if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_USER_ROLE_ARN}" &> /dev/null && [[ -n ${AWS_USER_ROLE_ARN+x} ]] ; then
   eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_USER_ROLE_ARN}" --group system:masters --username admin
 fi
 ```
@@ -483,8 +484,8 @@ Get the variables form CloudFormation:
 ```bash
 aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-route53-efs" > "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json"
 AWS_EFS_FS_ID_DRUPAL=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"FileSystemIdDrupal\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json")
-AWS_EFS_AP_ID_DRUPAL1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"AccessPointIdDrupal1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json")
-AWS_EFS_AP_ID_DRUPAL2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"AccessPointIdDrupal2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json")
+# AWS_EFS_AP_ID_DRUPAL1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"AccessPointIdDrupal1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json")
+# AWS_EFS_AP_ID_DRUPAL2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"AccessPointIdDrupal2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json")
 AWS_EFS_FS_ID_MYUSER1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"FileSystemIdMyuser1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json")
 AWS_EFS_AP_ID_MYUSER1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"AccessPointIdMyuser1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json")
 AWS_EFS_FS_ID_MYUSER2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"FileSystemIdMyuser2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-route53-efs.json")
