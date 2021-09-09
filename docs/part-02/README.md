@@ -410,7 +410,7 @@ vpc:
 managedNodeGroups:
   - name: managed-ng-1
     amiFamily: Bottlerocket
-    instanceType: t3.medium
+    instanceType: t3.large
     instancePrefix: ${GITHUB_USER}
     desiredCapacity: 2
     minSize: 2
