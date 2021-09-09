@@ -209,6 +209,30 @@ spec:
 EOF
 ```
 
+### jetstack
+
+```bash
+mkdir -vp apps/helmrepository/jetstack
+cat > apps/helmrepository/jetstack/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - jetstack.yaml
+EOF
+
+cat > apps/helmrepository/jetstack/jetstack.yaml << EOF
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: jetstack
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://charts.jetstack.io
+EOF
+
+```
+
 ## Basic Applications
 
 > Due to [https://github.com/fluxcd/flux2/discussions/730](https://github.com/fluxcd/flux2/discussions/730),
@@ -297,13 +321,13 @@ which supports ReadWriteMany PVC. Details can be found here:
 * [default values.yaml](https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/charts/aws-efs-csi-driver/values.yaml):
 
 ```bash
-mkdir -vp apps/base/aws-efs-csi-driver/{helmrelease,manifests-pv}
+mkdir -vp apps/base/aws-efs-csi-driver/{helmrelease,persistentvolume}
 cat > apps/base/aws-efs-csi-driver/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - aws-efs-csi-driver.yaml
-  - aws-efs-csi-driver-manifests-pv.yaml
+  - aws-efs-csi-driver-persistentvolume.yaml
 EOF
 
 cat > apps/base/aws-efs-csi-driver/aws-efs-csi-driver.yaml << EOF
@@ -384,11 +408,11 @@ Create `PersistentVolume`s which can be consumed by users (`myuser1`, `myuser2`)
 using `PersistentVolumeClaim`:
 
 ```bash
-cat > apps/base/aws-efs-csi-driver/aws-efs-csi-driver-manifests-pv.yaml << EOF
+cat > apps/base/aws-efs-csi-driver/aws-efs-csi-driver-persistentvolume.yaml << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: aws-efs-csi-driver-manifests-pv
+  name: aws-efs-csi-driver-persistentvolume
   namespace: kube-system
 spec:
   interval: 5m
@@ -405,12 +429,12 @@ spec:
     - apiVersion: v1
       kind: PersistentVolume
       name: efs-myuser2-pv
-  path: "./apps/base/aws-efs-csi-driver/manifests-pv"
+  path: "./apps/base/aws-efs-csi-driver/persistentvolume"
   prune: true
   validation: client
 EOF
 
-cat > apps/base/aws-efs-csi-driver/manifests-pv/pv.yaml << EOF
+cat > apps/base/aws-efs-csi-driver/persistentvolume/pv.yaml << EOF
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -527,7 +551,7 @@ Details about EKS and `external-snapshotter` can be found here:
 [Using EBS Snapshots for persistent storage with your EKS cluster](https://aws.amazon.com/blogs/containers/using-ebs-snapshots-for-persistent-storage-with-your-eks-cluster)
 
 ```bash
-mkdir -vp apps/base/external-snapshotter/manifests-install
+mkdir -vp apps/base/external-snapshotter/install
 cat > apps/base/external-snapshotter/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -554,12 +578,12 @@ spec:
       kind: Deployment
       name: snapshot-controller
       namespace: kube-system
-  path: "./apps/base/external-snapshotter/manifests-install"
+  path: "./apps/base/external-snapshotter/install"
   prune: true
   validation: client
 EOF
 
-cat > apps/base/external-snapshotter/manifests-install/kustomization.yaml << EOF
+cat > apps/base/external-snapshotter/install/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1098,6 +1122,202 @@ spec:
 EOF
 ```
 
+### cert-manager
+
+[cert-manager](https://cert-manager.io/)
+
+* [cert-manager](https://artifacthub.io/packages/helm/jetstack/cert-manager)
+* [default values.yaml](https://github.com/jetstack/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml):
+
+```bash
+mkdir -vp apps/base/cert-manager/{helmrelease,clusterissuer,certificate}
+cat > apps/base/cert-manager/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cert-manager.yaml
+  - cert-manager-clusterissuer.yaml
+  - cert-manager-certificate.yaml
+EOF
+
+cat > apps/base/cert-manager/cert-manager.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: cert-manager
+  namespace: cert-manager
+spec:
+  interval: 5m
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: kube-prometheus-stack
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: cert-manager
+      namespace: cert-manager
+  path: "./apps/base/cert-manager/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/cert-manager/helmrelease/cert-manager.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | jetstack | https://charts.jetstack.io | cert-manager | v1.5.3
+metadata:
+  name: cert-manager
+  namespace: cert-manager
+spec:
+  releaseName: cert-manager
+  chart:
+    spec:
+      chart: cert-manager
+      sourceRef:
+        kind: HelmRepository
+        name: jetstack
+        namespace: flux-system
+      version: v1.5.3
+  interval: 1h0m0s
+  install:
+    crds: Create
+  upgrade:
+    crds: CreateReplace
+  values:
+    installCRDs: true
+    serviceAccount:
+      create: false
+      name: cert-manager
+    extraArgs:
+      - --enable-certificate-owner-ref=true
+    prometheus:
+      servicemonitor:
+        enabled: true
+EOF
+```
+
+Add ClusterIssuers for Let's Encrypt staging and production:
+
+```bash
+cat > apps/base/cert-manager/cert-manager-clusterissuer.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: cert-manager-clusterissuer
+  namespace: cert-manager
+spec:
+  interval: 5m
+  dependsOn:
+    - name: cert-manager
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      name: letsencrypt-staging-dns
+    - apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      name: letsencrypt-production-dns
+  path: "./apps/base/cert-manager/clusterissuer"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/cert-manager/clusterissuer/clusterissuer.yaml << EOF
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging-dns
+  namespace: cert-manager
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: ${MY_EMAIL}
+    privateKeySecretRef:
+      name: letsencrypt-staging-dns
+    solvers:
+      - selector:
+          dnsZones:
+            - ${CLUSTER_FQDN}
+        dns01:
+          route53:
+            region: ${AWS_DEFAULT_REGION}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-production-dns
+  namespace: cert-manager
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ${MY_EMAIL}
+    privateKeySecretRef:
+      name: letsencrypt-production-dns
+    solvers:
+      - selector:
+          dnsZones:
+            - ${CLUSTER_FQDN}
+        dns01:
+          route53:
+            region: ${AWS_DEFAULT_REGION}
+EOF
+```
+
+Create wildcard certificate using `cert-manager`:
+
+```bash
+cat > apps/base/cert-manager/cert-manager-certificate.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: cert-manager-certificate
+  namespace: cert-manager
+spec:
+  interval: 5m
+  dependsOn:
+    - name: cert-manager-clusterissuer
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: cert-manager.io/v1
+      kind: Certificate
+      name: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+      namespace: cert-manager
+  path: "./apps/base/cert-manager/certificate"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/cert-manager/certificate/certificate.yaml << EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+  namespace: cert-manager
+spec:
+  secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+  secretTemplate:
+    annotations:
+      kubed.appscode.com/sync: ""
+  issuerRef:
+    name: letsencrypt-${LETSENCRYPT_ENVIRONMENT}-dns
+    kind: ClusterIssuer
+  commonName: "*.${CLUSTER_FQDN}"
+  dnsNames:
+    - "*.${CLUSTER_FQDN}"
+    - "${CLUSTER_FQDN}"
+EOF
+```
+
 ## Apps dev group
 
 Create application group called `dev` which will contain all the
@@ -1114,6 +1334,7 @@ resources:
   - ../../helmrepository/aws-efs-csi-driver
   - ../../helmrepository/bitnami
   - ../../helmrepository/prometheus-community
+  - ../../helmrepository/jetstack
 EOF
 
 mkdir -vp "apps/${ENVIRONMENT}/base"
@@ -1127,6 +1348,7 @@ resources:
   - ../../base/external-snapshotter
   - ../../base/metrics-server
   - ../../base/kube-prometheus-stack
+  - ../../base/cert-manager
 patchesStrategicMerge:
   - patches.yaml
 EOF
@@ -1254,14 +1476,12 @@ cd - || exit
 Check Flux errors:
 
 ```bash
-kubectl wait -A --for=condition=Ready --timeout=10m kustomizations.kustomize.toolkit.fluxcd.io --all
-kubectl wait -A --for=condition=Ready --timeout=10m helmreleases.helm.toolkit.fluxcd.io --all
 flux logs --level=error --all-namespaces
 ```
 
 Check `helmreleases`, `helmrepositories`, `kustomizations`, ...
 
-```bash
+```shell
 kubectl get pods -A
 kubectl get helmreleases.helm.toolkit.fluxcd.io -A
 kubectl get helmrepositories.source.toolkit.fluxcd.io -A
@@ -1272,5 +1492,5 @@ helm ls -A
 Export command for kubeconfig:
 
 ```bash
-echo "export KUBECONFIG=\"\$PWD/tmp/kube2.k8s.mylabs.dev/kubeconfig-kube2.conf\""
+echo "export KUBECONFIG=\"\${PWD}/tmp/${CLUSTER_FQDN}/kubeconfig-${CLUSTER_NAME}.conf\""
 ```
