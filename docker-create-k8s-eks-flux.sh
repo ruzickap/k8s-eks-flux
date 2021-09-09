@@ -11,6 +11,7 @@ docker run -it --rm \
   -e AWS_ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY \
   -e GITHUB_TOKEN \
+  -e SLACK_INCOMING_WEBHOOK_URL \
   -v "${PWD}:/mnt" \
   -w /mnt \
   ubuntu \

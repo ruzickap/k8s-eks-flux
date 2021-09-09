@@ -7,6 +7,7 @@ awscli
 bitnami
 CloudFlare
 CloudFormation
+ClusterIssuers
 ConfigMap
 Crossplane
 crossplane-stable
@@ -17,6 +18,7 @@ external-snapshotter
 HelmRelease
 HelmReleases
 HelmRepository
+jetstack
 kube-prometheus-stack
 kubeconfig
 kubectl

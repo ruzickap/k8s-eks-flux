@@ -338,6 +338,11 @@ iam:
       wellKnownPolicies:
         awsLoadBalancerController: true
     - metadata:
+        name: cert-manager
+        namespace: cert-manager
+      wellKnownPolicies:
+        certManager: true
+    - metadata:
         name: ebs-csi-controller-sa
         namespace: kube-system
       wellKnownPolicies:
@@ -347,28 +352,6 @@ iam:
         namespace: kube-system
       wellKnownPolicies:
         efsCSIController: true
-    - metadata:
-        name: kustomize-controller
-        namespace: flux-system
-      attachPolicy:
-        Version: 2012-10-17
-        Statement:
-        - Sid: FluxKMS
-          Effect: Allow
-          Action:
-            - kms:Encrypt
-            - kms:Decrypt
-            - kms:ReEncrypt*
-            - kms:GenerateDataKey*
-            - kms:DescribeKey
-          Resource:
-          - ${AWS_KMS_KEY_ARN}
-    - metadata:
-        name: kube-prometheus-stack-prometheus
-        namespace: kube-prometheus-stack
-      attachPolicyARNs:
-        - arn:aws:iam::aws:policy/AmazonPrometheusQueryAccess
-        - arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess
     - metadata:
         name: grafana
         namespace: kube-prometheus-stack
@@ -389,6 +372,28 @@ iam:
           Effect: Allow
           Action: tag:GetResources
           Resource: "*"
+    - metadata:
+        name: kube-prometheus-stack-prometheus
+        namespace: kube-prometheus-stack
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonPrometheusQueryAccess
+        - arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess
+    - metadata:
+        name: kustomize-controller
+        namespace: flux-system
+      attachPolicy:
+        Version: 2012-10-17
+        Statement:
+        - Sid: FluxKMS
+          Effect: Allow
+          Action:
+            - kms:Encrypt
+            - kms:Decrypt
+            - kms:ReEncrypt*
+            - kms:GenerateDataKey*
+            - kms:DescribeKey
+          Resource:
+          - ${AWS_KMS_KEY_ARN}
 vpc:
   id: "${AWS_VPC_ID}"
   subnets:

@@ -50,6 +50,14 @@ jobs:
             bash -eu -c " \
               ./create-k8s-eks-flux.sh ;\
               ./create-k8s-eks-flux.sh ;\
+              sleep 50 ;\
+              export KUBECONFIG=\"${PWD}/tmp/${CLUSTER_FQDN}/kubeconfig-${CLUSTER_NAME}.conf\" ;\
+              kubectl get pods -A ;\
+              kubectl get helmreleases.helm.toolkit.fluxcd.io -A ;\
+              kubectl get helmrepositories.source.toolkit.fluxcd.io -A ;\
+              kubectl get kustomizations.kustomize.toolkit.fluxcd.io -A ;\
+              kubectl get certificates -A ;\
+              helm ls -A ;\
             "
 
   delete-k8s-eks-flux:
