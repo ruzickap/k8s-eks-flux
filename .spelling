@@ -1,4 +1,5 @@
 Ansible
+appscode
 aws-auth
 aws-ebs-csi-driver
 aws-efs-csi-driver
@@ -18,10 +19,13 @@ external-snapshotter
 HelmRelease
 HelmReleases
 HelmRepository
+ingress-nginx
+ingress-nginx
 jetstack
 kube-prometheus-stack
 kubeconfig
 kubectl
+kubed
 Kubernetes
 Kustomization
 nameservers

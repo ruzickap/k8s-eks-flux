@@ -230,7 +230,52 @@ spec:
   interval: 1h
   url: https://charts.jetstack.io
 EOF
+```
 
+### appscode
+
+```bash
+mkdir -vp apps/helmrepository/appscode
+cat > apps/helmrepository/appscode/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - appscode.yaml
+EOF
+
+cat > apps/helmrepository/appscode/appscode.yaml << EOF
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: appscode
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://charts.appscode.com/stable/
+EOF
+```
+
+### ingress-nginx helm repository
+
+```bash
+mkdir -vp apps/helmrepository/ingress-nginx
+cat > apps/helmrepository/ingress-nginx/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ingress-nginx.yaml
+EOF
+
+cat > apps/helmrepository/ingress-nginx/ingress-nginx.yaml << EOF
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: ingress-nginx
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://kubernetes.github.io/ingress-nginx
+EOF
 ```
 
 ## Basic Applications
@@ -1318,6 +1363,200 @@ spec:
 EOF
 ```
 
+### kubed
+
+[kubed](https://appscode.com/products/kubed/)
+
+* [kubed](https://artifacthub.io/packages/helm/appscode/kubed)
+* [default values.yaml](https://github.com/appscode/kubed/blob/master/charts/kubed/values.yaml):
+
+```bash
+mkdir -vp apps/base/kubed/helmrelease
+cat > apps/base/kubed/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - kubed.yaml
+EOF
+```
+
+```bash
+cat > apps/base/kubed/namespace.yaml << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubed
+EOF
+```
+
+```bash
+cat > apps/base/kubed/kubed.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: kubed
+  namespace: kubed
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: kubed
+      namespace: kubed
+  path: "./apps/base/kubed/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/kubed/helmrelease/kubed.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | appscode | https://charts.appscode.com/stable/ | kubed | v0.12.0
+metadata:
+  name: kubed
+  namespace: kubed
+spec:
+  releaseName: kubed
+  chart:
+    spec:
+      chart: kubed
+      sourceRef:
+        kind: HelmRepository
+        name: appscode
+        namespace: flux-system
+      version: v0.12.0
+  interval: 1h0m0s
+  values:
+    config:
+      clusterName: ${CLUSTER_FQDN}
+EOF
+```
+
+### ingress-nginx
+
+[ingress-nginx](https://kubernetes.github.io/ingress-nginx/)
+
+* [ingress-nginx](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx)
+* [default values.yaml](https://github.com/kubernetes/ingress-nginx/blob/master/charts/ingress-nginx/values.yaml):
+
+```bash
+mkdir -vp apps/base/ingress-nginx/helmrelease
+cat > apps/base/ingress-nginx/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - ingress-nginx.yaml
+EOF
+```
+
+```bash
+cat > apps/base/ingress-nginx/namespace.yaml << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+EOF
+```
+
+```bash
+cat > apps/base/ingress-nginx/ingress-nginx.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+spec:
+  interval: 5m
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: kube-prometheus-stack
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: ingress-nginx
+      namespace: ingress-nginx
+  path: "./apps/base/ingress-nginx/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/ingress-nginx/helmrelease/ingress-nginx.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | ingress-nginx | https://kubernetes.github.io/ingress-nginx | ingress-nginx | 3.35.0
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+spec:
+  releaseName: ingress-nginx
+  chart:
+    spec:
+      chart: ingress-nginx
+      sourceRef:
+        kind: HelmRepository
+        name: ingress-nginx
+        namespace: flux-system
+      version: 3.35.0
+  interval: 1h0m0s
+  values:
+    controller:
+      service:
+        annotations:
+          service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+          service.beta.kubernetes.io/aws-load-balancer-type: nlb
+          service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "${TAGS// /,}"
+      metrics:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+        prometheusRule:
+          enabled: true
+          rules:
+            - alert: NGINXConfigFailed
+              expr: count(nginx_ingress_controller_config_last_reload_successful == 0) > 0
+              for: 1s
+              labels:
+                severity: critical
+              annotations:
+                description: bad ingress config - nginx config test failed
+                summary: uninstall the latest ingress changes to allow config reloads to resume
+            - alert: NGINXCertificateExpiry
+              expr: (avg(nginx_ingress_controller_ssl_expire_time_seconds) by (host) - time()) < 604800
+              for: 1s
+              labels:
+                severity: critical
+              annotations:
+                description: ssl certificate(s) will expire in less then a week
+                summary: renew expiring certificates to avoid downtime
+            - alert: NGINXTooMany500s
+              expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"5.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
+              for: 1m
+              labels:
+                severity: warning
+              annotations:
+                description: Too many 5XXs
+                summary: More than 5% of all requests returned 5XX, this requires your attention
+            - alert: NGINXTooMany400s
+              expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"4.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
+              for: 1m
+              labels:
+                severity: warning
+              annotations:
+                description: Too many 4XXs
+                summary: More than 5% of all requests returned 4XX, this requires your attention
+EOF
+```
+
 ## Apps dev group
 
 Create application group called `dev` which will contain all the
@@ -1335,6 +1574,9 @@ resources:
   - ../../helmrepository/bitnami
   - ../../helmrepository/prometheus-community
   - ../../helmrepository/jetstack
+  - ../../helmrepository/appscode
+  - ../../helmrepository/ingress-nginx
+
 EOF
 
 mkdir -vp "apps/${ENVIRONMENT}/base"
@@ -1349,6 +1591,8 @@ resources:
   - ../../base/metrics-server
   - ../../base/kube-prometheus-stack
   - ../../base/cert-manager
+  - ../../base/kubed
+  - ../../base/ingress-nginx
 patchesStrategicMerge:
   - patches.yaml
 EOF
