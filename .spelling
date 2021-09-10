@@ -13,9 +13,13 @@ ConfigMap
 Crossplane
 crossplane-stable
 DependsOn
+dex
+Dex
 eks
 eksctl
+external-dns
 external-snapshotter
+ExternalDNS
 HelmRelease
 HelmReleases
 HelmRepository

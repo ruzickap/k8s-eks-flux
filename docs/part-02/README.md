@@ -343,6 +343,11 @@ iam:
       wellKnownPolicies:
         certManager: true
     - metadata:
+        name: external-dns
+        namespace: external-dns
+      wellKnownPolicies:
+        externalDNS: true
+    - metadata:
         name: ebs-csi-controller-sa
         namespace: kube-system
       wellKnownPolicies:

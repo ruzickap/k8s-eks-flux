@@ -8,7 +8,7 @@ Install necessary software:
 ```bash
 if command -v apt-get &> /dev/null; then
   apt update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl sudo unzip > /dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl jq sudo unzip > /dev/null
 fi
 ```
 
@@ -34,9 +34,10 @@ Set necessary variables and verify if all the necessary variables were set:
 
 ```bash
 export BASE_DOMAIN=${BASE_DOMAIN:-k8s.mylabs.dev}
-export CLUSTER_NAME=${CLUSTER_NAME:-kube2}
+export CLUSTER_NAME=${CLUSTER_NAME:-kube1}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export AWS_DEFAULT_REGION="eu-west-1"
+export AWS_PAGER=""
 export GITHUB_USER="ruzickap"
 export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
 
@@ -45,18 +46,33 @@ export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
 : "${GITHUB_TOKEN?}"
 ```
 
-Remove CloudFormation stacks:
-
-```bash
-aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-route53-efs"
-```
-
 Remove EKS cluster:
 
 ```bash
 if eksctl get cluster --name="${CLUSTER_NAME}" 2>/dev/null ; then
   eksctl delete cluster --name="${CLUSTER_NAME}"
 fi
+```
+
+Remove Route 53 DNS records from DNS Zone:
+
+```bash
+CLUSTER_FQDN_ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name==\`${CLUSTER_FQDN}.\`].Id" --output text)
+if [[ -n "${CLUSTER_FQDN_ZONE_ID}" ]]; then
+  aws route53 list-resource-record-sets --hosted-zone-id "${CLUSTER_FQDN_ZONE_ID}" | jq -c '.ResourceRecordSets[] | select (.Type != "SOA" and .Type != "NS")' |
+  while read -r RESOURCERECORDSET; do
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id "${CLUSTER_FQDN_ZONE_ID}" \
+      --change-batch '{"Changes":[{"Action":"DELETE","ResourceRecordSet": '"${RESOURCERECORDSET}"' }]}' \
+      --output text --query 'ChangeInfo.Id'
+  done
+fi
+```
+
+Remove CloudFormation stacks:
+
+```bash
+aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-route53-efs"
 ```
 
 Remove GitHub repository created for Flux:

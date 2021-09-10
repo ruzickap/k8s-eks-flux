@@ -7,7 +7,7 @@ fi
 set -euxo pipefail
 
 docker run -it --rm \
-  -e CLUSTER_NAME="kube3" \
+  -e CLUSTER_NAME="kube2" \
   -e AWS_ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY \
   -e GITHUB_TOKEN="${GH_TOKEN_K8S_EKS}" \
