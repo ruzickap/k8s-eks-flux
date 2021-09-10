@@ -33,8 +33,8 @@ Create basic Flux structure in git with following requirements or statements:
 Create initial git repository structure which will be used by Flux:
 
 ```bash
-mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}"
-mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/apps/{base,helmrepository,prd,dev,mygroup}"
+mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}
+mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/apps/{base,helmrepository,prd,dev,mygroup}
 ```
 
 Set `user.name` and `user.email` for git:
@@ -58,7 +58,7 @@ Configure the Git directory for encryption:
 cat > .sops.yaml << EOF
 creation_rules:
   - path_regex: .*.yaml
-    encrypted_regex: ^(data|stringData|slack_api_url)$
+    encrypted_regex: ^(data|stringData|slack_api_url|clientID|clientSecret|issuer|secret|MY_PASSWORD)$
     kms: ${AWS_KMS_KEY_ARN}
 EOF
 ```
@@ -275,6 +275,29 @@ metadata:
 spec:
   interval: 1h
   url: https://kubernetes.github.io/ingress-nginx
+EOF
+```
+
+### dex helm repository
+
+```bash
+mkdir -vp apps/helmrepository/dex
+cat > apps/helmrepository/dex/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - dex.yaml
+EOF
+
+cat > apps/helmrepository/dex/dex.yaml << EOF
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: dex
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://charts.dexidp.io
 EOF
 ```
 
@@ -689,7 +712,7 @@ EOF
 cat > apps/base/metrics-server/helmrelease/metrics-server.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
-# | bitnami | https://charts.bitnami.com/bitnami | metrics-server | 5.9.2
+# | bitnami | https://charts.bitnami.com/bitnami | metrics-server | 5.9.3
 metadata:
   name: metrics-server
   namespace: metrics-server
@@ -762,7 +785,7 @@ EOF
 cat > apps/base/kube-prometheus-stack/helmrelease/kube-prometheus-stack.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
-# | prometheus-community | https://prometheus-community.github.io/helm-charts | kube-prometheus-stack | 18.0.3
+# | prometheus-community | https://prometheus-community.github.io/helm-charts | kube-prometheus-stack | 18.0.5
 metadata:
   name: kube-prometheus-stack
   namespace: kube-prometheus-stack
@@ -775,7 +798,7 @@ spec:
         kind: HelmRepository
         name: prometheus-community
         namespace: flux-system
-      version: 18.0.3
+      version: 18.0.5
   interval: 1h0m0s
   values:
     defaultRules:
@@ -1493,7 +1516,7 @@ EOF
 cat > apps/base/ingress-nginx/helmrelease/ingress-nginx.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
-# | ingress-nginx | https://kubernetes.github.io/ingress-nginx | ingress-nginx | 3.35.0
+# | ingress-nginx | https://kubernetes.github.io/ingress-nginx | ingress-nginx | 3.36.0
 metadata:
   name: ingress-nginx
   namespace: ingress-nginx
@@ -1506,7 +1529,7 @@ spec:
         kind: HelmRepository
         name: ingress-nginx
         namespace: flux-system
-      version: 3.35.0
+      version: 3.36.0
   interval: 1h0m0s
   values:
     controller:
@@ -1557,6 +1580,204 @@ spec:
 EOF
 ```
 
+### ExternalDNS
+
+[ExternalDNS](https://github.com/kubernetes-sigs/external-dns)
+
+* [external-dns](https://artifacthub.io/packages/helm/bitnami/external-dns)
+* [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/external-dns/values.yaml):
+
+```bash
+mkdir -vp apps/base/external-dns/helmrelease
+cat > apps/base/external-dns/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - external-dns.yaml
+EOF
+
+cat > apps/base/external-dns/external-dns.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: external-dns
+  namespace: external-dns
+spec:
+  interval: 5m
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: kube-prometheus-stack
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: external-dns
+      namespace: external-dns
+  path: "./apps/base/external-dns/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/external-dns/helmrelease/external-dns.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | bitnami | https://charts.bitnami.com/bitnami | external-dns | 5.4.5
+metadata:
+  name: external-dns
+  namespace: external-dns
+spec:
+  releaseName: external-dns
+  chart:
+    spec:
+      chart: external-dns
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: flux-system
+      version: 5.4.5
+  interval: 1h0m0s
+  values:
+    aws:
+      region: ${AWS_DEFAULT_REGION}
+    domainFilters:
+      - ${CLUSTER_FQDN}
+    interval: 20s
+    policy: sync
+    serviceAccount:
+      create: false
+      name: external-dns
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+EOF
+```
+
+### Dex
+
+[Dex](https://dexidp.io/)
+
+* [dex](https://artifacthub.io/packages/helm/dex/dex)
+* [default values.yaml](https://github.com/dexidp/helm-charts/blob/master/charts/dex/values.yaml):
+
+```bash
+mkdir -vp apps/base/dex/helmrelease
+cat > apps/base/dex/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - dex.yaml
+EOF
+
+cat > apps/base/dex/namespace.yaml << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dex
+EOF
+
+cat > apps/base/dex/dex.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: dex
+  namespace: dex
+spec:
+  interval: 5m
+  dependsOn:
+    - name: ingress-nginx
+      namespace: ingress-nginx
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: dex
+      namespace: dex
+  path: "./apps/base/dex/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/dex/helmrelease/dex.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | dex | https://charts.dexidp.io | dex | 0.6.3
+metadata:
+  name: dex
+  namespace: dex
+spec:
+  releaseName: dex
+  chart:
+    spec:
+      chart: dex
+      sourceRef:
+        kind: HelmRepository
+        name: dex
+        namespace: flux-system
+      version: 0.6.3
+  interval: 1h0m0s
+  values:
+    ingress:
+      enabled: true
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      hosts:
+        - host: dex.${CLUSTER_FQDN}
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      tls:
+        - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+          hosts:
+            - dex.${CLUSTER_FQDN}
+    config:
+      issuer: https://dex.${CLUSTER_FQDN}
+      storage:
+        type: kubernetes
+        config:
+          inCluster: true
+      oauth2:
+        skipApprovalScreen: true
+      connectors:
+        - type: github
+          id: github
+          name: GitHub
+          config:
+            clientID: MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID
+            clientSecret: MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET
+            redirectURI: https://dex.${CLUSTER_FQDN}/callback
+            orgs:
+              - name: ${MY_GITHUB_ORG_NAME}
+        - type: oidc
+          id: okta
+          name: Okta
+          config:
+            issuer: OKTA_ISSUER
+            clientID: OKTA_CLIENT_ID
+            clientSecret: OKTA_CLIENT_SECRET
+            redirectURI: https://dex.${CLUSTER_FQDN}/callback
+            scopes:
+              - openid
+              - profile
+              - email
+            getUserInfo: true
+      staticClients:
+        - id: oauth2-proxy.${CLUSTER_FQDN}
+          redirectURIs:
+            - https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/callback
+          name: OAuth2 Proxy
+          secret: \${MY_PASSWORD}
+      enablePasswordDB: false
+EOF
+```
+
 ## Apps dev group
 
 Create application group called `dev` which will contain all the
@@ -1576,7 +1797,7 @@ resources:
   - ../../helmrepository/jetstack
   - ../../helmrepository/appscode
   - ../../helmrepository/ingress-nginx
-
+  - ../../helmrepository/dex
 EOF
 
 mkdir -vp "apps/${ENVIRONMENT}/base"
@@ -1593,6 +1814,8 @@ resources:
   - ../../base/cert-manager
   - ../../base/kubed
   - ../../base/ingress-nginx
+  - ../../base/external-dns
+  - ../../base/dex
 patchesStrategicMerge:
   - patches.yaml
 EOF
@@ -1695,6 +1918,38 @@ spec:
                   config:
                     global:
                       slack_api_url: ${SLACK_INCOMING_WEBHOOK_URL}
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+      kind: Kustomization
+      metadata:
+        name: dex
+        namespace: dex
+      spec:
+        postBuild:
+          substitute:
+            MY_PASSWORD: ${MY_PASSWORD}
+        patchesStrategicMerge:
+          - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+            kind: HelmRelease
+            metadata:
+              name: dex
+              namespace: dex
+            spec:
+              values:
+                config:
+                  connectors:
+                    - type: github
+                      id: github
+                      name: GitHub
+                      config:
+                        clientID: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
+                        clientSecret: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
+                    - type: oidc
+                      id: okta
+                      name: Okta
+                      config:
+                        issuer: ${OKTA_ISSUER}
+                        clientID: ${OKTA_CLIENT_ID}
+                        clientSecret: ${OKTA_CLIENT_SECRET}
 EOF
 
 sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml"

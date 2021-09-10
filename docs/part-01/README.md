@@ -13,7 +13,7 @@ names will look like `CLUSTER_NAME`.`BASE_DOMAIN` (`kube1.k8s.mylabs.dev`).
 ```bash
 # Hostname / FQDN definitions
 export BASE_DOMAIN=${BASE_DOMAIN:-k8s.mylabs.dev}
-export CLUSTER_NAME=${CLUSTER_NAME:-kube2}
+export CLUSTER_NAME=${CLUSTER_NAME:-kube1}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export KUBECONFIG=${PWD}/tmp/${CLUSTER_FQDN}/kubeconfig-${CLUSTER_NAME}.conf
 export MY_EMAIL="petr.ruzicka@gmail.com"
@@ -36,19 +36,53 @@ echo -e "${MY_EMAIL} | ${CLUSTER_NAME} | ${BASE_DOMAIN} | ${CLUSTER_FQDN}\n${TAG
 You will need to configure AWS CLI: [https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
 
 ```shell
+# Common password
+export MY_PASSWORD="xxxx"
+# AWS Credentials
 export AWS_ACCESS_KEY_ID="AxxxxxxxxxxxxxxxxxxY"
 export AWS_SECRET_ACCESS_KEY="txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxh"
+# Disable pager for AWS CLI
+export AWS_PAGER=""
 export GITHUB_TOKEN="xxxxx"
-export SLACK_INCOMING_WEBHOOK_URL="xxxx"
+# Slack incoming webhook
+export SLACK_INCOMING_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+# GitHub Organization OAuth Apps credentials
+export MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID="3xxxxxxxxxxxxxxxxxx3"
+export MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET="7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx8"
+export MY_GITHUB_ORG_OAUTH_KEYCLOAK_CLIENT_ID="4xxxxxxxxxxxxxxxxxx4"
+export MY_GITHUB_ORG_OAUTH_KEYCLOAK_CLIENT_SECRET="7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxa"
+# Okta configuration
+export OKTA_ISSUER="https://exxxxxxx-xxxxx-xx.okta.com"
+export OKTA_CLIENT_ID="0xxxxxxxxxxxxxxxxxx7"
+export OKTA_CLIENT_SECRET="1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxH"
 ```
 
 Verify if all the necessary variables were set:
 
 ```bash
+case "${CLUSTER_NAME}" in
+  kube1)
+    MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID_KUBE1}}
+    MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET_KUBE1}}
+  ;;
+  kube2)
+    MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID_KUBE2}}
+    MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET_KUBE2}}
+  ;;
+  *)
+    echo "Unsupported cluster name: ${CLUSTER_NAME} !"
+    exit 1
+  ;;
+esac
+
 : "${AWS_ACCESS_KEY_ID?}"
 : "${AWS_SECRET_ACCESS_KEY?}"
 : "${GITHUB_TOKEN?}"
 : "${SLACK_INCOMING_WEBHOOK_URL?}"
+: "${MY_PASSWORD?}"
+: "${OKTA_ISSUER?}"
+: "${OKTA_CLIENT_ID?}"
+: "${OKTA_CLIENT_SECRET?}"
 ```
 
 ## Prepare the local working environment
