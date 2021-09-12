@@ -33,6 +33,8 @@ kubed
 Kubernetes
 Kustomization
 nameservers
+OAuth2
+oauth2-proxy
 prometheus-community
 ReadWriteMany
 Route53

@@ -39,6 +39,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Create masks to hide parts in GH logs
+        run: |
+          echo "::add-mask::${{ secrets.MASK_AWS_ACCOUNT_NUMBER }}"
+
       - name: Replace CLUSTER_NAME variable if defined manually
         if: ${{ github.event.inputs.cluster_name }}
         run: |
