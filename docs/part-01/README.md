@@ -17,6 +17,10 @@ export CLUSTER_NAME=${CLUSTER_NAME:-kube1}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export KUBECONFIG=${PWD}/tmp/${CLUSTER_FQDN}/kubeconfig-${CLUSTER_NAME}.conf
 export MY_EMAIL="petr.ruzicka@gmail.com"
+# GitHub Organization + Team where are the users who will have the admin access
+# to K8s resources (Grafana). Only users in GitHub organization
+# (MY_GITHUB_ORG_NAME) will be able to access the apps via ingress.
+export MY_GITHUB_ORG_NAME="ruzickap-org"
 # Flux GitHub repository
 export GITHUB_USER="ruzickap"
 export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
@@ -49,8 +53,6 @@ export SLACK_INCOMING_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/SLACK/W
 # GitHub Organization OAuth Apps credentials
 export MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID="3xxxxxxxxxxxxxxxxxx3"
 export MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET="7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx8"
-export MY_GITHUB_ORG_OAUTH_KEYCLOAK_CLIENT_ID="4xxxxxxxxxxxxxxxxxx4"
-export MY_GITHUB_ORG_OAUTH_KEYCLOAK_CLIENT_SECRET="7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxa"
 # Okta configuration
 export OKTA_ISSUER="https://exxxxxxx-xxxxx-xx.okta.com"
 export OKTA_CLIENT_ID="0xxxxxxxxxxxxxxxxxx7"
@@ -79,6 +81,7 @@ esac
 : "${AWS_SECRET_ACCESS_KEY?}"
 : "${GITHUB_TOKEN?}"
 : "${SLACK_INCOMING_WEBHOOK_URL?}"
+: "${SLACK_CHANNEL?}"
 : "${MY_PASSWORD?}"
 : "${OKTA_ISSUER?}"
 : "${OKTA_CLIENT_ID?}"

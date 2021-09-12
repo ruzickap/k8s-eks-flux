@@ -2,10 +2,15 @@
 
 [[toc]]
 
-Flux disadvantages:
+Flux (dis)advantages:
 
 * `dependsOn` can not be used between `HelmRelease` and `Kustomization`:
-  [HelmRelease, Kustomization DependsOn](https://github.com/fluxcd/kustomize-controller/issues/242)
+  [HelmRelease, Kustomization DependsOn](https://github.com/fluxcd/kustomize-controller/issues/242).
+  This "forces" you to use `Kustomization` almost everywhere...
+* [HelmReleases](https://fluxcd.io/docs/components/helm/helmreleases/) are
+  compatible with Helm (`helm ls -A` works fine)
+* [Variable substitution](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
+  is really handy and easy to use in case you do not want to use [patches](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
 
 ## Create basic Flux structure in git repository
 
@@ -58,7 +63,7 @@ Configure the Git directory for encryption:
 cat > .sops.yaml << EOF
 creation_rules:
   - path_regex: .*.yaml
-    encrypted_regex: ^(data|stringData|slack_api_url|clientID|clientSecret|issuer|secret|MY_PASSWORD)$
+    encrypted_regex: ^(substitute)$
     kms: ${AWS_KMS_KEY_ARN}
 EOF
 ```
@@ -298,6 +303,29 @@ metadata:
 spec:
   interval: 1h
   url: https://charts.dexidp.io
+EOF
+```
+
+### oauth2-proxy helm repository
+
+```bash
+mkdir -vp apps/helmrepository/oauth2-proxy
+cat > apps/helmrepository/oauth2-proxy/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - oauth2-proxy.yaml
+EOF
+
+cat > apps/helmrepository/oauth2-proxy/oauth2-proxy.yaml << EOF
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: oauth2-proxy
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://oauth2-proxy.github.io/manifests
 EOF
 ```
 
@@ -578,7 +606,7 @@ EOF
 cat > apps/base/aws-ebs-csi-driver/helmrelease/aws-ebs-csi-driver.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
-# | aws-ebs-csi-driver | https://kubernetes-sigs.github.io/aws-ebs-csi-driver | aws-ebs-csi-driver | 2.1.0
+# | aws-ebs-csi-driver | https://kubernetes-sigs.github.io/aws-ebs-csi-driver | aws-ebs-csi-driver | 2.1.1
 metadata:
   name: aws-ebs-csi-driver
   namespace: kube-system
@@ -591,7 +619,7 @@ spec:
         kind: HelmRepository
         name: aws-ebs-csi-driver
         namespace: flux-system
-      version: 2.1.0
+      version: 2.1.1
   interval: 1h0m0s
   values:
     controller:
@@ -822,7 +850,7 @@ spec:
     alertmanager:
       config:
         global:
-          slack_api_url: "SLACK_INCOMING_WEBHOOK_URL - secret must be overridden from cluster level"
+          slack_api_url: \${SLACK_INCOMING_WEBHOOK_URL}
           smtp_smarthost: "mailhog.mailhog.svc.cluster.local:1025"
           smtp_from: "alertmanager@${CLUSTER_FQDN}"
         route:
@@ -843,7 +871,7 @@ spec:
               require_tls: false
           - name: "slack-notifications"
             slack_configs:
-              - channel: "#SLACK_CHANNEL - secret must be overridden from cluster level"
+              - channel: "#\${SLACK_CHANNEL}"
                 send_resolved: True
                 icon_url: "https://avatars3.githubusercontent.com/u/3380462"
                 title: "{{ template \"slack.cp.title\" . }}"
@@ -923,9 +951,8 @@ spec:
         paths: ["/"]
         pathType: ImplementationSpecific
         tls:
-          - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
-            hosts:
-              - alertmanager.${CLUSTER_FQDN}
+          - hosts:
+            - alertmanager.${CLUSTER_FQDN}
     # https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
     grafana:
       serviceAccount:
@@ -941,9 +968,8 @@ spec:
         paths: ["/"]
         pathType: ImplementationSpecific
         tls:
-          - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
-            hosts:
-              - grafana.${CLUSTER_FQDN}
+          - hosts:
+            - grafana.${CLUSTER_FQDN}
       plugins:
         - digiapulssi-breadcrumb-panel
         - grafana-piechart-panel
@@ -1168,9 +1194,8 @@ spec:
         hosts:
           - prometheus.${CLUSTER_FQDN}
         tls:
-          - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
-            hosts:
-              - prometheus.${CLUSTER_FQDN}
+          - hosts:
+            - prometheus.${CLUSTER_FQDN}
       prometheusSpec:
         externalUrl: https://prometheus.${CLUSTER_FQDN}
         # ruleSelectorNilUsesHelmValues: false
@@ -1499,6 +1524,8 @@ spec:
   dependsOn:
     - name: kube-prometheus-stack
       namespace: kube-prometheus-stack
+    - name: cert-manager-certificate
+      namespace: cert-manager
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -1533,6 +1560,8 @@ spec:
   interval: 1h0m0s
   values:
     controller:
+      extraArgs:
+        default-ssl-certificate: "cert-manager/ingress-cert-${LETSENCRYPT_ENVIRONMENT}"
       service:
         annotations:
           service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
@@ -1624,7 +1653,7 @@ EOF
 cat > apps/base/external-dns/helmrelease/external-dns.yaml << EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
-# | bitnami | https://charts.bitnami.com/bitnami | external-dns | 5.4.5
+# | bitnami | https://charts.bitnami.com/bitnami | external-dns | 5.4.6
 metadata:
   name: external-dns
   namespace: external-dns
@@ -1637,7 +1666,7 @@ spec:
         kind: HelmRepository
         name: bitnami
         namespace: flux-system
-      version: 5.4.5
+      version: 5.4.6
   interval: 1h0m0s
   values:
     aws:
@@ -1734,9 +1763,8 @@ spec:
             - path: /
               pathType: ImplementationSpecific
       tls:
-        - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
-          hosts:
-            - dex.${CLUSTER_FQDN}
+        - hosts:
+          - dex.${CLUSTER_FQDN}
     config:
       issuer: https://dex.${CLUSTER_FQDN}
       storage:
@@ -1750,8 +1778,8 @@ spec:
           id: github
           name: GitHub
           config:
-            clientID: MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID
-            clientSecret: MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET
+            clientID: \${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
+            clientSecret: \${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
             redirectURI: https://dex.${CLUSTER_FQDN}/callback
             orgs:
               - name: ${MY_GITHUB_ORG_NAME}
@@ -1759,9 +1787,9 @@ spec:
           id: okta
           name: Okta
           config:
-            issuer: OKTA_ISSUER
-            clientID: OKTA_CLIENT_ID
-            clientSecret: OKTA_CLIENT_SECRET
+            issuer: \${OKTA_ISSUER}
+            clientID: \${OKTA_CLIENT_ID}
+            clientSecret: \${OKTA_CLIENT_SECRET}
             redirectURI: https://dex.${CLUSTER_FQDN}/callback
             scopes:
               - openid
@@ -1775,6 +1803,104 @@ spec:
           name: OAuth2 Proxy
           secret: \${MY_PASSWORD}
       enablePasswordDB: false
+EOF
+```
+
+### OAuth2 Proxy
+
+[oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/)
+
+* [oauth2-proxy](https://artifacthub.io/packages/helm/oauth2-proxy/oauth2-proxy)
+* [default values.yaml](https://github.com/oauth2-proxy/manifests/blob/main/helm/oauth2-proxy/values.yaml):
+
+```bash
+mkdir -vp apps/base/oauth2-proxy/helmrelease
+cat > apps/base/oauth2-proxy/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - oauth2-proxy.yaml
+EOF
+
+cat > apps/base/oauth2-proxy/namespace.yaml << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oauth2-proxy
+EOF
+
+cat > apps/base/oauth2-proxy/oauth2-proxy.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: oauth2-proxy
+  namespace: oauth2-proxy
+spec:
+  interval: 5m
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: kube-prometheus-stack
+    - name: dex
+      namespace: dex
+    - name: external-dns
+      namespace: external-dns
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: oauth2-proxy
+      namespace: oauth2-proxy
+  path: "./apps/base/oauth2-proxy/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/oauth2-proxy/helmrelease/oauth2-proxy.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | oauth2-proxy | https://oauth2-proxy.github.io/manifests | oauth2-proxy | 4.2.0
+metadata:
+  name: oauth2-proxy
+  namespace: oauth2-proxy
+spec:
+  releaseName: oauth2-proxy
+  chart:
+    spec:
+      chart: oauth2-proxy
+      sourceRef:
+        kind: HelmRepository
+        name: oauth2-proxy
+        namespace: flux-system
+      version: 4.2.0
+  interval: 1h0m0s
+  values:
+    config:
+      clientID: oauth2-proxy.${CLUSTER_FQDN}
+      clientSecret: \${MY_PASSWORD}
+      cookieSecret: \${COOKIE_SECRET}
+      configFile: |-
+        email_domains = [ "*" ]
+        upstreams = [ "file:///dev/null" ]
+        whitelist_domains = ".${CLUSTER_FQDN}"
+        cookie_domains = ".${CLUSTER_FQDN}"
+        provider = "oidc"
+        oidc_issuer_url = "https://dex.${CLUSTER_FQDN}"
+        ssl_insecure_skip_verify = "true"
+        insecure_oidc_skip_issuer_verification = "true"
+    ingress:
+      enabled: true
+      hosts:
+        - oauth2-proxy.${CLUSTER_FQDN}
+      tls:
+        - hosts:
+          - oauth2-proxy.${CLUSTER_FQDN}
+    metrics:
+      servicemonitor:
+        enabled: true
 EOF
 ```
 
@@ -1798,6 +1924,7 @@ resources:
   - ../../helmrepository/appscode
   - ../../helmrepository/ingress-nginx
   - ../../helmrepository/dex
+  - ../../helmrepository/oauth2-proxy
 EOF
 
 mkdir -vp "apps/${ENVIRONMENT}/base"
@@ -1816,6 +1943,7 @@ resources:
   - ../../base/ingress-nginx
   - ../../base/external-dns
   - ../../base/dex
+  - ../../base/oauth2-proxy
 patchesStrategicMerge:
   - patches.yaml
 EOF
@@ -1903,21 +2031,10 @@ spec:
         name: kube-prometheus-stack
         namespace: kube-prometheus-stack
       spec:
-        patchesStrategicMerge:
-          - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-            kind: HelmRelease
-            metadata:
-              name: kube-prometheus-stack
-              namespace: kube-prometheus-stack
-            spec:
-              chart:
-                spec:
-                  version: 18.0.3
-              values:
-                alertmanager:
-                  config:
-                    global:
-                      slack_api_url: ${SLACK_INCOMING_WEBHOOK_URL}
+        postBuild:
+          substitute:
+            SLACK_INCOMING_WEBHOOK_URL: ${SLACK_INCOMING_WEBHOOK_URL}
+            SLACK_CHANNEL: ${SLACK_CHANNEL}
     - apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
       kind: Kustomization
       metadata:
@@ -1927,29 +2044,21 @@ spec:
         postBuild:
           substitute:
             MY_PASSWORD: ${MY_PASSWORD}
-        patchesStrategicMerge:
-          - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-            kind: HelmRelease
-            metadata:
-              name: dex
-              namespace: dex
-            spec:
-              values:
-                config:
-                  connectors:
-                    - type: github
-                      id: github
-                      name: GitHub
-                      config:
-                        clientID: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
-                        clientSecret: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
-                    - type: oidc
-                      id: okta
-                      name: Okta
-                      config:
-                        issuer: ${OKTA_ISSUER}
-                        clientID: ${OKTA_CLIENT_ID}
-                        clientSecret: ${OKTA_CLIENT_SECRET}
+            MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
+            MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
+            OKTA_ISSUER: ${OKTA_ISSUER}
+            OKTA_CLIENT_ID: ${OKTA_CLIENT_ID}
+            OKTA_CLIENT_SECRET: ${OKTA_CLIENT_SECRET}
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+      kind: Kustomization
+      metadata:
+        name: oauth2-proxy
+        namespace: oauth2-proxy
+      spec:
+        postBuild:
+          substitute:
+            MY_PASSWORD: ${MY_PASSWORD}
+            COOKIE_SECRET: $(openssl rand -base64 32 | head -c 32 | base64 )
 EOF
 
 sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml"
