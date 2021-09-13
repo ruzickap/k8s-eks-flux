@@ -102,10 +102,9 @@ done
 Delete CloudFormation stack which created VPC, Subnets, Route53:
 
 ```bash
-while [[ $(aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" --query 'Stacks[0].StackStatus' --output text) != "DELETE_IN_PROGRESS" ]] ; do
-  sleep 1
-  date
+while [[ $(aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" --query 'Stacks[0].StackStatus' --output text) == "CREATE_COMPLETE" ]] ; do
   aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
+  sleep 5
 done;
 aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
 ```

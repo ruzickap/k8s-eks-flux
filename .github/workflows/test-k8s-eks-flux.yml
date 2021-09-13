@@ -73,7 +73,7 @@ jobs:
             bash -eu -c " \
               ./create-k8s-eks-flux.sh ;\
               ./create-k8s-eks-flux.sh ;\
-              sleep 300 ;\
+              sleep 400 ;\
               export KUBECONFIG=\"\${PWD}/tmp/\${CLUSTER_NAME}.\${BASE_DOMAIN}/kubeconfig-\${CLUSTER_NAME}.conf\" ;\
               kubectl get pods -A ;\
               kubectl get helmreleases.helm.toolkit.fluxcd.io -A ;\
