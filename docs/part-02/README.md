@@ -358,32 +358,6 @@ iam:
       wellKnownPolicies:
         efsCSIController: true
     - metadata:
-        name: grafana
-        namespace: kube-prometheus-stack
-      attachPolicyARNs:
-        - arn:aws:iam::aws:policy/AmazonPrometheusQueryAccess
-        - arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess
-      attachPolicy:
-        Version: 2012-10-17
-        Statement:
-        - Sid: AllowReadingTagsInstancesRegionsFromEC2
-          Effect: Allow
-          Action:
-          - ec2:DescribeTags
-          - ec2:DescribeInstances
-          - ec2:DescribeRegions
-          Resource: "*"
-        - Sid: AllowReadingResourcesForTags
-          Effect: Allow
-          Action: tag:GetResources
-          Resource: "*"
-    - metadata:
-        name: kube-prometheus-stack-prometheus
-        namespace: kube-prometheus-stack
-      attachPolicyARNs:
-        - arn:aws:iam::aws:policy/AmazonPrometheusQueryAccess
-        - arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess
-    - metadata:
         name: kustomize-controller
         namespace: flux-system
       attachPolicy:

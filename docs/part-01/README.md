@@ -24,6 +24,8 @@ export MY_GITHUB_ORG_NAME="ruzickap-org"
 # Flux GitHub repository
 export GITHUB_USER="ruzickap"
 export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
+GITHUB_WEBHOOK_TOKEN=$(head -c 12 /dev/urandom | shasum | cut -d " " -f1)
+export GITHUB_WEBHOOK_TOKEN
 export SLACK_CHANNEL="mylabs"
 # AWS Region
 export AWS_DEFAULT_REGION="eu-west-1"

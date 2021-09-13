@@ -955,9 +955,6 @@ spec:
             - alertmanager.${CLUSTER_FQDN}
     # https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
     grafana:
-      serviceAccount:
-        create: false
-        name: grafana
       ingress:
         enabled: true
         annotations:
@@ -970,25 +967,6 @@ spec:
         tls:
           - hosts:
             - grafana.${CLUSTER_FQDN}
-      plugins:
-        - digiapulssi-breadcrumb-panel
-        - grafana-piechart-panel
-        # Needed for MySQL Instances Overview -> Table Openings details
-        - grafana-polystat-panel
-      env:
-        GF_AUTH_SIGV4_AUTH_ENABLED: true
-      datasources:
-        datasources.yaml:
-          apiVersion: 1
-          datasources:
-          - name: Loki
-            type: loki
-            access: proxy
-            url: http://loki.loki:3100
-          - name: CloudWatch
-            type: cloudwatch
-            jsonData:
-              defaultRegion: ${AWS_DEFAULT_REGION}
       dashboardProviders:
         dashboardproviders.yaml:
           apiVersion: 1
@@ -1031,130 +1009,12 @@ spec:
             gnetId: 11875
             revision: 1
             datasource: Prometheus
-          istio-mesh:
-            gnetId: 7639
-            revision: 54
-            datasource: Prometheus
-          istio-performance:
-            gnetId: 11829
-            revision: 54
-            datasource: Prometheus
-          istio-service:
-            gnetId: 7636
-            revision: 54
-            datasource: Prometheus
-          istio-workload:
-            gnetId: 7630
-            revision: 54
-            datasource: Prometheus
-          istio-control-plane:
-            gnetId: 7645
-            revision: 54
-            datasource: Prometheus
-          velero-stats:
-            gnetId: 11055
-            revision: 2
-            datasource: Prometheus
-          jaeger:
-            gnetId: 10001
-            revision: 2
-            datasource: Prometheus
-          loki-promtail:
-            gnetId: 10880
-            revision: 1
-            datasource: Prometheus
           # https://github.com/fluxcd/flux2/blob/main/manifests/monitoring/grafana/dashboards/cluster.json
           gitops-toolkit-control-plane:
-            url: https://raw.githubusercontent.com/fluxcd/flux2/9916a5376123b4bcdc0f11999a8f8781ce5ee78c/manifests/monitoring/grafana/dashboards/control-plane.json
+            url: https://raw.githubusercontent.com/fluxcd/flux2/c98cd106218b0fdead155bd9a0b0a5666e5c3e15/manifests/monitoring/grafana/dashboards/control-plane.json
             datasource: Prometheus
           gitops-toolkit-cluster:
-            url: https://raw.githubusercontent.com/fluxcd/flux2/344a909d19498f1f02b936882b529d84bbd460b8/manifests/monitoring/grafana/dashboards/cluster.json
-            datasource: Prometheus
-          kyverno-cluster-policy-report:
-            gnetId: 13996
-            revision: 3
-            datasource: Prometheus
-          kyverno-policy-report:
-            gnetId: 13995
-            revision: 3
-            datasource: Prometheus
-          kyverno-policy-reports:
-            gnetId: 13968
-            revision: 1
-            datasource: Prometheus
-          harbor:
-            gnetId: 14075
-            revision: 2
-            datasource: Prometheus
-          aws-efs:
-            gnetId: 653
-            revision: 4
-            datasource: CloudWatch
-          amazon-rds-os-metrics:
-            gnetId: 702
-            revision: 1
-            datasource: CloudWatch
-          aws-rds:
-            gnetId: 707
-            revision: 5
-            datasource: CloudWatch
-          aws-rds-opt:
-            gnetId: 11698
-            revision: 1
-            datasource: CloudWatch
-          aws-ec2:
-            gnetId: 617
-            revision: 4
-            datasource: CloudWatch
-          aws-network-load-balancer:
-            gnetId: 12111
-            revision: 2
-            datasource: CloudWatch
-          aws-ebs:
-            gnetId: 623
-            revision: 4
-            datasource: CloudWatch
-          CPU_Utilization_Details:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/CPU_Utilization_Details.json
-            datasource: Prometheus
-          Disk_Details:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Disk_Details.json
-            datasource: Prometheus
-          Memory_Details:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Memory_Details.json
-            datasource: Prometheus
-          MySQL_Command_Handler_Counters_Compare:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_Command_Handler_Counters_Compare.json
-            datasource: Prometheus
-          MySQL_InnoDB_Compression_Details:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_InnoDB_Compression_Details.json
-            datasource: Prometheus
-          MySQL_InnoDB_Details:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_InnoDB_Details.json
-            datasource: Prometheus
-          MySQL_Instance_Summary:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_Instance_Summary.json
-            datasource: Prometheus
-          MySQL_Instances_Compare:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_Instances_Compare.json
-            datasource: Prometheus
-          MySQL_Instances_Overview:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_Instances_Overview.json
-            datasource: Prometheus
-          MySQL_MyISAM_Aria_Details:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/MySQL_MyISAM_Aria_Details.json
-            datasource: Prometheus
-          Network_Details:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Network_Details.json
-            datasource: Prometheus
-          Nodes_Compare:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Nodes_Compare.json
-            datasource: Prometheus
-          Nodes_Overview:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Nodes_Overview.json
-            datasource: Prometheus
-          Prometheus_Exporters_Overview:
-            url: https://raw.githubusercontent.com/percona/grafana-dashboards/1316f80e834f9a3617e196b41617299c13d62421/dashboards/Prometheus_Exporters_Overview.json
+            url: https://raw.githubusercontent.com/fluxcd/flux2/3b91e14f6dff0fad024ae44a58b40f76e677bd1c/manifests/monitoring/grafana/dashboards/cluster.json
             datasource: Prometheus
       grafana.ini:
         server:
@@ -1181,9 +1041,6 @@ spec:
       admissionWebhooks:
         enabled: false
     prometheus:
-      serviceAccount:
-        create: false
-        name: kube-prometheus-stack-prometheus
       ingress:
         enabled: true
         annotations:
@@ -1841,10 +1698,6 @@ spec:
   dependsOn:
     - name: kube-prometheus-stack
       namespace: kube-prometheus-stack
-    - name: dex
-      namespace: dex
-    - name: external-dns
-      namespace: external-dns
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -1891,6 +1744,10 @@ spec:
         oidc_issuer_url = "https://dex.${CLUSTER_FQDN}"
         ssl_insecure_skip_verify = "true"
         insecure_oidc_skip_issuer_verification = "true"
+        skip_oidc_discovery = "true"
+        login_url = "https://dex.${CLUSTER_FQDN}/auth"
+        redeem_url = "https://dex.${CLUSTER_FQDN}/token"
+        oidc_jwks_url = "https://dex.${CLUSTER_FQDN}/keys"
     ingress:
       enabled: true
       hosts:
@@ -1901,6 +1758,232 @@ spec:
     metrics:
       servicemonitor:
         enabled: true
+EOF
+```
+
+### Flux provides, alerts, receivers and monitoring
+
+[flux](https://fluxcd.io/)
+
+```bash
+mkdir -vp apps/base/flux/{providers,alerts,receivers,monitoring}
+cat > apps/base/flux/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - flux-providers.yaml
+  - flux-alerts.yaml
+  - flux-receivers.yaml
+  - flux-monitoring.yaml
+EOF
+
+cat > apps/base/flux/flux-providers.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: flux-providers
+  namespace: flux-system
+spec:
+  interval: 1m
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  healthChecks:
+    - apiVersion: notification.toolkit.fluxcd.io/v1beta1
+      kind: Provider
+      name: slack
+      namespace: flux-system
+  path: ./apps/base/flux/providers/
+EOF
+
+cat > apps/base/flux/providers/provider-slack.yaml << \EOF
+apiVersion: notification.toolkit.fluxcd.io/v1beta1
+kind: Provider
+metadata:
+  name: slack
+  namespace: flux-system
+spec:
+  type: slack
+  channel: ${SLACK_CHANNEL}
+  secretRef:
+    name: slack-url
+EOF
+
+cat > apps/base/flux/providers/provider-slack-url-secret.yaml << \EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: slack-url
+  namespace: flux-system
+data:
+  address: ${SLACK_INCOMING_WEBHOOK_URL_BASE64}
+EOF
+
+cat > apps/base/flux/flux-alerts.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: flux-alerts
+  namespace: flux-system
+spec:
+  interval: 1m
+  dependsOn:
+    - name: flux-providers
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  healthChecks:
+    - apiVersion: notification.toolkit.fluxcd.io/v1beta1
+      kind: Alert
+      name: alert-slack
+      namespace: flux-system
+  path: ./apps/base/flux/alerts/
+EOF
+
+cat > apps/base/flux/alerts/alert-slack.yaml << \EOF
+apiVersion: notification.toolkit.fluxcd.io/v1beta1
+kind: Alert
+metadata:
+  name: alert-slack
+  namespace: flux-system
+spec:
+  providerRef:
+    name: slack
+  eventSeverity: error
+  eventSources:
+    - kind: GitRepository
+      name: "*"
+    - kind: Kustomization
+      name: "*"
+    - kind: HelmRepository
+      name: "*"
+    - kind: HelmChart
+      name: "*"
+    - kind: HelmRelease
+      name: "*"
+EOF
+
+cat > apps/base/flux/flux-monitoring.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: flux-monitoring
+  namespace: flux-system
+spec:
+  interval: 1m
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: kube-prometheus-stack
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  healthChecks:
+    - apiVersion: monitoring.coreos.com/v1
+      kind: PodMonitor
+      name: source-controller
+      namespace: flux-system
+  path: ./apps/base/flux/monitoring/
+EOF
+
+cat > apps/base/flux/monitoring/monitoring-podmonitor.yaml << \EOF
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: flux-system
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/part-of: flux
+spec:
+  namespaceSelector:
+    matchNames:
+      - flux-system
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - helm-controller
+          - source-controller
+          - kustomize-controller
+          - notification-controller
+          - image-automation-controller
+          - image-reflector-controller
+  podMetricsEndpoints:
+    - port: http-prom
+EOF
+
+cat > apps/base/flux/flux-receivers.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: flux-receivers
+  namespace: flux-system
+spec:
+  interval: 1m
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  healthChecks:
+    - apiVersion: notification.toolkit.fluxcd.io/v1beta1
+      kind: Receiver
+      name: github-receiver
+      namespace: flux-system
+  path: ./apps/base/flux/receivers/
+EOF
+
+cat > apps/base/flux/receivers/receiver-github-webhook-token-secret.yaml << \EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-webhook-token
+  namespace: flux-system
+data:
+  token: ${GITHUB_WEBHOOK_TOKEN_BASE64}
+EOF
+
+cat > apps/base/flux/receivers/receiver-github.yaml << \EOF
+apiVersion: notification.toolkit.fluxcd.io/v1beta1
+kind: Receiver
+metadata:
+  name: github-receiver
+  namespace: flux-system
+spec:
+  type: github
+  events:
+    - "ping"
+    - "push"
+  secretRef:
+    name: github-webhook-token
+  resources:
+    - kind: GitRepository
+      name: flux-system
+EOF
+
+cat > apps/base/flux/receivers/receiver-github-ingress.yaml << EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flux-github-receiver
+  namespace: flux-system
+spec:
+  rules:
+  - host: flux-receiver.${CLUSTER_FQDN}
+    http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: webhook-receiver
+            port:
+              name: http
+  tls:
+  - hosts:
+    - flux-receiver.${CLUSTER_FQDN}
 EOF
 ```
 
@@ -1944,6 +2027,7 @@ resources:
   - ../../base/external-dns
   - ../../base/dex
   - ../../base/oauth2-proxy
+  - ../../base/flux
 patchesStrategicMerge:
   - patches.yaml
 EOF
@@ -2059,6 +2143,25 @@ spec:
           substitute:
             MY_PASSWORD: ${MY_PASSWORD}
             COOKIE_SECRET: $(openssl rand -base64 32 | head -c 32 | base64 )
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+      kind: Kustomization
+      metadata:
+        name: flux-providers
+        namespace: flux-system
+      spec:
+        postBuild:
+          substitute:
+            SLACK_CHANNEL: ${SLACK_CHANNEL}
+            SLACK_INCOMING_WEBHOOK_URL_BASE64: $(echo -n "${SLACK_INCOMING_WEBHOOK_URL}" | base64 --wrap=0)
+    - apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+      kind: Kustomization
+      metadata:
+        name: flux-receivers
+        namespace: flux-system
+      spec:
+        postBuild:
+          substitute:
+            GITHUB_WEBHOOK_TOKEN_BASE64: $(echo -n "${GITHUB_WEBHOOK_TOKEN}" | base64 --wrap=0)
 EOF
 
 sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml"
@@ -2075,6 +2178,15 @@ git push
 flux reconcile source git flux-system
 ```
 
+Wait for receiver and then configure the GitHub repository to send Webhooks to
+Flux:
+
+```bash
+sleep 60
+FLUX_RECEIVER_URL=$(kubectl -n flux-system get receiver github-receiver -o jsonpath="{.status.url}")
+curl -s -H "Authorization: token $GITHUB_TOKEN" -X POST -d "{\"active\": true, \"events\": [\"push\"], \"config\": {\"url\": \"https://flux-receiver.${CLUSTER_FQDN}${FLUX_RECEIVER_URL}\", \"content_type\": \"json\", \"secret\": \"${GITHUB_WEBHOOK_TOKEN}\", \"insecure_ssl\": \"1\"}}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq
+```
+
 Go back to the main directory:
 
 ```bash
@@ -2089,7 +2201,7 @@ flux logs --level=error --all-namespaces
 
 Check `helmreleases`, `helmrepositories`, `kustomizations`, ...
 
-```shell
+```bash
 kubectl get pods -A
 kubectl get helmreleases.helm.toolkit.fluxcd.io -A
 kubectl get helmrepositories.source.toolkit.fluxcd.io -A
