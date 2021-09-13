@@ -329,6 +329,29 @@ spec:
 EOF
 ```
 
+### codecentric helm repository
+
+```bash
+mkdir -vp apps/helmrepository/codecentric
+cat > apps/helmrepository/codecentric/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - codecentric.yaml
+EOF
+
+cat > apps/helmrepository/codecentric/codecentric.yaml << EOF
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: codecentric
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://codecentric.github.io/helm-charts
+EOF
+```
+
 ## Basic Applications
 
 > Due to [https://github.com/fluxcd/flux2/discussions/730](https://github.com/fluxcd/flux2/discussions/730),
@@ -1883,7 +1906,7 @@ spec:
   healthChecks:
     - apiVersion: monitoring.coreos.com/v1
       kind: PodMonitor
-      name: source-controller
+      name: flux-system
       namespace: flux-system
   path: ./apps/base/flux/monitoring/
 EOF
@@ -1987,6 +2010,85 @@ spec:
 EOF
 ```
 
+### MailHog
+
+[mailhog](https://github.com/mailhog/MailHog)
+
+* [mailhog](https://artifacthub.io/packages/helm/codecentric/mailhog)
+* [default values.yaml](https://github.com/codecentric/helm-charts/blob/master/charts/mailhog/values.yaml):
+
+```bash
+mkdir -vp apps/base/mailhog/helmrelease
+cat > apps/base/mailhog/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - mailhog.yaml
+EOF
+
+cat > apps/base/mailhog/namespace.yaml << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mailhog
+EOF
+
+cat > apps/base/mailhog/mailhog.yaml << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: mailhog
+  namespace: mailhog
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: mailhog
+      namespace: mailhog
+  path: "./apps/base/mailhog/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/mailhog/helmrelease/mailhog.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | codecentric | https://codecentric.github.io/helm-charts | mailhog | 4.1.0
+metadata:
+  name: mailhog
+  namespace: mailhog
+spec:
+  releaseName: mailhog
+  chart:
+    spec:
+      chart: mailhog
+      sourceRef:
+        kind: HelmRepository
+        name: codecentric
+        namespace: flux-system
+      version: 4.1.0
+  interval: 1h0m0s
+  values:
+    ingress:
+      enabled: true
+      annotations:
+        nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+        nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=\$scheme://\$host\$request_uri
+      hosts:
+        - host: mailhog.${CLUSTER_FQDN}
+          paths: ["/"]
+      tls:
+        - hosts:
+          - mailhog.${CLUSTER_FQDN}
+EOF
+```
+
 ## Apps dev group
 
 Create application group called `dev` which will contain all the
@@ -2008,6 +2110,7 @@ resources:
   - ../../helmrepository/ingress-nginx
   - ../../helmrepository/dex
   - ../../helmrepository/oauth2-proxy
+  - ../../helmrepository/codecentric
 EOF
 
 mkdir -vp "apps/${ENVIRONMENT}/base"
@@ -2028,6 +2131,7 @@ resources:
   - ../../base/dex
   - ../../base/oauth2-proxy
   - ../../base/flux
+  - ../../base/mailhog
 patchesStrategicMerge:
   - patches.yaml
 EOF
@@ -2182,9 +2286,11 @@ Wait for receiver and then configure the GitHub repository to send Webhooks to
 Flux:
 
 ```bash
-sleep 60
-FLUX_RECEIVER_URL=$(kubectl -n flux-system get receiver github-receiver -o jsonpath="{.status.url}")
-curl -s -H "Authorization: token $GITHUB_TOKEN" -X POST -d "{\"active\": true, \"events\": [\"push\"], \"config\": {\"url\": \"https://flux-receiver.${CLUSTER_FQDN}${FLUX_RECEIVER_URL}\", \"content_type\": \"json\", \"secret\": \"${GITHUB_WEBHOOK_TOKEN}\", \"insecure_ssl\": \"1\"}}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq
+if [[ $(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq -r) = '[]' ]]; then
+  sleep 60
+  FLUX_RECEIVER_URL=$(kubectl -n flux-system get receiver github-receiver -o jsonpath="{.status.url}")
+  curl -s -H "Authorization: token $GITHUB_TOKEN" -X POST -d "{\"active\": true, \"events\": [\"push\"], \"config\": {\"url\": \"https://flux-receiver.${CLUSTER_FQDN}${FLUX_RECEIVER_URL}\", \"content_type\": \"json\", \"secret\": \"${GITHUB_WEBHOOK_TOKEN}\", \"insecure_ssl\": \"1\"}}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq
+fi
 ```
 
 Go back to the main directory:
