@@ -9,6 +9,7 @@ bitnami
 CloudFlare
 CloudFormation
 ClusterIssuers
+codecentric
 ConfigMap
 Crossplane
 crossplane-stable
@@ -32,6 +33,8 @@ kubectl
 kubed
 Kubernetes
 Kustomization
+mailhog
+MailHog
 nameservers
 OAuth2
 oauth2-proxy
