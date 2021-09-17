@@ -41,6 +41,7 @@ oauth2-proxy
 prometheus-community
 ReadWriteMany
 Route53
+Snapshotter
 toc
 values.yaml
 Velero

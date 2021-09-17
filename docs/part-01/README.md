@@ -13,7 +13,7 @@ names will look like `CLUSTER_NAME`.`BASE_DOMAIN` (`kube1.k8s.mylabs.dev`).
 ```bash
 # Hostname / FQDN definitions
 export BASE_DOMAIN=${BASE_DOMAIN:-k8s.mylabs.dev}
-export CLUSTER_NAME=${CLUSTER_NAME:-kube1}
+export CLUSTER_NAME=${CLUSTER_NAME:-kube2}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export KUBECONFIG=${PWD}/tmp/${CLUSTER_FQDN}/kubeconfig-${CLUSTER_NAME}.conf
 export MY_EMAIL="petr.ruzicka@gmail.com"
@@ -24,8 +24,10 @@ export MY_GITHUB_ORG_NAME="ruzickap-org"
 # Flux GitHub repository
 export GITHUB_USER="ruzickap"
 export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
-GITHUB_WEBHOOK_TOKEN=$(head -c 12 /dev/urandom | md5sum | cut -d " " -f1)
-export GITHUB_WEBHOOK_TOKEN
+MY_GITHUB_WEBHOOK_TOKEN=${MY_GITHUB_WEBHOOK_TOKEN:-$(head -c 12 /dev/urandom | md5sum | cut -d " " -f1)}
+export MY_GITHUB_WEBHOOK_TOKEN
+COOKIE_SECRET=${COOKIE_SECRET:-$( openssl rand -base64 32 | head -c 32 | base64 )}
+export COOKIE_SECRET
 export SLACK_CHANNEL="mylabs"
 # AWS Region
 export AWS_DEFAULT_REGION="eu-west-1"
@@ -82,12 +84,13 @@ esac
 : "${AWS_ACCESS_KEY_ID?}"
 : "${AWS_SECRET_ACCESS_KEY?}"
 : "${GITHUB_TOKEN?}"
-: "${SLACK_INCOMING_WEBHOOK_URL?}"
-: "${SLACK_CHANNEL?}"
+: "${MY_GITHUB_WEBHOOK_TOKEN?}"
 : "${MY_PASSWORD?}"
-: "${OKTA_ISSUER?}"
 : "${OKTA_CLIENT_ID?}"
 : "${OKTA_CLIENT_SECRET?}"
+: "${OKTA_ISSUER?}"
+: "${SLACK_CHANNEL?}"
+: "${SLACK_INCOMING_WEBHOOK_URL?}"
 ```
 
 ## Prepare the local working environment
@@ -682,7 +685,6 @@ Get the variables form CloudFormation:
 ```bash
 aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" > "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json"
 AWS_VPC_ID=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcId\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
-# AWS_VPC_CIDR=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"VpcCidrBlock\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 AWS_PUBLICSUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PublicSubnetId1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 AWS_PUBLICSUBNETID2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PublicSubnetId2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 AWS_PRIVATESUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PrivateSubnetId1\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
