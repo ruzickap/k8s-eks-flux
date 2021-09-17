@@ -20,6 +20,8 @@ docker run -it --rm \
   -e OKTA_CLIENT_ID \
   -e OKTA_CLIENT_SECRET \
   -e MY_PASSWORD \
+  -e COOKIE_SECRET \
+  -e MY_GITHUB_WEBHOOK_TOKEN \
   -v "${PWD}:/mnt" \
   -w /mnt \
   ubuntu \

@@ -34,7 +34,7 @@ Set necessary variables and verify if all the necessary variables were set:
 
 ```bash
 export BASE_DOMAIN=${BASE_DOMAIN:-k8s.mylabs.dev}
-export CLUSTER_NAME=${CLUSTER_NAME:-kube1}
+export CLUSTER_NAME=${CLUSTER_NAME:-kube2}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export AWS_DEFAULT_REGION="eu-west-1"
 export AWS_PAGER=""
@@ -72,7 +72,7 @@ fi
 Remove CloudFormation stacks:
 
 ```bash
-aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-route53-efs"
+aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-route53"
 ```
 
 Remove GitHub repository created for Flux:
@@ -99,7 +99,7 @@ for SNAPSHOT in ${SNAPSHOTS}; do
 done
 ```
 
-Delete CloudFormation stack which created VPC, Subnets, Route53:
+Delete CloudFormation stack which created VPC, Subnets, Route53, EKS, ...:
 
 ```bash
 while [[ $(aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" --query 'Stacks[0].StackStatus' --output text) == "CREATE_COMPLETE" ]] ; do
@@ -107,6 +107,7 @@ while [[ $(aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amaz
   sleep 5
 done;
 aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
+aws cloudformation wait stack-delete-complete --stack-name eksctl-${CLUSTER_NAME}-cluster
 ```
 
 Remove `tmp/${CLUSTER_FQDN}` directory:
