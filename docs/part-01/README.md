@@ -31,6 +31,8 @@ export COOKIE_SECRET
 export SLACK_CHANNEL="mylabs"
 # AWS Region
 export AWS_DEFAULT_REGION="eu-west-1"
+AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}
+export AWS_ACCOUNT_ID
 # Set dev, prd, stg or eny other environment
 export ENVIRONMENT=dev
 # * "production" - valid certificates signed by Lets Encrypt ""
@@ -169,8 +171,17 @@ Install [Mozilla SOPS](https://github.com/mozilla/sops):
 
 ```bash
 if ! command -v sops &> /dev/null; then
-  curl -sL "https://github.com/mozilla/sops/releases/download/v3.7.1/sops_3.7.1_amd64.deb" -o "/tmp/sops_amd64.deb"
+  curl -sL "https://github.com/mozilla/sops/releases/download/v3.7.1/sops_3.7.1_amd64.deb" -o /tmp/sops_amd64.deb
   apt install -y /tmp/sops_amd64.deb > /dev/null
+fi
+```
+
+Install [yq](https://mikefarah.gitbook.io/yq/):
+
+```bash
+if ! command -v yq &> /dev/null; then
+  curl -sL "https://github.com/mikefarah/yq/releases/download/v4.13.0/yq_$(uname | sed "s/./\L&/g")_amd64" -o /usr/local/bin/yq
+  chmod a+x /usr/local/bin/yq
 fi
 ```
 

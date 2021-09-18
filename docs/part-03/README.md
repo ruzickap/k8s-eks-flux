@@ -1,4 +1,4 @@
-# Applications
+# Base Applications
 
 [[toc]]
 
@@ -14,7 +14,7 @@ Flux (dis)advantages:
 * [HelmReleases](https://fluxcd.io/docs/components/helm/helmreleases/) are
   compatible with Helm (`helm ls -A` works fine)
 * [Variable substitution](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
-  is really handy and easy to use in case you do not want to use [patches](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
+  is really handy and easy to use in case you do not want to use too much [patches](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
 
 ## Create basic Flux structure in git repository
 
@@ -116,6 +116,8 @@ declare -A HELMREPOSITORIES=(
   ["jetstack"]="https://charts.jetstack.io"
   ["oauth2-proxy"]="https://oauth2-proxy.github.io/manifests"
   ["prometheus-community"]="https://prometheus-community.github.io/helm-charts"
+  ["crossplane-stable"]="https://charts.crossplane.io/stable"
+  ["rancher-latest"]="https://releases.rancher.com/server-charts/latest"
 )
 
 cat > apps/helmrepository/kustomization.yaml << EOF
@@ -147,7 +149,76 @@ EOF
 done
 ```
 
-## Base Application definitions
+## Clusters
+
+It is necessary to split `HelmRepository` and `HelmRelease`, otherwise there
+are many errors in flux logs. `HelmRepository` should be always installed
+before `HelmRelease` using `dependsOn`.
+
+```bash
+mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-helmrepository.yaml" << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: apps-helmrepository
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: "./apps/${ENVIRONMENT}/helmrepository"
+  prune: true
+  validation: client
+EOF
+
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml" << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: apps-base
+  namespace: flux-system
+spec:
+  interval: 5m
+  dependsOn:
+    - name: apps-helmrepository
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: "./apps/${ENVIRONMENT}/base"
+  prune: true
+  validation: client
+  postBuild:
+    substitute:
+      # This is not working due to bug: https://github.com/fluxcd/flux2/issues/1839
+      ######## AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:=AWS_ACCOUNT_ID}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:=AWS_DEFAULT_REGION}
+      AWS_KMS_KEY_ARN: ${AWS_KMS_KEY_ARN:=AWS_KMS_KEY_ARN}
+      CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
+      CLUSTER_NAME: ${CLUSTER_NAME:=CLUSTER_NAME}
+      COOKIE_SECRET: ${COOKIE_SECRET:=COOKIE_SECRET}
+      ENVIRONMENT: ${ENVIRONMENT:=ENVIRONMENT}
+      LETSENCRYPT_ENVIRONMENT: ${LETSENCRYPT_ENVIRONMENT:=LETSENCRYPT_ENVIRONMENT}
+      MY_EMAIL: ${MY_EMAIL:=MY_EMAIL}
+      MY_GITHUB_ORG_NAME: ${MY_GITHUB_ORG_NAME:=MY_GITHUB_ORG_NAME}
+      MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:=MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
+      MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:=MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
+      MY_GITHUB_WEBHOOK_TOKEN_BASE64: $(echo -n "${MY_GITHUB_WEBHOOK_TOKEN}" | base64 --wrap=0)
+      MY_PASSWORD: ${MY_PASSWORD:=MY_PASSWORD}
+      OKTA_CLIENT_ID: ${OKTA_CLIENT_ID:=OKTA_CLIENT_ID}
+      OKTA_CLIENT_SECRET: ${OKTA_CLIENT_ID:=OKTA_CLIENT_ID}
+      OKTA_ISSUER: ${OKTA_ISSUER:=OKTA_ISSUER}
+      SLACK_CHANNEL: ${SLACK_CHANNEL:=SLACK_CHANNEL}
+      SLACK_INCOMING_WEBHOOK_URL_BASE64: $(echo -n "${SLACK_INCOMING_WEBHOOK_URL}" | base64 --wrap=0)
+      SLACK_INCOMING_WEBHOOK_URL: ${SLACK_INCOMING_WEBHOOK_URL:=SLACK_INCOMING_WEBHOOK_URL}
+      TAGS_INGRESS_NGINX: ${TAGS// /,}
+EOF
+
+sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml"
+```
+
+## Create initial Base Application and Apps dev group definitions
 
 Create `apps/base/kustomization.yaml` which should be used only for testing or
 dev clusters, because it will contain all base applications.
@@ -160,6 +231,33 @@ resources:
 EOF
 ```
 
+Create `apps/${ENVIRONMENT}/base/kustomization.yaml` which should be used only
+for testing or dev clusters, because it will contain all base applications.
+
+```bash
+cat > "apps/${ENVIRONMENT}/base/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patchesStrategicMerge:
+EOF
+```
+
+Create application group called `dev` which will contain all the
+`HelmRepository` and `HelmRelease` used by this group.
+
+```bash
+cat > "apps/${ENVIRONMENT}/helmrepository/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../helmrepository
+EOF
+```
+
+## Base Applications definitions
+
 ### Amazon Elastic Block Store (EBS) CSI driver
 
 [Amazon Elastic Block Store (EBS) CSI driver](https://github.com/kubernetes-sigs/aws-ebs-csi-driver)
@@ -169,7 +267,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/aws-ebs-csi-driver/helmrelease
-echo "  - aws-ebs-csi-driver" >> apps/base/kustomization.yaml
+yq e '.resources += ["aws-ebs-csi-driver"]' -i apps/base/kustomization.yaml
 cat > apps/base/aws-ebs-csi-driver/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -226,6 +324,7 @@ spec:
         Cluster: ${CLUSTER_FQDN:=CLUSTER_FQDN}
 EOF
 
+yq e '.patchesStrategicMerge += ["aws-ebs-csi-driver-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/aws-ebs-csi-driver-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -255,6 +354,170 @@ spec:
 EOF
 ```
 
+### Crossplane
+
+[Crossplane](https://crossplane.io/)
+
+* [crossplane](https://github.com/crossplane/crossplane)
+* [default values.yaml](https://github.com/crossplane/crossplane/blob/master/cluster/charts/crossplane/values.yaml.tmpl):
+
+```bash
+mkdir -vp apps/base/crossplane/helmrelease
+yq e '.resources += ["crossplane"]' -i apps/base/kustomization.yaml
+cat > apps/base/crossplane/kustomization.yaml << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace-crossplane.yaml
+  - crossplane.yaml
+EOF
+
+cat > apps/base/crossplane/namespace-crossplane.yaml << \EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crossplane-system
+EOF
+
+cat > apps/base/crossplane/crossplane.yaml << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: crossplane
+  namespace: crossplane-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: crossplane
+      namespace: crossplane-system
+  path: "./apps/base/crossplane/helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/crossplane/helmrelease/crossplane.yaml << \EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | crossplane | 1.4.1 | crossplane | https://charts.crossplane.io/stable
+metadata:
+  name: crossplane
+  namespace: crossplane-system
+spec:
+  releaseName: crossplane
+  chart:
+    spec:
+      chart: crossplane
+      sourceRef:
+        kind: HelmRepository
+        name: crossplane-stable
+        namespace: flux-system
+      version: 1.4.1
+  interval: 1h0m0s
+EOF
+
+mkdir -pv "apps/${ENVIRONMENT}/base/crossplane"/{provider,providerconfig}
+yq e '.resources += ["crossplane"]' -i apps/${ENVIRONMENT}/base/kustomization.yaml
+cat > "apps/${ENVIRONMENT}/base/crossplane/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - provider.yaml
+  - providerconfig.yaml
+EOF
+
+cat > "apps/${ENVIRONMENT}/base/crossplane/provider.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: crossplane-provider
+  namespace: crossplane-system
+spec:
+  interval: 5m0s
+  dependsOn:
+    - name: crossplane
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Provider
+      name: provider-aws
+  path: "./apps/${ENVIRONMENT}/base/crossplane/provider"
+  prune: true
+  validation: client
+  postBuild:
+    substitute:
+      AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:=AWS_ACCOUNT_ID}
+      CLUSTER_NAME: ${CLUSTER_NAME:=CLUSTER_NAME}
+EOF
+
+#### This needs to be changed into \EOF xxxxx !!!!
+# This can not be "enabled" due to bug: https://github.com/fluxcd/flux2/issues/1839
+cat > "apps/${ENVIRONMENT}/base/crossplane/provider/provider-aws.yaml" << EOF
+apiVersion: pkg.crossplane.io/v1alpha1
+kind: ControllerConfig
+metadata:
+  name: aws-config
+  namespace: crossplane-system
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/crossplane-provider-aws-${CLUSTER_NAME}
+spec:
+  podSecurityContext:
+    fsGroup: 2000
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws
+  namespace: crossplane-system
+spec:
+  package: crossplane/provider-aws:master
+  controllerConfigRef:
+    name: aws-config
+EOF
+
+cat > "apps/${ENVIRONMENT}/base/crossplane/providerconfig.yaml" << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: crossplane-providerconfig
+  namespace: crossplane-system
+spec:
+  interval: 5m0s
+  dependsOn:
+    - name: crossplane-provider
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: aws.crossplane.io/v1beta1
+      kind: ProviderConfig
+      name: aws-provider
+  path: "./apps/${ENVIRONMENT}/base/crossplane/providerconfig"
+  prune: true
+  validation: client
+EOF
+
+cat > "apps/${ENVIRONMENT}/base/crossplane/providerconfig/providerconfig-aws.yaml" << \EOF
+apiVersion: aws.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: aws-provider
+  namespace: crossplane-system
+spec:
+  credentials:
+    source: InjectedIdentity
+EOF
+```
+
 ### CSI Snapshotter
 
 Details about EKS and `external-snapshotter` can be found here:
@@ -262,7 +525,7 @@ Details about EKS and `external-snapshotter` can be found here:
 
 ```bash
 mkdir -vp apps/base/external-snapshotter/manifests
-echo "  - external-snapshotter" >> apps/base/kustomization.yaml
+yq e '.resources += ["external-snapshotter"]' -i apps/base/kustomization.yaml
 cat > apps/base/external-snapshotter/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -316,7 +579,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/metrics-server/helmrelease
-echo "  - metrics-server" >> apps/base/kustomization.yaml
+yq e '.resources += ["metrics-server"]' -i apps/base/kustomization.yaml
 cat > apps/base/metrics-server/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -374,6 +637,7 @@ spec:
   interval: 1h0m0s
 EOF
 
+yq e '.patchesStrategicMerge += ["metrics-server-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/metrics-server-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -403,7 +667,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/kube-prometheus-stack/helmrelease
-echo "  - kube-prometheus-stack" >> apps/base/kustomization.yaml
+yq e '.resources += ["kube-prometheus-stack"]' -i apps/base/kustomization.yaml
 cat > apps/base/kube-prometheus-stack/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -464,6 +728,7 @@ spec:
   interval: 1h0m0s
 EOF
 
+yq e '.patchesStrategicMerge += ["kube-prometheus-stack-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/kube-prometheus-stack-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -731,7 +996,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/cert-manager/helmrelease
-echo "  - cert-manager" >> apps/base/kustomization.yaml
+yq e '.resources += ["cert-manager"]' -i apps/base/kustomization.yaml
 cat > apps/base/cert-manager/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -793,6 +1058,7 @@ spec:
       name: cert-manager
 EOF
 
+yq e '.patchesStrategicMerge += ["cert-manager-helmrelease-values.yaml"]' -i apps/${ENVIRONMENT}/base/kustomization.yaml
 cat > "apps/${ENVIRONMENT}/base/cert-manager-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -820,6 +1086,7 @@ spec:
 EOF
 
 mkdir -pv "apps/${ENVIRONMENT}/base/cert-manager"/{clusterissuer,certificate}
+yq e '.resources += ["cert-manager"]' -i apps/${ENVIRONMENT}/base/kustomization.yaml
 cat > "apps/${ENVIRONMENT}/base/cert-manager/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -937,6 +1204,9 @@ metadata:
   namespace: cert-manager
 spec:
   secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+  secretTemplate:
+    annotations:
+      kubed.appscode.com/sync: "cert-manager-cert-${LETSENCRYPT_ENVIRONMENT}=copy"
   issuerRef:
     name: letsencrypt-${LETSENCRYPT_ENVIRONMENT}-dns
     kind: ClusterIssuer
@@ -956,7 +1226,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/dex/helmrelease
-echo "  - dex" >> apps/base/kustomization.yaml
+yq e '.resources += ["dex"]' -i apps/base/kustomization.yaml
 cat > apps/base/dex/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -1025,6 +1295,7 @@ spec:
           name: GitHub
 EOF
 
+yq e '.patchesStrategicMerge += ["dex-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/dex-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -1102,7 +1373,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/external-dns/helmrelease
-echo "  - external-dns" >> apps/base/kustomization.yaml
+yq e '.resources += ["external-dns"]' -i apps/base/kustomization.yaml
 cat > apps/base/external-dns/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -1159,6 +1430,7 @@ spec:
       name: external-dns
 EOF
 
+yq e '.patchesStrategicMerge += ["external-dns-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/external-dns-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -1196,6 +1468,7 @@ EOF
 
 ```bash
 mkdir -vp "apps/${ENVIRONMENT}/base/flux"/{providers,alerts,receivers,monitoring}
+yq e '.resources += ["flux"]' -i apps/${ENVIRONMENT}/base/kustomization.yaml
 cat > "apps/${ENVIRONMENT}/base/flux/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -1437,7 +1710,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/ingress-nginx/helmrelease
-echo "  - ingress-nginx" >> apps/base/kustomization.yaml
+yq e '.resources += ["ingress-nginx"]' -i apps/base/kustomization.yaml
 cat > apps/base/ingress-nginx/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -1500,6 +1773,7 @@ spec:
   interval: 1h0m0s
 EOF
 
+yq e '.patchesStrategicMerge += ["ingress-nginx-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/ingress-nginx-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -1574,7 +1848,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/mailhog/helmrelease
-echo "  - mailhog" >> apps/base/kustomization.yaml
+yq e '.resources += ["mailhog"]' -i apps/base/kustomization.yaml
 cat > apps/base/mailhog/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -1632,6 +1906,7 @@ spec:
   interval: 1h0m0s
 EOF
 
+yq e '.patchesStrategicMerge += ["mailhog-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/mailhog-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -1670,7 +1945,7 @@ EOF
 
 ```bash
 mkdir -vp apps/base/oauth2-proxy/helmrelease
-echo "  - oauth2-proxy" >> apps/base/kustomization.yaml
+yq e '.resources += ["oauth2-proxy"]' -i apps/base/kustomization.yaml
 cat > apps/base/oauth2-proxy/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -1731,6 +2006,7 @@ spec:
   interval: 1h0m0s
 EOF
 
+yq e '.patchesStrategicMerge += ["oauth2-proxy-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/oauth2-proxy-helmrelease-values.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
@@ -1776,118 +2052,6 @@ spec:
 EOF
 ```
 
-## Apps dev group
-
-Create application group called `dev` which will contain all the
-`HelmRepository` and `HelmRelease` used by this group.
-
-```bash
-cat > "apps/${ENVIRONMENT}/helmrepository/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../helmrepository
-EOF
-
-cat > "apps/${ENVIRONMENT}/base/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../base
-  - cert-manager
-  - flux
-patchesStrategicMerge:
-  - aws-ebs-csi-driver-helmrelease-values.yaml
-  - dex-helmrelease-values.yaml
-  - mailhog-helmrelease-values.yaml
-  - cert-manager-helmrelease-values.yaml
-  - external-dns-helmrelease-values.yaml
-  - ingress-nginx-helmrelease-values.yaml
-  - kube-prometheus-stack-helmrelease-values.yaml
-  - metrics-server-helmrelease-values.yaml
-  - oauth2-proxy-helmrelease-values.yaml
-EOF
-```
-
-## Clusters
-
-It is necessary to split `HelmRepository` and `HelmRelease`, otherwise there
-are many errors in flux logs. `HelmRepository` should be always installed
-before `HelmRelease` using `dependsOn`.
-
-```bash
-mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-helmrepository.yaml" << EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: apps-helmrepository
-  namespace: flux-system
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: "./apps/${ENVIRONMENT}/helmrepository"
-  prune: true
-  validation: client
-EOF
-
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml" << EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: apps-base
-  namespace: flux-system
-spec:
-  interval: 5m
-  dependsOn:
-    - name: apps-helmrepository
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: "./apps/${ENVIRONMENT}/base"
-  prune: true
-  validation: client
-  postBuild:
-    substitute:
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:=AWS_DEFAULT_REGION}
-      CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
-      CLUSTER_NAME: ${CLUSTER_NAME:=CLUSTER_NAME}
-      COOKIE_SECRET: ${COOKIE_SECRET:=COOKIE_SECRET}
-      ENVIRONMENT: ${ENVIRONMENT:=ENVIRONMENT}
-      MY_GITHUB_WEBHOOK_TOKEN_BASE64: $(echo -n "${MY_GITHUB_WEBHOOK_TOKEN}" | base64 --wrap=0)
-      LETSENCRYPT_ENVIRONMENT: ${LETSENCRYPT_ENVIRONMENT:=LETSENCRYPT_ENVIRONMENT}
-      MY_EMAIL: ${MY_EMAIL:=MY_EMAIL}
-      MY_GITHUB_ORG_NAME: ${MY_GITHUB_ORG_NAME:=MY_GITHUB_ORG_NAME}
-      MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:=MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
-      MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:=MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
-      MY_PASSWORD: ${MY_PASSWORD:=MY_PASSWORD}
-      OKTA_CLIENT_ID: ${OKTA_CLIENT_ID:=OKTA_CLIENT_ID}
-      OKTA_CLIENT_SECRET: ${OKTA_CLIENT_ID:=OKTA_CLIENT_ID}
-      OKTA_ISSUER: ${OKTA_ISSUER:=OKTA_ISSUER}
-      SLACK_CHANNEL: ${SLACK_CHANNEL:=SLACK_CHANNEL}
-      SLACK_INCOMING_WEBHOOK_URL_BASE64: $(echo -n "${SLACK_INCOMING_WEBHOOK_URL}" | base64 --wrap=0)
-      SLACK_INCOMING_WEBHOOK_URL: ${SLACK_INCOMING_WEBHOOK_URL:=SLACK_INCOMING_WEBHOOK_URL}
-      TAGS_INGRESS_NGINX: ${TAGS// /,}
-  patchesJson6902:
-  - target:
-      group: kustomize.toolkit.fluxcd.io
-      kind: Kustomization
-      name: aws-ebs-csi-driver
-      namespace: aws-ebs-csi-driver
-    patch:
-      - op: add
-        path: /spec/patchesStrategicMerge/0/spec/values/controller/extraVolumeTags
-        value:
-          Name: ${GITHUB_USER}-${CLUSTER_NAME}
-          Cluster: ${CLUSTER_FQDN}
-          $(echo "${TAGS}" | sed "s/ /\\n          /g; s/=/: /g")
-EOF
-
-sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml"
-```
-
 ## Flux
 
 Commit changes to git repository and "refresh" flux:
@@ -1905,7 +2069,21 @@ Flux:
 ```bash
 if [[ $(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq -r) = '[]' ]]; then
   sleep 100
+  kubectl wait --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io/flux-receivers -n flux-system
   FLUX_RECEIVER_URL=$(kubectl -n flux-system get receiver github-receiver -o jsonpath="{.status.url}")
   curl -s -H "Authorization: token $GITHUB_TOKEN" -X POST -d "{\"active\": true, \"events\": [\"push\"], \"config\": {\"url\": \"https://flux-receiver.${CLUSTER_FQDN}${FLUX_RECEIVER_URL}\", \"content_type\": \"json\", \"secret\": \"${MY_GITHUB_WEBHOOK_TOKEN}\", \"insecure_ssl\": \"1\"}}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq
+fi
+```
+
+Due to the way how Crossplane installs the providers it is not possible to
+specify the name of the `ServiceAccount` in advance. Therefore you need to get the
+details about `ServiceAccount` created by Crossplane and use eksctl to create
+IRSA:
+
+```bash
+if [[ $( eksctl get iamserviceaccount  --cluster "${CLUSTER_NAME}" --namespace crossplane-system -o yaml | yq e ) == "null" ]] ; then
+  kubectl wait --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io/crossplane-providerconfig -n crossplane-system
+  CROSSPLANE_PROVIDER_AWS_SERVICE_ACCOUNT_NAME=$(kubectl get serviceaccounts -n crossplane-system -o=custom-columns=NAME:.metadata.name | grep provider-aws)
+  eksctl create iamserviceaccount --cluster="${CLUSTER_NAME}" --name="${CROSSPLANE_PROVIDER_AWS_SERVICE_ACCOUNT_NAME}" --namespace="crossplane-system" --role-name="crossplane-provider-aws-${CLUSTER_NAME}" --role-only --attach-policy-arn="arn:aws:iam::aws:policy/AdministratorAccess" --tags="${TAGS// /,}" --approve
 fi
 ```

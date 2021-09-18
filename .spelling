@@ -11,6 +11,7 @@ CloudFormation
 ClusterIssuers
 codecentric
 ConfigMap
+crossplane
 Crossplane
 crossplane-stable
 DependsOn
@@ -46,3 +47,4 @@ toc
 values.yaml
 Velero
 Webhooks
+yq
