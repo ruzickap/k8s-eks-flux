@@ -111,12 +111,13 @@ declare -A HELMREPOSITORIES=(
   ["aws-efs-csi-driver"]="https://kubernetes-sigs.github.io/aws-efs-csi-driver/"
   ["bitnami"]="https://charts.bitnami.com/bitnami"
   ["codecentric"]="https://codecentric.github.io/helm-charts"
+  ["crossplane-stable"]="https://charts.crossplane.io/stable"
   ["dex"]="https://charts.dexidp.io"
   ["ingress-nginx"]="https://kubernetes.github.io/ingress-nginx"
   ["jetstack"]="https://charts.jetstack.io"
+  ["kyverno"]="https://kyverno.github.io/kyverno/"
   ["oauth2-proxy"]="https://oauth2-proxy.github.io/manifests"
   ["prometheus-community"]="https://prometheus-community.github.io/helm-charts"
-  ["crossplane-stable"]="https://charts.crossplane.io/stable"
   ["rancher-latest"]="https://releases.rancher.com/server-charts/latest"
 )
 
