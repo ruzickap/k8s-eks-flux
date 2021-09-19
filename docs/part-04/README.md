@@ -25,27 +25,15 @@ resources:
   - aws-efs-csi-driver.yaml
 EOF
 
-cat > apps/base/aws-efs-csi-driver/aws-efs-csi-driver.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: aws-efs-csi-driver
-  namespace: aws-efs-csi-driver
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: aws-efs-csi-driver
-      namespace: aws-efs-csi-driver
-  path: "./apps/base/aws-efs-csi-driver/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization aws-efs-csi-driver \
+  --namespace="aws-efs-csi-driver" \
+  --interval="10m" \
+  --path="./apps/base/aws-efs-csi-driver/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/aws-efs-csi-driver.aws-efs-csi-driver" \
+  --export > apps/base/aws-efs-csi-driver/aws-efs-csi-driver.yaml
 
 cat > apps/base/aws-efs-csi-driver/helmrelease/aws-efs-csi-driver.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -55,7 +43,6 @@ metadata:
   name: aws-efs-csi-driver
   namespace: aws-efs-csi-driver
 spec:
-  releaseName: aws-efs-csi-driver
   chart:
     spec:
       chart: aws-efs-csi-driver
@@ -137,27 +124,15 @@ metadata:
   name: kubed
 EOF
 
-cat > apps/base/kubed/kubed.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: kubed
-  namespace: kubed
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: kubed
-      namespace: kubed
-  path: "./apps/base/kubed/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization kubed \
+  --namespace="kubed" \
+  --interval="10m" \
+  --path="./apps/base/kubed/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/kubed.kubed" \
+  --export > apps/base/kubed/kubed.yaml
 
 cat > apps/base/kubed/helmrelease/kubed.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -167,7 +142,6 @@ metadata:
   name: kubed
   namespace: kubed
 spec:
-  releaseName: kubed
   chart:
     spec:
       chart: kubed
@@ -206,27 +180,15 @@ metadata:
   name: kyverno
 EOF
 
-cat > apps/base/kyverno/kyverno-crds.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: kyverno-crds
-  namespace: kyverno
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: kyverno-crds
-      namespace: kyverno
-  path: "./apps/base/kyverno/kyverno-crds-helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization kyverno-crds \
+  --namespace="kyverno" \
+  --interval="10m" \
+  --path="./apps/base/kyverno/kyverno-crds-helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/kyverno-crds.kyverno" \
+  --export > apps/base/kyverno/kyverno-crds.yaml
 
 cat > apps/base/kyverno/kyverno-crds-helmrelease/kyverno.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -236,7 +198,6 @@ metadata:
   name: kyverno-crds
   namespace: kyverno
 spec:
-  releaseName: kyverno-crds
   chart:
     spec:
       chart: kyverno-crds
@@ -248,29 +209,16 @@ spec:
   interval: 1h0m0s
 EOF
 
-cat > apps/base/kyverno/kyverno.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: kyverno
-  namespace: kyverno
-spec:
-  interval: 5m
-  dependsOn:
-    - name: kyverno-crds
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: kyverno
-      namespace: kyverno
-  path: "./apps/base/kyverno/kyverno-helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization kyverno \
+  --namespace="kyverno" \
+  --interval="10m" \
+  --depends-on="kyverno-crds" \
+  --path="./apps/base/kyverno/kyverno-helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/kyverno.kyverno" \
+  --export > apps/base/kyverno/kyverno.yaml
 
 cat > apps/base/kyverno/kyverno-helmrelease/kyverno.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -280,7 +228,6 @@ metadata:
   name: kyverno
   namespace: kyverno
 spec:
-  releaseName: kyverno
   chart:
     spec:
       chart: kyverno
@@ -358,7 +305,7 @@ spec:
     name: flux-system
     namespace: flux-system
   healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
       kind: HelmRelease
       name: rancher
       namespace: cattle-system
@@ -366,6 +313,17 @@ spec:
   prune: true
   validation: client
 EOF
+
+flux create kustomization rancher \
+  --namespace="cattle-system" \
+  --interval="10m" \
+  --depends-on="kubed/kubed,cert-manager/cert-manager-certificate" \
+  --path="./apps/base/rancher/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/rancher.cattle-system" \
+  --export > apps/base/rancher/rancher.yaml
 
 cat > apps/base/rancher/helmrelease/rancher.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -375,7 +333,6 @@ metadata:
   name: rancher
   namespace: cattle-system
 spec:
-  releaseName: rancher
   chart:
     spec:
       chart: rancher
