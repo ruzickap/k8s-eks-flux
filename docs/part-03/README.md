@@ -320,8 +320,6 @@ spec:
       serviceAccount:
         create: false
         name: ebs-csi-controller-sa
-      extraVolumeTags:
-        Cluster: ${CLUSTER_FQDN:=CLUSTER_FQDN}
 EOF
 
 yq e '.patchesStrategicMerge += ["aws-ebs-csi-driver-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
@@ -351,6 +349,28 @@ spec:
               storageclass.kubernetes.io/is-default-class: "true"
             parameters:
               encrypted: "true"
+EOF
+```
+
+Change the tags on the Cluster level, because they will be different on every
+cluster and it needs to be "set" form TAGS bash variable:
+
+```bash
+yq eval-all ". as \$item ireduce ({}; . * \$item )" -i "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml" - << EOF
+spec:
+  patchesJson6902:
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: aws-ebs-csi-driver
+        namespace: aws-ebs-csi-driver
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/values/controller/extraVolumeTags
+          value:
+            Name: ${GITHUB_USER}-${CLUSTER_NAME}
+            Cluster: ${CLUSTER_FQDN}
+            $(echo "${TAGS}" | sed "s/ /\\n            /g; s/=/: /g")
 EOF
 ```
 
@@ -1206,7 +1226,7 @@ spec:
   secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
   secretTemplate:
     annotations:
-      kubed.appscode.com/sync: "cert-manager-cert-${LETSENCRYPT_ENVIRONMENT}=copy"
+      kubed.appscode.com/sync: cert-manager-cert-${LETSENCRYPT_ENVIRONMENT}=copy
   issuerRef:
     name: letsencrypt-${LETSENCRYPT_ENVIRONMENT}-dns
     kind: ClusterIssuer
@@ -1390,8 +1410,8 @@ metadata:
 spec:
   interval: 5m
   dependsOn:
-    - name: kube-prometheus-stack
-      namespace: kube-prometheus-stack
+    - name: ingress-nginx
+      namespace: ingress-nginx
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -2054,22 +2074,17 @@ EOF
 
 ## Flux
 
-Commit changes to git repository and "refresh" flux:
-
-```bash
-git add .
-git commit -m "Initial core applications commit" || true
-git push
-flux reconcile source git flux-system
-```
-
-Wait for receiver and then configure the GitHub repository to send Webhooks to
-Flux:
+Commit changes to git repository and "refresh" flux. Wait for receiver and then
+configure the GitHub repository to send Webhooks to Flux:
 
 ```bash
 if [[ $(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq -r) = '[]' ]]; then
+  git add .
+  git commit -m "Initial core applications commit" || true
+  git push
+  flux reconcile source git flux-system
   sleep 100
-  kubectl wait --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io/flux-receivers -n flux-system
+  kubectl wait --timeout=10m --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io/external-dns -n external-dns
   FLUX_RECEIVER_URL=$(kubectl -n flux-system get receiver github-receiver -o jsonpath="{.status.url}")
   curl -s -H "Authorization: token $GITHUB_TOKEN" -X POST -d "{\"active\": true, \"events\": [\"push\"], \"config\": {\"url\": \"https://flux-receiver.${CLUSTER_FQDN}${FLUX_RECEIVER_URL}\", \"content_type\": \"json\", \"secret\": \"${MY_GITHUB_WEBHOOK_TOKEN}\", \"insecure_ssl\": \"1\"}}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq
 fi
