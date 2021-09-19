@@ -130,23 +130,14 @@ EOF
 for HELMREPOSITORY in "${!HELMREPOSITORIES[@]}"; do
   echo "${HELMREPOSITORY} : ${HELMREPOSITORIES[${HELMREPOSITORY}]}";
   mkdir -vp "apps/helmrepository/${HELMREPOSITORY}"
-  echo "  - ${HELMREPOSITORY}" >> apps/helmrepository/kustomization.yaml
+  yq e ".resources += [\"${HELMREPOSITORY}\"]" -i apps/helmrepository/kustomization.yaml
   cat > "apps/helmrepository/${HELMREPOSITORY}/kustomization.yaml" << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ${HELMREPOSITORY}.yaml
 EOF
-  cat > "apps/helmrepository/${HELMREPOSITORY}/${HELMREPOSITORY}.yaml" << EOF
-apiVersion: source.toolkit.fluxcd.io/v1beta1
-kind: HelmRepository
-metadata:
-  name: ${HELMREPOSITORY}
-  namespace: flux-system
-spec:
-  interval: 1h
-  url: ${HELMREPOSITORIES[${HELMREPOSITORY}]}
-EOF
+  flux create source helm "${HELMREPOSITORY}" --url="${HELMREPOSITORIES[${HELMREPOSITORY}]}" --interval=1h --export > "apps/helmrepository/${HELMREPOSITORY}/${HELMREPOSITORY}.yaml"
 done
 ```
 
@@ -158,21 +149,14 @@ before `HelmRelease` using `dependsOn`.
 
 ```bash
 mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-helmrepository.yaml" << EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: apps-helmrepository
-  namespace: flux-system
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: "./apps/${ENVIRONMENT}/helmrepository"
-  prune: true
-  validation: client
-EOF
+flux create kustomization apps-helmrepository \
+  --namespace="flux-system" \
+  --interval="10m" \
+  --path="./apps/${ENVIRONMENT}/helmrepository" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-helmrepository.yaml"
 
 cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml" << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
@@ -276,27 +260,15 @@ resources:
   - aws-ebs-csi-driver.yaml
 EOF
 
-cat > apps/base/aws-ebs-csi-driver/aws-ebs-csi-driver.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: aws-ebs-csi-driver
-  namespace: aws-ebs-csi-driver
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: aws-ebs-csi-driver
-      namespace: aws-ebs-csi-driver
-  path: "./apps/base/aws-ebs-csi-driver/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization aws-ebs-csi-driver \
+  --namespace="aws-ebs-csi-driver" \
+  --interval="10m" \
+  --path="./apps/base/aws-ebs-csi-driver/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/aws-ebs-csi-driver.aws-ebs-csi-driver" \
+  --export > apps/base/aws-ebs-csi-driver/aws-ebs-csi-driver.yaml
 
 cat > apps/base/aws-ebs-csi-driver/helmrelease/aws-ebs-csi-driver.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -306,7 +278,6 @@ metadata:
   name: aws-ebs-csi-driver
   namespace: aws-ebs-csi-driver
 spec:
-  releaseName: aws-ebs-csi-driver
   chart:
     spec:
       chart: aws-ebs-csi-driver
@@ -400,27 +371,15 @@ metadata:
   name: crossplane-system
 EOF
 
-cat > apps/base/crossplane/crossplane.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: crossplane
-  namespace: crossplane-system
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: crossplane
-      namespace: crossplane-system
-  path: "./apps/base/crossplane/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization crossplane \
+  --namespace="crossplane-system" \
+  --interval="10m" \
+  --path="./apps/base/crossplane/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/crossplane.crossplane-system" \
+  --export > apps/base/crossplane/crossplane.yaml
 
 cat > apps/base/crossplane/helmrelease/crossplane.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -430,7 +389,6 @@ metadata:
   name: crossplane
   namespace: crossplane-system
 spec:
-  releaseName: crossplane
   chart:
     spec:
       chart: crossplane
@@ -504,7 +462,7 @@ spec:
     name: aws-config
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/crossplane/providerconfig.yaml" << EOF
+cat > "apps/${ENVIRONMENT}/base/crossplane/providerconfig.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -554,30 +512,15 @@ resources:
   - external-snapshotter.yaml
 EOF
 
-cat > apps/base/external-snapshotter/external-snapshotter.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: external-snapshotter
-  namespace: kube-system
-spec:
-  interval: 5m
-  dependsOn:
-    - name: aws-ebs-csi-driver
-      namespace: aws-ebs-csi-driver
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: snapshot-controller
-      namespace: kube-system
-  path: "./apps/base/external-snapshotter/manifests"
-  prune: true
-  validation: client
-EOF
+flux create kustomization external-snapshotter \
+  --namespace="kube-system" \
+  --interval="10m" \
+  --path="./apps/base/external-snapshotter/manifests" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="Deployment/snapshot-controller.kube-system" \
+  --export > apps/base/external-snapshotter/external-snapshotter.yaml
 
 cat > apps/base/external-snapshotter/manifests/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -616,27 +559,16 @@ metadata:
   name: metrics-server
 EOF
 
-cat > apps/base/metrics-server/metrics-server.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: metrics-server
-  namespace: metrics-server
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: metrics-server
-      namespace: metrics-server
-  path: "./apps/base/metrics-server/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization metrics-server \
+  --namespace="metrics-server" \
+  --interval="10m" \
+  --path="./apps/base/metrics-server/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/metrics-server.metrics-server" \
+  --export > apps/base/metrics-server/metrics-server.yaml
+
 
 cat > apps/base/metrics-server/helmrelease/metrics-server.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -646,7 +578,6 @@ metadata:
   name: metrics-server
   namespace: metrics-server
 spec:
-  releaseName: metrics-server
   chart:
     spec:
       chart: metrics-server
@@ -704,30 +635,16 @@ metadata:
   name: kube-prometheus-stack
 EOF
 
-cat > apps/base/kube-prometheus-stack/kube-prometheus-stack.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: kube-prometheus-stack
-  namespace: kube-prometheus-stack
-spec:
-  interval: 5m
-  dependsOn:
-    - name: aws-ebs-csi-driver
-      namespace: aws-ebs-csi-driver
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: kube-prometheus-stack
-      namespace: kube-prometheus-stack
-  path: "./apps/base/kube-prometheus-stack/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization kube-prometheus-stack \
+  --namespace="kube-prometheus-stack" \
+  --interval="10m" \
+  --depends-on="aws-ebs-csi-driver/aws-ebs-csi-driver" \
+  --path="./apps/base/kube-prometheus-stack/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/kube-prometheus-stack.kube-prometheus-stack" \
+  --export > apps/base/kube-prometheus-stack/kube-prometheus-stack.yaml
 
 cat > apps/base/kube-prometheus-stack/helmrelease/kube-prometheus-stack.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -737,7 +654,6 @@ metadata:
   name: kube-prometheus-stack
   namespace: kube-prometheus-stack
 spec:
-  releaseName: kube-prometheus-stack
   chart:
     spec:
       chart: kube-prometheus-stack
@@ -1025,30 +941,16 @@ resources:
   - cert-manager.yaml
 EOF
 
-cat > apps/base/cert-manager/cert-manager.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: cert-manager
-  namespace: cert-manager
-spec:
-  interval: 5m
-  dependsOn:
-    - name: kube-prometheus-stack
-      namespace: kube-prometheus-stack
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: cert-manager
-      namespace: cert-manager
-  path: "./apps/base/cert-manager/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization cert-manager \
+  --namespace="cert-manager" \
+  --interval="10m" \
+  --depends-on="kube-prometheus-stack/kube-prometheus-stack" \
+  --path="./apps/base/cert-manager/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/cert-manager.cert-manager" \
+  --export > apps/base/cert-manager/cert-manager.yaml
 
 cat > apps/base/cert-manager/helmrelease/cert-manager.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -1058,7 +960,6 @@ metadata:
   name: cert-manager
   namespace: cert-manager
 spec:
-  releaseName: cert-manager
   chart:
     spec:
       chart: cert-manager
@@ -1263,27 +1164,16 @@ metadata:
   name: dex
 EOF
 
-cat > apps/base/dex/dex.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: dex
-  namespace: dex
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: dex
-      namespace: dex
-  path: "./apps/base/dex/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization dex \
+  --namespace="dex" \
+  --interval="10m" \
+  --path="./apps/base/dex/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/dex.dex" \
+  --export > apps/base/dex/dex.yaml
+
 
 cat > apps/base/dex/helmrelease/dex.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -1293,7 +1183,6 @@ metadata:
   name: dex
   namespace: dex
 spec:
-  releaseName: dex
   chart:
     spec:
       chart: dex
@@ -1402,30 +1291,16 @@ resources:
   - external-dns.yaml
 EOF
 
-cat > apps/base/external-dns/external-dns.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: external-dns
-  namespace: external-dns
-spec:
-  interval: 5m
-  dependsOn:
-    - name: ingress-nginx
-      namespace: ingress-nginx
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: external-dns
-      namespace: external-dns
-  path: "./apps/base/external-dns/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization external-dns \
+  --namespace="external-dns" \
+  --interval="10m" \
+  --depends-on="ingress-nginx/ingress-nginx" \
+  --path="./apps/base/external-dns/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/external-dns.external-dns" \
+  --export > apps/base/external-dns/external-dns.yaml
 
 cat > apps/base/external-dns/helmrelease/external-dns.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -1435,7 +1310,6 @@ metadata:
   name: external-dns
   namespace: external-dns
 spec:
-  releaseName: external-dns
   chart:
     spec:
       chart: external-dns
@@ -1525,18 +1399,11 @@ spec:
       SLACK_INCOMING_WEBHOOK_URL_BASE64: ${SLACK_INCOMING_WEBHOOK_URL_BASE64}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/flux/providers/provider-slack.yaml" << \EOF
-apiVersion: notification.toolkit.fluxcd.io/v1beta1
-kind: Provider
-metadata:
-  name: slack
-  namespace: flux-system
-spec:
-  type: slack
-  channel: ${SLACK_CHANNEL}
-  secretRef:
-    name: slack-url
-EOF
+flux create alert-provider slack \
+  --type=slack \
+  --channel="\${SLACK_CHANNEL}" \
+  --secret-ref=slack-url \
+  --export > "apps/${ENVIRONMENT}/base/flux/providers/provider-slack.yaml"
 
 cat > "apps/${ENVIRONMENT}/base/flux/providers/provider-slack-url-secret.yaml" << \EOF
 apiVersion: v1
@@ -1571,28 +1438,11 @@ spec:
   validation: client
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/flux/alerts/alert-slack.yaml" << \EOF
-apiVersion: notification.toolkit.fluxcd.io/v1beta1
-kind: Alert
-metadata:
-  name: alert-slack
-  namespace: flux-system
-spec:
-  providerRef:
-    name: slack
-  eventSeverity: error
-  eventSources:
-    - kind: GitRepository
-      name: "*"
-    - kind: Kustomization
-      name: "*"
-    - kind: HelmRepository
-      name: "*"
-    - kind: HelmChart
-      name: "*"
-    - kind: HelmRelease
-      name: "*"
-EOF
+flux create alert alert-slack \
+  --event-severity=error \
+  --event-source="GitRepository/*,Kustomization/*,HelmRepository/*,HelmChart/*,HelmRelease/*" \
+  --provider-ref=slack \
+  --export > "apps/${ENVIRONMENT}/base/flux/alerts/alert-slack.yaml"
 
 cat > "apps/${ENVIRONMENT}/base/flux/flux-monitoring.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
@@ -1680,23 +1530,13 @@ data:
   token: ${MY_GITHUB_WEBHOOK_TOKEN_BASE64}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/flux/receivers/receiver-github.yaml" << \EOF
-apiVersion: notification.toolkit.fluxcd.io/v1beta1
-kind: Receiver
-metadata:
-  name: github-receiver
-  namespace: flux-system
-spec:
-  type: github
-  events:
-    - "ping"
-    - "push"
-  secretRef:
-    name: github-webhook-token
-  resources:
-    - kind: GitRepository
-      name: flux-system
-EOF
+flux create receiver github-receiver \
+  --type=github \
+  --event=ping \
+  --event=push \
+  --secret-ref=github-webhook-token \
+  --resource="GitRepository/flux-system" \
+  --export > "apps/${ENVIRONMENT}/base/flux/receivers/receiver-github.yaml"
 
 cat > "apps/${ENVIRONMENT}/base/flux/receivers/receiver-github-ingress.yaml" << \EOF
 apiVersion: networking.k8s.io/v1
@@ -1765,7 +1605,7 @@ spec:
     name: flux-system
     namespace: flux-system
   healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
       kind: HelmRelease
       name: ingress-nginx
       namespace: ingress-nginx
@@ -1773,6 +1613,17 @@ spec:
   prune: true
   validation: client
 EOF
+
+flux create kustomization ingress-nginx \
+  --namespace="ingress-nginx" \
+  --interval="10m" \
+  --depends-on="kube-prometheus-stack/kube-prometheus-stack,cert-manager/cert-manager-certificate" \
+  --path="./apps/base/ingress-nginx/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/ingress-nginx.ingress-nginx" \
+  --export > apps/base/ingress-nginx/ingress-nginx.yaml
 
 cat > apps/base/ingress-nginx/helmrelease/ingress-nginx.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -1782,7 +1633,6 @@ metadata:
   name: ingress-nginx
   namespace: ingress-nginx
 spec:
-  releaseName: ingress-nginx
   chart:
     spec:
       chart: ingress-nginx
@@ -1885,27 +1735,16 @@ metadata:
   name: mailhog
 EOF
 
-cat > apps/base/mailhog/mailhog.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: mailhog
-  namespace: mailhog
-spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: mailhog
-      namespace: mailhog
-  path: "./apps/base/mailhog/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization mailhog \
+  --namespace="mailhog" \
+  --interval="10m" \
+  --path="./apps/base/mailhog/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/mailhog.mailhog" \
+  --export > apps/base/mailhog/mailhog.yaml
+
 
 cat > apps/base/mailhog/helmrelease/mailhog.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -1915,7 +1754,6 @@ metadata:
   name: mailhog
   namespace: mailhog
 spec:
-  releaseName: mailhog
   chart:
     spec:
       chart: mailhog
@@ -1982,30 +1820,16 @@ metadata:
   name: oauth2-proxy
 EOF
 
-cat > apps/base/oauth2-proxy/oauth2-proxy.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: oauth2-proxy
-  namespace: oauth2-proxy
-spec:
-  interval: 5m
-  dependsOn:
-    - name: kube-prometheus-stack
-      namespace: kube-prometheus-stack
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
-      kind: HelmRelease
-      name: oauth2-proxy
-      namespace: oauth2-proxy
-  path: "./apps/base/oauth2-proxy/helmrelease"
-  prune: true
-  validation: client
-EOF
+flux create kustomization oauth2-proxy \
+  --namespace="oauth2-proxy" \
+  --interval="10m" \
+  --depends-on="kube-prometheus-stack/kube-prometheus-stack" \
+  --path="./apps/base/oauth2-proxy/helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/oauth2-proxy.oauth2-proxy" \
+  --export > apps/base/oauth2-proxy/oauth2-proxy.yaml
 
 cat > apps/base/oauth2-proxy/helmrelease/oauth2-proxy.yaml << \EOF
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -2015,7 +1839,6 @@ metadata:
   name: oauth2-proxy
   namespace: oauth2-proxy
 spec:
-  releaseName: oauth2-proxy
   chart:
     spec:
       chart: oauth2-proxy
