@@ -180,6 +180,139 @@ spec:
 EOF
 ```
 
+### Kyverno
+
+[Kyverno](https://kyverno.io/)
+
+* [kyverno](https://artifacthub.io/packages/helm/kyverno/kyverno)
+* [default values.yaml](https://github.com/kyverno/kyverno/blob/main/charts/kyverno/values.yaml):
+
+```bash
+mkdir -vp apps/base/kyverno/{kyverno-crds,kyverno}-helmrelease
+yq e '.resources += ["kyverno"]' -i apps/base/kustomization.yaml
+cat > apps/base/kyverno/kustomization.yaml << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace-kyverno.yaml
+  - kyverno-crds.yaml
+  - kyverno.yaml
+EOF
+
+cat > apps/base/kyverno/namespace-kyverno.yaml << \EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kyverno
+EOF
+
+cat > apps/base/kyverno/kyverno-crds.yaml << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: kyverno-crds
+  namespace: kyverno
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: kyverno-crds
+      namespace: kyverno
+  path: "./apps/base/kyverno/kyverno-crds-helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/kyverno/kyverno-crds-helmrelease/kyverno.yaml << \EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | kyverno-crds | v2.0.3 | kyverno | https://kyverno.github.io/kyverno/
+metadata:
+  name: kyverno-crds
+  namespace: kyverno
+spec:
+  releaseName: kyverno-crds
+  chart:
+    spec:
+      chart: kyverno-crds
+      sourceRef:
+        kind: HelmRepository
+        name: kyverno
+        namespace: flux-system
+      version: v2.0.3
+  interval: 1h0m0s
+EOF
+
+cat > apps/base/kyverno/kyverno.yaml << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: kyverno
+  namespace: kyverno
+spec:
+  interval: 5m
+  dependsOn:
+    - name: kyverno-crds
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v1beta1
+      kind: HelmRelease
+      name: kyverno
+      namespace: kyverno
+  path: "./apps/base/kyverno/kyverno-helmrelease"
+  prune: true
+  validation: client
+EOF
+
+cat > apps/base/kyverno/kyverno-helmrelease/kyverno.yaml << \EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+# | kyverno | v2.0.3 | kyverno | https://kyverno.github.io/kyverno/
+metadata:
+  name: kyverno
+  namespace: kyverno
+spec:
+  releaseName: kyverno
+  chart:
+    spec:
+      chart: kyverno
+      sourceRef:
+        kind: HelmRepository
+        name: kyverno
+        namespace: flux-system
+      version: v2.0.3
+  interval: 1h0m0s
+EOF
+
+yq e '.patchesStrategicMerge += ["kyverno-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+cat > "apps/${ENVIRONMENT}/base/kyverno-helmrelease-values.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: kyverno
+  namespace: kyverno
+spec:
+  patchesStrategicMerge:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      metadata:
+        name: kyverno
+        namespace: kyverno
+      spec:
+        values:
+          serviceMonitor:
+            enabled: true
+EOF
+```
+
 ### Rancher
 
 [Rancher](https://rancher.com/)
