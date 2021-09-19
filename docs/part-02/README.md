@@ -164,10 +164,8 @@ gitops:
       path: "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
 EOF
 
-if ! eksctl get clusters --name="${CLUSTER_NAME}" &> /dev/null ; then
+if [[ ! -s "${KUBECONFIG}" ]] ; then
   eksctl create cluster --config-file "tmp/${CLUSTER_FQDN}/eksctl-${CLUSTER_NAME}.yaml" --kubeconfig "${KUBECONFIG}"
-else
-  eksctl utils write-kubeconfig --cluster="${CLUSTER_NAME}"
 fi
 ```
 
@@ -191,11 +189,12 @@ Change TTL=60 of SOA + NS records for new domain
 (it can not be done in CloudFormation):
 
 ```bash
-aws cloudformation wait stack-create-complete --stack-name "${CLUSTER_NAME}-route53"
-HOSTED_ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name==\`${CLUSTER_FQDN}.\`].Id" --output text)
-RESOURCE_RECORD_SET_SOA=$(aws route53 --output json list-resource-record-sets --hosted-zone-id "${HOSTED_ZONE_ID}" --query "(ResourceRecordSets[?Type == \`SOA\`])[0]" | sed "s/\"TTL\":.*/\"TTL\": 60,/")
-RESOURCE_RECORD_SET_NS=$(aws route53 --output json list-resource-record-sets --hosted-zone-id "${HOSTED_ZONE_ID}" --query "(ResourceRecordSets[?Type == \`NS\`])[0]" | sed "s/\"TTL\":.*/\"TTL\": 60,/")
-cat << EOF | aws route53 --output json change-resource-record-sets --hosted-zone-id "${HOSTED_ZONE_ID}" --change-batch=file:///dev/stdin
+if [[ ! -s "tmp/${CLUSTER_FQDN}/route53-hostedzone-ttl.yml" ]]; then
+  aws cloudformation wait stack-create-complete --stack-name "${CLUSTER_NAME}-route53"
+  HOSTED_ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name==\`${CLUSTER_FQDN}.\`].Id" --output text)
+  RESOURCE_RECORD_SET_SOA=$(aws route53 --output json list-resource-record-sets --hosted-zone-id "${HOSTED_ZONE_ID}" --query "(ResourceRecordSets[?Type == \`SOA\`])[0]" | sed "s/\"TTL\":.*/\"TTL\": 60,/")
+  RESOURCE_RECORD_SET_NS=$(aws route53 --output json list-resource-record-sets --hosted-zone-id "${HOSTED_ZONE_ID}" --query "(ResourceRecordSets[?Type == \`NS\`])[0]" | sed "s/\"TTL\":.*/\"TTL\": 60,/")
+  cat << EOF | jq > "tmp/${CLUSTER_FQDN}/route53-hostedzone-ttl.yml"
 {
     "Comment": "Update record to reflect new TTL for SOA and NS records",
     "Changes": [
@@ -212,4 +211,6 @@ ${RESOURCE_RECORD_SET_NS}
     ]
 }
 EOF
+  aws route53 change-resource-record-sets --output json --hosted-zone-id "${HOSTED_ZONE_ID}" --change-batch="file://tmp/${CLUSTER_FQDN}/route53-hostedzone-ttl.yml"
+fi
 ```
