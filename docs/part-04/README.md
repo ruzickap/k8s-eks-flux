@@ -35,29 +35,20 @@ flux create kustomization aws-efs-csi-driver \
   --health-check="HelmRelease/aws-efs-csi-driver.aws-efs-csi-driver" \
   --export > apps/base/aws-efs-csi-driver/aws-efs-csi-driver.yaml
 
-cat > apps/base/aws-efs-csi-driver/helmrelease/aws-efs-csi-driver.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | aws-efs-csi-driver | 2.1.6 | aws-efs-csi-driver | https://kubernetes-sigs.github.io/aws-efs-csi-driver/
-metadata:
-  name: aws-efs-csi-driver
-  namespace: aws-efs-csi-driver
-spec:
-  chart:
-    spec:
-      chart: aws-efs-csi-driver
-      sourceRef:
-        kind: HelmRepository
-        name: aws-efs-csi-driver
-        namespace: flux-system
-      version: 2.1.6
-  interval: 1h0m0s
-  values:
-    controller:
-      serviceAccount:
-        create: false
-        name: efs-csi-controller-sa
+cat << \EOF |
+controller:
+  serviceAccount:
+    create: false
+    name: efs-csi-controller-sa
 EOF
+flux create helmrelease aws-efs-csi-driver \
+  --namespace="aws-efs-csi-driver" \
+  --interval="10m" \
+  --source="HelmRepository/aws-efs-csi-driver.flux-system" \
+  --chart="aws-efs-csi-driver" \
+  --chart-version="2.1.6" \
+  --values="/dev/stdin" \
+  --export > apps/base/aws-efs-csi-driver/helmrelease/aws-efs-csi-driver.yaml
 
 yq e '.patchesStrategicMerge += ["aws-efs-csi-driver-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/aws-efs-csi-driver-helmrelease-values.yaml" << \EOF
@@ -134,24 +125,13 @@ flux create kustomization kubed \
   --health-check="HelmRelease/kubed.kubed" \
   --export > apps/base/kubed/kubed.yaml
 
-cat > apps/base/kubed/helmrelease/kubed.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | kubed | v0.12.0 | appscode | https://charts.appscode.com/stable/
-metadata:
-  name: kubed
-  namespace: kubed
-spec:
-  chart:
-    spec:
-      chart: kubed
-      sourceRef:
-        kind: HelmRepository
-        name: appscode
-        namespace: flux-system
-      version: v0.12.0
-  interval: 1h0m0s
-EOF
+flux create helmrelease kubed \
+  --namespace="kubed" \
+  --interval="10m" \
+  --source="HelmRepository/appscode.flux-system" \
+  --chart="kubed" \
+  --chart-version="v0.12.0" \
+  --export > apps/base/kubed/helmrelease/kubed.yaml
 ```
 
 ### Kyverno
@@ -162,7 +142,7 @@ EOF
 * [default values.yaml](https://github.com/kyverno/kyverno/blob/main/charts/kyverno/values.yaml):
 
 ```bash
-mkdir -vp apps/base/kyverno/{kyverno-crds,kyverno}-helmrelease
+mkdir -vp apps/base/kyverno/helmrelease-{kyverno-crds,kyverno}
 yq e '.resources += ["kyverno"]' -i apps/base/kustomization.yaml
 cat > apps/base/kyverno/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -183,61 +163,39 @@ EOF
 flux create kustomization kyverno-crds \
   --namespace="kyverno" \
   --interval="10m" \
-  --path="./apps/base/kyverno/kyverno-crds-helmrelease" \
+  --path="./apps/base/kyverno/helmrelease-kyverno-crds" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/kyverno-crds.kyverno" \
   --export > apps/base/kyverno/kyverno-crds.yaml
 
-cat > apps/base/kyverno/kyverno-crds-helmrelease/kyverno.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | kyverno-crds | v2.0.3 | kyverno | https://kyverno.github.io/kyverno/
-metadata:
-  name: kyverno-crds
-  namespace: kyverno
-spec:
-  chart:
-    spec:
-      chart: kyverno-crds
-      sourceRef:
-        kind: HelmRepository
-        name: kyverno
-        namespace: flux-system
-      version: v2.0.3
-  interval: 1h0m0s
-EOF
+flux create helmrelease kyverno-crds \
+  --namespace="kyverno" \
+  --interval="10m" \
+  --source="HelmRepository/kyverno.flux-system" \
+  --chart="kyverno-crds" \
+  --chart-version="v2.0.3" \
+  --export > apps/base/kyverno/helmrelease-kyverno-crds/kyverno-crds.yaml
 
 flux create kustomization kyverno \
   --namespace="kyverno" \
   --interval="10m" \
   --depends-on="kyverno-crds" \
-  --path="./apps/base/kyverno/kyverno-helmrelease" \
+  --path="./apps/base/kyverno/helmrelease-kyverno" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/kyverno.kyverno" \
   --export > apps/base/kyverno/kyverno.yaml
 
-cat > apps/base/kyverno/kyverno-helmrelease/kyverno.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | kyverno | v2.0.3 | kyverno | https://kyverno.github.io/kyverno/
-metadata:
-  name: kyverno
-  namespace: kyverno
-spec:
-  chart:
-    spec:
-      chart: kyverno
-      sourceRef:
-        kind: HelmRepository
-        name: kyverno
-        namespace: flux-system
-      version: v2.0.3
-  interval: 1h0m0s
-EOF
+flux create helmrelease kyverno \
+  --namespace="kyverno" \
+  --interval="10m" \
+  --source="HelmRepository/kyverno.flux-system" \
+  --chart="kyverno" \
+  --chart-version="v2.0.3" \
+  --export > apps/base/kyverno/helmrelease-kyverno/kyverno.yaml
 
 yq e '.patchesStrategicMerge += ["kyverno-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/kyverno-helmrelease-values.yaml" << \EOF
@@ -287,33 +245,6 @@ metadata:
     cert-manager-cert-${LETSENCRYPT_ENVIRONMENT}: copy
 EOF
 
-cat > apps/base/rancher/rancher.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: rancher
-  namespace: cattle-system
-spec:
-  interval: 5m
-  dependsOn:
-    - name: kubed
-      namespace: kubed
-    - name: cert-manager-certificate
-      namespace: cert-manager
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: rancher
-      namespace: cattle-system
-  path: "./apps/base/rancher/helmrelease"
-  prune: true
-  validation: client
-EOF
-
 flux create kustomization rancher \
   --namespace="cattle-system" \
   --interval="10m" \
@@ -325,26 +256,17 @@ flux create kustomization rancher \
   --health-check="HelmRelease/rancher.cattle-system" \
   --export > apps/base/rancher/rancher.yaml
 
-cat > apps/base/rancher/helmrelease/rancher.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | rancher | 2.6.0 | rancher-latest | https://releases.rancher.com/server-charts/latest
-metadata:
-  name: rancher
-  namespace: cattle-system
-spec:
-  chart:
-    spec:
-      chart: rancher
-      sourceRef:
-        kind: HelmRepository
-        name: rancher-latest
-        namespace: flux-system
-      version: 2.6.0
-  interval: 1h0m0s
-  values:
-    hostname: rancher.cluster-fqdn
+cat << \EOF |
+hostname: rancher.cluster-fqdn
 EOF
+flux create helmrelease rancher \
+  --namespace="cattle-system" \
+  --interval="10m" \
+  --source="HelmRepository/rancher-latest.flux-system" \
+  --chart="rancher" \
+  --chart-version="2.6.0" \
+  --values="/dev/stdin" \
+  --export > apps/base/rancher/helmrelease/rancher.yaml
 
 yq e '.patchesStrategicMerge += ["rancher-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/rancher-helmrelease-values.yaml" << \EOF

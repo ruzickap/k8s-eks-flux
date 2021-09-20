@@ -262,7 +262,7 @@ EOF
 
 flux create kustomization aws-ebs-csi-driver \
   --namespace="aws-ebs-csi-driver" \
-  --interval="10m" \
+  --interval="1h" \
   --path="./apps/base/aws-ebs-csi-driver/helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
@@ -270,29 +270,20 @@ flux create kustomization aws-ebs-csi-driver \
   --health-check="HelmRelease/aws-ebs-csi-driver.aws-ebs-csi-driver" \
   --export > apps/base/aws-ebs-csi-driver/aws-ebs-csi-driver.yaml
 
-cat > apps/base/aws-ebs-csi-driver/helmrelease/aws-ebs-csi-driver.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | aws-ebs-csi-driver | 2.2.0 | aws-ebs-csi-driver | https://kubernetes-sigs.github.io/aws-ebs-csi-driver
-metadata:
-  name: aws-ebs-csi-driver
-  namespace: aws-ebs-csi-driver
-spec:
-  chart:
-    spec:
-      chart: aws-ebs-csi-driver
-      sourceRef:
-        kind: HelmRepository
-        name: aws-ebs-csi-driver
-        namespace: flux-system
-      version: 2.2.0
-  interval: 1h0m0s
-  values:
-    controller:
-      serviceAccount:
-        create: false
-        name: ebs-csi-controller-sa
+cat << \EOF |
+controller:
+  serviceAccount:
+    create: false
+    name: ebs-csi-controller-sa
 EOF
+flux create helmrelease aws-ebs-csi-driver \
+  --namespace="aws-ebs-csi-driver" \
+  --interval="10m" \
+  --source="HelmRepository/aws-ebs-csi-driver.flux-system" \
+  --chart="aws-ebs-csi-driver" \
+  --chart-version="2.2.0" \
+  --values="/dev/stdin" \
+  --export > apps/base/aws-ebs-csi-driver/helmrelease/aws-ebs-csi-driver.yaml
 
 yq e '.patchesStrategicMerge += ["aws-ebs-csi-driver-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/aws-ebs-csi-driver-helmrelease-values.yaml" << \EOF
@@ -381,24 +372,13 @@ flux create kustomization crossplane \
   --health-check="HelmRelease/crossplane.crossplane-system" \
   --export > apps/base/crossplane/crossplane.yaml
 
-cat > apps/base/crossplane/helmrelease/crossplane.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | crossplane | 1.4.1 | crossplane | https://charts.crossplane.io/stable
-metadata:
-  name: crossplane
-  namespace: crossplane-system
-spec:
-  chart:
-    spec:
-      chart: crossplane
-      sourceRef:
-        kind: HelmRepository
-        name: crossplane-stable
-        namespace: flux-system
-      version: 1.4.1
-  interval: 1h0m0s
-EOF
+flux create helmrelease crossplane \
+  --namespace="crossplane-system" \
+  --interval="1h" \
+  --source="HelmRepository/crossplane-stable.flux-system" \
+  --chart="crossplane" \
+  --chart-version="1.4.1" \
+  --export > apps/base/crossplane/helmrelease/crossplane.yaml
 
 mkdir -pv "apps/${ENVIRONMENT}/base/crossplane"/{provider,providerconfig}
 yq e '.resources += ["crossplane"]' -i apps/${ENVIRONMENT}/base/kustomization.yaml
@@ -569,25 +549,13 @@ flux create kustomization metrics-server \
   --health-check="HelmRelease/metrics-server.metrics-server" \
   --export > apps/base/metrics-server/metrics-server.yaml
 
-
-cat > apps/base/metrics-server/helmrelease/metrics-server.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | metrics-server | 5.10.1 | bitnami | https://charts.bitnami.com/bitnami
-metadata:
-  name: metrics-server
-  namespace: metrics-server
-spec:
-  chart:
-    spec:
-      chart: metrics-server
-      sourceRef:
-        kind: HelmRepository
-        name: bitnami
-        namespace: flux-system
-      version: 5.10.1
-  interval: 1h0m0s
-EOF
+flux create helmrelease metrics-server \
+  --namespace="metrics-server" \
+  --interval="1h" \
+  --source="HelmRepository/bitnami.flux-system" \
+  --chart="metrics-server" \
+  --chart-version="5.10.1" \
+  --export > apps/base/metrics-server/helmrelease/metrics-server.yaml
 
 yq e '.patchesStrategicMerge += ["metrics-server-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/metrics-server-helmrelease-values.yaml" << \EOF
@@ -646,24 +614,14 @@ flux create kustomization kube-prometheus-stack \
   --health-check="HelmRelease/kube-prometheus-stack.kube-prometheus-stack" \
   --export > apps/base/kube-prometheus-stack/kube-prometheus-stack.yaml
 
-cat > apps/base/kube-prometheus-stack/helmrelease/kube-prometheus-stack.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | kube-prometheus-stack | 18.0.9 | prometheus-community | https://prometheus-community.github.io/helm-charts
-metadata:
-  name: kube-prometheus-stack
-  namespace: kube-prometheus-stack
-spec:
-  chart:
-    spec:
-      chart: kube-prometheus-stack
-      sourceRef:
-        kind: HelmRepository
-        name: prometheus-community
-        namespace: flux-system
-      version: 18.0.9
-  interval: 1h0m0s
-EOF
+flux create helmrelease kube-prometheus-stack \
+  --namespace="kube-prometheus-stack" \
+  --interval="1h" \
+  --source="HelmRepository/prometheus-community.flux-system" \
+  --chart="kube-prometheus-stack" \
+  --chart-version="18.0.10" \
+  --export > apps/base/kube-prometheus-stack/helmrelease/kube-prometheus-stack.yaml
+
 
 yq e '.patchesStrategicMerge += ["kube-prometheus-stack-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/kube-prometheus-stack-helmrelease-values.yaml" << \EOF
@@ -952,33 +910,21 @@ flux create kustomization cert-manager \
   --health-check="HelmRelease/cert-manager.cert-manager" \
   --export > apps/base/cert-manager/cert-manager.yaml
 
-cat > apps/base/cert-manager/helmrelease/cert-manager.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | cert-manager | v1.5.3 | jetstack | https://charts.jetstack.io
-metadata:
+cat << \EOF |
+installCRDs: true
+serviceAccount:
+  create: false
   name: cert-manager
-  namespace: cert-manager
-spec:
-  chart:
-    spec:
-      chart: cert-manager
-      sourceRef:
-        kind: HelmRepository
-        name: jetstack
-        namespace: flux-system
-      version: v1.5.3
-  interval: 1h0m0s
-  install:
-    crds: Create
-  upgrade:
-    crds: CreateReplace
-  values:
-    installCRDs: true
-    serviceAccount:
-      create: false
-      name: cert-manager
 EOF
+flux create helmrelease cert-manager \
+  --namespace="cert-manager" \
+  --interval="1h" \
+  --source="HelmRepository/jetstack.flux-system" \
+  --chart="cert-manager" \
+  --chart-version="v1.5.3" \
+  --crds="CreateReplace" \
+  --values="/dev/stdin" \
+  --export > apps/base/cert-manager/helmrelease/cert-manager.yaml
 
 yq e '.patchesStrategicMerge += ["cert-manager-helmrelease-values.yaml"]' -i apps/${ENVIRONMENT}/base/kustomization.yaml
 cat > "apps/${ENVIRONMENT}/base/cert-manager-helmrelease-values.yaml" << \EOF
@@ -1174,36 +1120,27 @@ flux create kustomization dex \
   --health-check="HelmRelease/dex.dex" \
   --export > apps/base/dex/dex.yaml
 
-
-cat > apps/base/dex/helmrelease/dex.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | dex | 0.6.3 | dex | https://charts.dexidp.io
-metadata:
-  name: dex
-  namespace: dex
-spec:
-  chart:
-    spec:
-      chart: dex
-      sourceRef:
-        kind: HelmRepository
-        name: dex
-        namespace: flux-system
-      version: 0.6.3
-  interval: 1h0m0s
-  values:
+cat << \EOF |
+config:
+  issuer: https://dex.${CLUSTER_FQDN:=CLUSTER_FQDN}.com
+  storage:
+    type: kubernetes
     config:
-      issuer: https://dex.${CLUSTER_FQDN:=CLUSTER_FQDN}.com
-      storage:
-        type: kubernetes
-        config:
-          inCluster: true
-      connectors:
-        - type: github
-          id: github
-          name: GitHub
+      inCluster: true
+  connectors:
+    - type: github
+      id: github
+      name: GitHub
 EOF
+flux create helmrelease dex \
+  --namespace="dex" \
+  --interval="1h" \
+  --source="HelmRepository/dex.flux-system" \
+  --chart="dex" \
+  --chart-version="0.6.3" \
+  --values="/dev/stdin" \
+  --export > apps/base/dex/helmrelease/dex.yaml
+
 
 yq e '.patchesStrategicMerge += ["dex-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/dex-helmrelease-values.yaml" << \EOF
@@ -1302,28 +1239,19 @@ flux create kustomization external-dns \
   --health-check="HelmRelease/external-dns.external-dns" \
   --export > apps/base/external-dns/external-dns.yaml
 
-cat > apps/base/external-dns/helmrelease/external-dns.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | external-dns | 5.4.7 | bitnami | https://charts.bitnami.com/bitnami
-metadata:
+cat << \EOF |
+serviceAccount:
+  create: false
   name: external-dns
-  namespace: external-dns
-spec:
-  chart:
-    spec:
-      chart: external-dns
-      sourceRef:
-        kind: HelmRepository
-        name: bitnami
-        namespace: flux-system
-      version: 5.4.7
-  interval: 1h0m0s
-  values:
-    serviceAccount:
-      create: false
-      name: external-dns
 EOF
+flux create helmrelease external-dns \
+  --namespace="external-dns" \
+  --interval="1h" \
+  --source="HelmRepository/bitnami.flux-system" \
+  --chart="external-dns" \
+  --chart-version="5.4.7" \
+  --values="/dev/stdin" \
+  --export > apps/base/external-dns/helmrelease/external-dns.yaml
 
 yq e '.patchesStrategicMerge += ["external-dns-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/external-dns-helmrelease-values.yaml" << \EOF
@@ -1587,33 +1515,6 @@ metadata:
   name: ingress-nginx
 EOF
 
-cat > apps/base/ingress-nginx/ingress-nginx.yaml << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: ingress-nginx
-  namespace: ingress-nginx
-spec:
-  interval: 5m
-  dependsOn:
-    - name: kube-prometheus-stack
-      namespace: kube-prometheus-stack
-    - name: cert-manager-certificate
-      namespace: cert-manager
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: ingress-nginx
-      namespace: ingress-nginx
-  path: "./apps/base/ingress-nginx/helmrelease"
-  prune: true
-  validation: client
-EOF
-
 flux create kustomization ingress-nginx \
   --namespace="ingress-nginx" \
   --interval="10m" \
@@ -1625,24 +1526,13 @@ flux create kustomization ingress-nginx \
   --health-check="HelmRelease/ingress-nginx.ingress-nginx" \
   --export > apps/base/ingress-nginx/ingress-nginx.yaml
 
-cat > apps/base/ingress-nginx/helmrelease/ingress-nginx.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | ingress-nginx | 3.36.0 | ingress-nginx | https://kubernetes.github.io/ingress-nginx
-metadata:
-  name: ingress-nginx
-  namespace: ingress-nginx
-spec:
-  chart:
-    spec:
-      chart: ingress-nginx
-      sourceRef:
-        kind: HelmRepository
-        name: ingress-nginx
-        namespace: flux-system
-      version: 3.36.0
-  interval: 1h0m0s
-EOF
+flux create helmrelease ingress-nginx \
+  --namespace="ingress-nginx" \
+  --interval="1h" \
+  --source="HelmRepository/ingress-nginx.flux-system" \
+  --chart="ingress-nginx" \
+  --chart-version="3.36.0" \
+  --export > apps/base/ingress-nginx/helmrelease/ingress-nginx.yaml
 
 yq e '.patchesStrategicMerge += ["ingress-nginx-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/ingress-nginx-helmrelease-values.yaml" << \EOF
@@ -1745,25 +1635,13 @@ flux create kustomization mailhog \
   --health-check="HelmRelease/mailhog.mailhog" \
   --export > apps/base/mailhog/mailhog.yaml
 
-
-cat > apps/base/mailhog/helmrelease/mailhog.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | mailhog | 4.1.0 | codecentric | https://codecentric.github.io/helm-charts
-metadata:
-  name: mailhog
-  namespace: mailhog
-spec:
-  chart:
-    spec:
-      chart: mailhog
-      sourceRef:
-        kind: HelmRepository
-        name: codecentric
-        namespace: flux-system
-      version: 4.1.0
-  interval: 1h0m0s
-EOF
+flux create helmrelease mailhog \
+  --namespace="mailhog" \
+  --interval="1h" \
+  --source="HelmRepository/codecentric.flux-system" \
+  --chart="mailhog" \
+  --chart-version="4.1.0" \
+  --export > apps/base/mailhog/helmrelease/mailhog.yaml
 
 yq e '.patchesStrategicMerge += ["mailhog-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/mailhog-helmrelease-values.yaml" << \EOF
@@ -1831,24 +1709,13 @@ flux create kustomization oauth2-proxy \
   --health-check="HelmRelease/oauth2-proxy.oauth2-proxy" \
   --export > apps/base/oauth2-proxy/oauth2-proxy.yaml
 
-cat > apps/base/oauth2-proxy/helmrelease/oauth2-proxy.yaml << \EOF
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-# | oauth2-proxy | 4.2.1 | oauth2-proxy | https://oauth2-proxy.github.io/manifests
-metadata:
-  name: oauth2-proxy
-  namespace: oauth2-proxy
-spec:
-  chart:
-    spec:
-      chart: oauth2-proxy
-      sourceRef:
-        kind: HelmRepository
-        name: oauth2-proxy
-        namespace: flux-system
-      version: 4.2.1
-  interval: 1h0m0s
-EOF
+flux create helmrelease oauth2-proxy \
+  --namespace="oauth2-proxy" \
+  --interval="1h" \
+  --source="HelmRepository/oauth2-proxy.flux-system" \
+  --chart="oauth2-proxy" \
+  --chart-version="4.2.1" \
+  --export > apps/base/oauth2-proxy/helmrelease/oauth2-proxy.yaml
 
 yq e '.patchesStrategicMerge += ["oauth2-proxy-helmrelease-values.yaml"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
 cat > "apps/${ENVIRONMENT}/base/oauth2-proxy-helmrelease-values.yaml" << \EOF
@@ -1921,7 +1788,7 @@ IRSA:
 
 ```bash
 if [[ $( eksctl get iamserviceaccount  --cluster "${CLUSTER_NAME}" --namespace crossplane-system -o yaml | yq e ) == "null" ]] ; then
-  kubectl wait --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io/crossplane-providerconfig -n crossplane-system
+  kubectl wait --timeout=10m --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io/crossplane-providerconfig -n crossplane-system
   CROSSPLANE_PROVIDER_AWS_SERVICE_ACCOUNT_NAME=$(kubectl get serviceaccounts -n crossplane-system -o=custom-columns=NAME:.metadata.name | grep provider-aws)
   eksctl create iamserviceaccount --cluster="${CLUSTER_NAME}" --name="${CROSSPLANE_PROVIDER_AWS_SERVICE_ACCOUNT_NAME}" --namespace="crossplane-system" --role-name="crossplane-provider-aws-${CLUSTER_NAME}" --role-only --attach-policy-arn="arn:aws:iam::aws:policy/AdministratorAccess" --tags="${TAGS// /,}" --approve
 fi
