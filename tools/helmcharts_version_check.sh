@@ -32,7 +32,7 @@ while IFS= read -r HELM_LINE ; do
   fi
 done < <(grep -R --no-filename -A7 '^flux create helmrelease' docs/part*)
 
-echo "------------------------------------------"
+echo "--------------------------------------------------------------------------------"
 
 (
 for i in "${!HELM_CHART_NAMES[@]}"; do

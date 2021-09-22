@@ -142,7 +142,7 @@ managedNodeGroups:
     amiFamily: Bottlerocket
     instanceType: t3.large
     instancePrefix: ${GITHUB_USER}
-    desiredCapacity: 2
+    desiredCapacity: 3
     minSize: 2
     maxSize: 5
     volumeSize: 30
