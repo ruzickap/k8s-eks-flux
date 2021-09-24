@@ -13,7 +13,7 @@ names will look like `CLUSTER_NAME`.`BASE_DOMAIN` (`kube1.k8s.mylabs.dev`).
 ```bash
 # Hostname / FQDN definitions
 export BASE_DOMAIN=${BASE_DOMAIN:-k8s.mylabs.dev}
-export CLUSTER_NAME=${CLUSTER_NAME:-kube2}
+export CLUSTER_NAME=${CLUSTER_NAME:-kube1}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
 export KUBECONFIG=${PWD}/tmp/${CLUSTER_FQDN}/kubeconfig-${CLUSTER_NAME}.conf
 export MY_EMAIL="petr.ruzicka@gmail.com"
@@ -24,10 +24,15 @@ export MY_GITHUB_ORG_NAME="ruzickap-org"
 # Flux GitHub repository
 export GITHUB_USER="ruzickap"
 export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
-MY_GITHUB_WEBHOOK_TOKEN=${MY_GITHUB_WEBHOOK_TOKEN:-$(head -c 12 /dev/urandom | md5sum | cut -d " " -f1)}
-export MY_GITHUB_WEBHOOK_TOKEN
-COOKIE_SECRET=${COOKIE_SECRET:-$( openssl rand -base64 32 | head -c 32 | base64 )}
-export COOKIE_SECRET
+
+# Do not change the random variables if executed multiple times
+if [[ ! -f "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml" ]] ; then
+  MY_GITHUB_WEBHOOK_TOKEN=${MY_GITHUB_WEBHOOK_TOKEN:-$(head -c 12 /dev/urandom | md5sum | cut -d " " -f1)}
+  export MY_GITHUB_WEBHOOK_TOKEN
+  COOKIE_SECRET=${COOKIE_SECRET:-$( openssl rand -base64 32 | head -c 32 | base64 )}
+  export COOKIE_SECRET
+fi
+
 export SLACK_CHANNEL="mylabs"
 # AWS Region
 export AWS_DEFAULT_REGION="eu-west-1"

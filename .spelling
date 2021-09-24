@@ -24,6 +24,7 @@ external-snapshotter
 ExternalDNS
 HelmRelease
 HelmReleases
+HelmRepositories
 HelmRepository
 ingress-nginx
 ingress-nginx

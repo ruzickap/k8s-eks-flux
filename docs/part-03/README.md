@@ -43,8 +43,8 @@ Create initial git repository structure which will be used by Flux:
 
 ```bash
 mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}
-mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/apps/{base,helmrepository,prd,dev,mygroup}
-mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/apps/${ENVIRONMENT}"/{base,helmrepository}
+mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/{helmrepositories,apps}
+mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/groups/{"${ENVIRONMENT}",prd,mygroup}/{apps,helmrepositories}
 ```
 
 Set `user.name` and `user.email` for git:
@@ -76,11 +76,8 @@ EOF
 Add SOPS configuration to git repository and sync it with Flux:
 
 ```bash
-if ! grep -q 'gotk-patches.yaml' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/kustomization.yaml" ; then
-  cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/kustomization.yaml" << EOF
-patchesStrategicMerge:
-- gotk-patches.yaml
-EOF
+if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/gotk-patches.yaml" ]]; then
+  yq e 'select(fileIndex == 0) * {"patchesStrategicMerge":["gotk-patches.yaml"]}' -i "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/kustomization.yaml"
 
   cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/gotk-patches.yaml" << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
@@ -100,7 +97,7 @@ EOF
 fi
 ```
 
-## HelmRepository
+## HelmRepositories
 
 Create `HelmRepository` definitions...
 
@@ -122,7 +119,7 @@ declare -A HELMREPOSITORIES=(
   ["rancher-latest"]="https://releases.rancher.com/server-charts/latest"
 )
 
-cat > apps/helmrepository/kustomization.yaml << EOF
+cat > helmrepositories/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -130,15 +127,15 @@ EOF
 
 for HELMREPOSITORY in "${!HELMREPOSITORIES[@]}"; do
   echo "${HELMREPOSITORY} : ${HELMREPOSITORIES[${HELMREPOSITORY}]}";
-  mkdir -vp "apps/helmrepository/${HELMREPOSITORY}"
-  yq e ".resources += [\"${HELMREPOSITORY}\"]" -i apps/helmrepository/kustomization.yaml
-  cat > "apps/helmrepository/${HELMREPOSITORY}/kustomization.yaml" << EOF
+  mkdir -vp "helmrepositories/${HELMREPOSITORY}"
+  yq e ".resources += [\"${HELMREPOSITORY}\"]" -i helmrepositories/kustomization.yaml
+  cat > "helmrepositories/${HELMREPOSITORY}/kustomization.yaml" << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ${HELMREPOSITORY}.yaml
 EOF
-  flux create source helm "${HELMREPOSITORY}" --url="${HELMREPOSITORIES[${HELMREPOSITORY}]}" --interval=1h --export > "apps/helmrepository/${HELMREPOSITORY}/${HELMREPOSITORY}.yaml"
+  flux create source helm "${HELMREPOSITORY}" --url="${HELMREPOSITORIES[${HELMREPOSITORY}]}" --interval=1h --export > "helmrepositories/${HELMREPOSITORY}/${HELMREPOSITORY}.yaml"
 done
 ```
 
@@ -150,28 +147,28 @@ before `HelmRelease` using `dependsOn`.
 
 ```bash
 mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
-flux create kustomization apps-helmrepository \
+flux create kustomization helmrepositories \
   --interval="10m" \
-  --path="./apps/${ENVIRONMENT}/helmrepository" \
+  --path="./groups/${ENVIRONMENT}/helmrepositories" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
-  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-helmrepository.yaml"
+  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories.yaml"
 
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml" << EOF
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml" << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: apps-base
+  name: apps
   namespace: flux-system
 spec:
   interval: 5m
   dependsOn:
-    - name: apps-helmrepository
+    - name: helmrepositories
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: "./apps/${ENVIRONMENT}/base"
+  path: "./groups/${ENVIRONMENT}/apps"
   prune: true
   validation: client
   postBuild:
@@ -197,18 +194,153 @@ spec:
       SLACK_INCOMING_WEBHOOK_URL_BASE64: $(echo -n "${SLACK_INCOMING_WEBHOOK_URL}" | base64 --wrap=0)
       SLACK_INCOMING_WEBHOOK_URL: ${SLACK_INCOMING_WEBHOOK_URL:=SLACK_INCOMING_WEBHOOK_URL}
       TAGS_INGRESS_NGINX: ${TAGS// /,}
+  patchesJson6902:
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: kube-prometheus-stack
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: 18.0.11
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: aws-ebs-csi-driver
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: 2.2.0
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: metrics-server
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: 5.10.0
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: oauth2-proxy
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: 4.2.0
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: external-dns
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: 5.4.6
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: cert-manager
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: v1.5.2
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: crossplane
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge
+          value:
+            - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+              kind: HelmRelease
+              metadata:
+                name: crossplane
+                namespace: crossplane-system
+              spec:
+                chart:
+                  spec:
+                    version: 1.4.0
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: policy-reporter
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: 1.9.2
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: dex
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: 0.6.2
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: kyverno-crds
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge
+          value:
+            - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+              kind: HelmRelease
+              metadata:
+                name: kyverno-crds
+                namespace: kyverno
+              spec:
+                chart:
+                  spec:
+                    version: v2.0.3
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: kyverno
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: v2.0.3
+    - target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: ingress-nginx
+      patch:
+        - op: add
+          path: /spec/patchesStrategicMerge/0/spec/chart
+          value:
+            spec:
+              version: 3.35.0
 EOF
 
-sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml"
+sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml"
 ```
 
 ## Create initial Apps dev group definitions
 
-Create `apps/${ENVIRONMENT}/base/kustomization.yaml` which will contain base
+Create `groups/${ENVIRONMENT}/apps/kustomization.yaml` which will contain base
 applications:
 
 ```bash
-cat > "apps/${ENVIRONMENT}/base/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 EOF
@@ -218,11 +350,11 @@ Create application group called `dev` which will contain all the
 `HelmRepository` and `HelmRelease` used by this group.
 
 ```bash
-cat > "apps/${ENVIRONMENT}/helmrepository/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/helmrepositories/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../helmrepository
+  - ../../../helmrepositories
 EOF
 ```
 
@@ -236,8 +368,8 @@ EOF
 * [default values.yaml](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/charts/aws-ebs-csi-driver/values.yaml):
 
 ```bash
-mkdir -vp apps/base/aws-ebs-csi-driver/helmrelease
-cat > apps/base/aws-ebs-csi-driver/kustomization.yaml << \EOF
+mkdir -vp apps/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease
+cat > apps/aws-ebs-csi-driver/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -246,12 +378,12 @@ EOF
 
 flux create kustomization aws-ebs-csi-driver \
   --interval="1h" \
-  --path="./apps/base/aws-ebs-csi-driver/helmrelease" \
+  --path="./apps/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/aws-ebs-csi-driver.aws-ebs-csi-driver" \
-  --export > apps/base/aws-ebs-csi-driver/aws-ebs-csi-driver.yaml
+  --export > apps/aws-ebs-csi-driver/aws-ebs-csi-driver.yaml
 
 cat << \EOF |
 controller:
@@ -266,21 +398,21 @@ flux create helmrelease aws-ebs-csi-driver \
   --chart="aws-ebs-csi-driver" \
   --chart-version="2.2.1" \
   --values="/dev/stdin" \
-  --export > apps/base/aws-ebs-csi-driver/helmrelease/aws-ebs-csi-driver.yaml
+  --export > apps/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease/aws-ebs-csi-driver.yaml
 
-mkdir -vp "apps/${ENVIRONMENT}/base/aws-ebs-csi-driver"
-yq e '.resources += ["aws-ebs-csi-driver"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -vp "groups/${ENVIRONMENT}/apps/aws-ebs-csi-driver"
+yq e '.resources += ["aws-ebs-csi-driver"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/aws-ebs-csi-driver/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/aws-ebs-csi-driver/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/aws-ebs-csi-driver
+  - ../../../../apps/aws-ebs-csi-driver
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - aws-ebs-csi-driver-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/aws-ebs-csi-driver/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/aws-ebs-csi-driver/aws-ebs-csi-driver-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -313,7 +445,7 @@ Change the tags on the Cluster level, because they will be different on every
 cluster and it needs to be "set" form TAGS bash variable:
 
 ```bash
-yq eval-all 'select(fileIndex == 0) *+ select(fileIndex == 1)' -i "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps-base.yaml" - << EOF
+yq eval-all 'select(fileIndex == 0) *+ select(fileIndex == 1)' -i "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml" - << EOF
 spec:
   patchesJson6902:
     - target:
@@ -338,8 +470,8 @@ EOF
 * [default values.yaml](https://github.com/crossplane/crossplane/blob/master/cluster/charts/crossplane/values.yaml.tmpl):
 
 ```bash
-mkdir -vp apps/base/crossplane/helmrelease
-cat > apps/base/crossplane/kustomization.yaml << \EOF
+mkdir -vp apps/crossplane/crossplane-helmrelease
+cat > apps/crossplane/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -347,7 +479,7 @@ resources:
   - crossplane.yaml
 EOF
 
-cat > apps/base/crossplane/namespace-crossplane.yaml << \EOF
+cat > apps/crossplane/namespace-crossplane.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -356,12 +488,12 @@ EOF
 
 flux create kustomization crossplane \
   --interval="10m" \
-  --path="./apps/base/crossplane/helmrelease" \
+  --path="./apps/crossplane/crossplane-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/crossplane.crossplane-system" \
-  --export > apps/base/crossplane/crossplane.yaml
+  --export > apps/crossplane/crossplane.yaml
 
 flux create helmrelease crossplane \
   --namespace="crossplane-system" \
@@ -369,21 +501,21 @@ flux create helmrelease crossplane \
   --source="HelmRepository/crossplane-stable.flux-system" \
   --chart="crossplane" \
   --chart-version="1.4.1" \
-  --export > apps/base/crossplane/helmrelease/crossplane.yaml
+  --export > apps/crossplane/crossplane-helmrelease/crossplane.yaml
 
-mkdir -pv "apps/${ENVIRONMENT}/base/crossplane"/{provider,providerconfig}
-yq e '.resources += ["crossplane"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -pv "groups/${ENVIRONMENT}/apps/crossplane"/{provider,providerconfig}
+yq e '.resources += ["crossplane"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/crossplane/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/crossplane
+  - ../../../../apps/crossplane
   - provider.yaml
   - providerconfig.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/crossplane/provider.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/provider.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -401,7 +533,7 @@ spec:
     - apiVersion: pkg.crossplane.io/v1
       kind: Provider
       name: provider-aws
-  path: "./apps/${ENVIRONMENT}/base/crossplane/provider"
+  path: "./groups/${ENVIRONMENT}/apps/crossplane/provider"
   prune: true
   validation: client
   postBuild:
@@ -410,7 +542,7 @@ spec:
       CLUSTER_NAME: ${CLUSTER_NAME:=CLUSTER_NAME}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/crossplane/provider/provider-aws.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/provider/provider-aws.yaml" << \EOF
 apiVersion: pkg.crossplane.io/v1alpha1
 kind: ControllerConfig
 metadata:
@@ -433,7 +565,7 @@ spec:
     name: aws-config
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/crossplane/providerconfig.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/providerconfig.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -451,12 +583,12 @@ spec:
     - apiVersion: aws.crossplane.io/v1beta1
       kind: ProviderConfig
       name: aws-provider
-  path: "./apps/${ENVIRONMENT}/base/crossplane/providerconfig"
+  path: "./groups/${ENVIRONMENT}/apps/crossplane/providerconfig"
   prune: true
   validation: client
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/crossplane/providerconfig/providerconfig-aws.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/providerconfig/providerconfig-aws.yaml" << \EOF
 apiVersion: aws.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
@@ -474,8 +606,8 @@ Details about EKS and `external-snapshotter` can be found here:
 [Using EBS Snapshots for persistent storage with your EKS cluster](https://aws.amazon.com/blogs/containers/using-ebs-snapshots-for-persistent-storage-with-your-eks-cluster)
 
 ```bash
-mkdir -vp apps/base/external-snapshotter/manifests
-cat > apps/base/external-snapshotter/kustomization.yaml << \EOF
+mkdir -vp apps/external-snapshotter/external-snapshotter-manifests
+cat > apps/external-snapshotter/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -484,14 +616,14 @@ EOF
 
 flux create kustomization external-snapshotter \
   --interval="10m" \
-  --path="./apps/base/external-snapshotter/manifests" \
+  --path="./apps/external-snapshotter/external-snapshotter-manifests" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="Deployment/snapshot-controller.kube-system" \
-  --export > apps/base/external-snapshotter/external-snapshotter.yaml
+  --export > apps/external-snapshotter/external-snapshotter.yaml
 
-cat > apps/base/external-snapshotter/manifests/kustomization.yaml << \EOF
+cat > apps/external-snapshotter/external-snapshotter-manifests/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -511,8 +643,8 @@ EOF
 * [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/metrics-server/values.yaml):
 
 ```bash
-mkdir -vp apps/base/metrics-server/helmrelease
-cat > apps/base/metrics-server/kustomization.yaml << \EOF
+mkdir -vp apps/metrics-server/metrics-server-helmrelease
+cat > apps/metrics-server/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -520,7 +652,7 @@ resources:
   - metrics-server.yaml
 EOF
 
-cat > apps/base/metrics-server/namespace-metrics-server.yaml << \EOF
+cat > apps/metrics-server/namespace-metrics-server.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -529,12 +661,12 @@ EOF
 
 flux create kustomization metrics-server \
   --interval="10m" \
-  --path="./apps/base/metrics-server/helmrelease" \
+  --path="./apps/metrics-server/metrics-server-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/metrics-server.metrics-server" \
-  --export > apps/base/metrics-server/metrics-server.yaml
+  --export > apps/metrics-server/metrics-server.yaml
 
 flux create helmrelease metrics-server \
   --namespace="metrics-server" \
@@ -542,21 +674,21 @@ flux create helmrelease metrics-server \
   --source="HelmRepository/bitnami.flux-system" \
   --chart="metrics-server" \
   --chart-version="5.10.1" \
-  --export > apps/base/metrics-server/helmrelease/metrics-server.yaml
+  --export > apps/metrics-server/metrics-server-helmrelease/metrics-server.yaml
 
-mkdir -vp apps/${ENVIRONMENT}/base/metrics-server/
-yq e '.resources += ["metrics-server"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -vp groups/${ENVIRONMENT}/apps/metrics-server/
+yq e '.resources += ["metrics-server"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/metrics-server/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/metrics-server/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/metrics-server
+  - ../../../../apps/metrics-server
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - metrics-server-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/metrics-server/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/metrics-server/metrics-server-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -584,8 +716,8 @@ EOF
 * [default values.yaml](https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml):
 
 ```bash
-mkdir -vp apps/base/kube-prometheus-stack/helmrelease
-cat > apps/base/kube-prometheus-stack/kustomization.yaml << \EOF
+mkdir -vp apps/kube-prometheus-stack/kube-prometheus-stack-helmrelease
+cat > apps/kube-prometheus-stack/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -593,7 +725,7 @@ resources:
   - kube-prometheus-stack.yaml
 EOF
 
-cat > apps/base/kube-prometheus-stack/namespace-kube-prometheus-stack.yaml << EOF
+cat > apps/kube-prometheus-stack/namespace-kube-prometheus-stack.yaml << EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -603,12 +735,12 @@ EOF
 flux create kustomization kube-prometheus-stack \
   --interval="10m" \
   --depends-on="aws-ebs-csi-driver" \
-  --path="./apps/base/kube-prometheus-stack/helmrelease" \
+  --path="./apps/kube-prometheus-stack/kube-prometheus-stack-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/kube-prometheus-stack.kube-prometheus-stack" \
-  --export > apps/base/kube-prometheus-stack/kube-prometheus-stack.yaml
+  --export > apps/kube-prometheus-stack/kube-prometheus-stack.yaml
 
 flux create helmrelease kube-prometheus-stack \
   --namespace="kube-prometheus-stack" \
@@ -616,25 +748,25 @@ flux create helmrelease kube-prometheus-stack \
   --source="HelmRepository/prometheus-community.flux-system" \
   --chart="kube-prometheus-stack" \
   --chart-version="18.0.12" \
-  --export > apps/base/kube-prometheus-stack/helmrelease/kube-prometheus-stack.yaml
+  --export > apps/kube-prometheus-stack/kube-prometheus-stack-helmrelease/kube-prometheus-stack.yaml
 
 # Disable --crds for now due to bug:
 # https://github.com/fluxcd/flux2/issues/1845
 # --crds="CreateReplace" \
 
-mkdir -vp apps/${ENVIRONMENT}/base/kube-prometheus-stack
-yq e '.resources += ["kube-prometheus-stack"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -vp groups/${ENVIRONMENT}/apps/kube-prometheus-stack
+yq e '.resources += ["kube-prometheus-stack"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/kube-prometheus-stack/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/kube-prometheus-stack/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/kube-prometheus-stack
+  - ../../../../apps/kube-prometheus-stack
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - kube-prometheus-stack-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/kube-prometheus-stack/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/kube-prometheus-stack/kube-prometheus-stack-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -912,8 +1044,8 @@ EOF
 * [default values.yaml](https://github.com/jetstack/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml):
 
 ```bash
-mkdir -vp apps/base/cert-manager/helmrelease
-cat > apps/base/cert-manager/kustomization.yaml << \EOF
+mkdir -vp apps/cert-manager/cert-manager-helmrelease
+cat > apps/cert-manager/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -923,12 +1055,12 @@ EOF
 flux create kustomization cert-manager \
   --interval="10m" \
   --depends-on="kube-prometheus-stack" \
-  --path="./apps/base/cert-manager/helmrelease" \
+  --path="./apps/cert-manager/cert-manager-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/cert-manager.cert-manager" \
-  --export > apps/base/cert-manager/cert-manager.yaml
+  --export > apps/cert-manager/cert-manager.yaml
 
 cat << \EOF |
 installCRDs: true
@@ -943,23 +1075,23 @@ flux create helmrelease cert-manager \
   --chart="cert-manager" \
   --chart-version="v1.5.3" \
   --values="/dev/stdin" \
-  --export > apps/base/cert-manager/helmrelease/cert-manager.yaml
+  --export > apps/cert-manager/cert-manager-helmrelease/cert-manager.yaml
 
-mkdir -pv "apps/${ENVIRONMENT}/base/cert-manager"/{clusterissuer,certificate}
-yq e '.resources += ["cert-manager"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -pv "groups/${ENVIRONMENT}/apps/cert-manager"/{clusterissuer,certificate}
+yq e '.resources += ["cert-manager"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/cert-manager/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/cert-manager
+  - ../../../../apps/cert-manager
   - clusterissuer.yaml
   - certificate.yaml
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - cert-manager-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/cert-manager/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -985,7 +1117,7 @@ spec:
               enabled: true
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/cert-manager/clusterissuer.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/clusterissuer.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1006,7 +1138,7 @@ spec:
     - apiVersion: cert-manager.io/v1
       kind: ClusterIssuer
       name: letsencrypt-production-dns
-  path: "./apps/${ENVIRONMENT}/base/cert-manager/clusterissuer"
+  path: "./groups/${ENVIRONMENT}/apps/cert-manager/clusterissuer"
   prune: true
   validation: client
   postBuild:
@@ -1016,7 +1148,7 @@ spec:
       MY_EMAIL: ${MY_EMAIL:=MY_EMAIL}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/cert-manager/clusterissuer/clusterissuer-letsencrypt-staging-dns.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/clusterissuer/clusterissuer-letsencrypt-staging-dns.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1037,7 +1169,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/cert-manager/clusterissuer/clusterissuer-letsencrypt-production-dns.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/clusterissuer/clusterissuer-letsencrypt-production-dns.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1058,7 +1190,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/cert-manager/certificate.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/certificate.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1077,7 +1209,7 @@ spec:
       kind: Certificate
       name: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
       namespace: cert-manager
-  path: "./apps/${ENVIRONMENT}/base/cert-manager/certificate"
+  path: "./groups/${ENVIRONMENT}/apps/cert-manager/certificate"
   prune: true
   validation: client
   postBuild:
@@ -1086,7 +1218,7 @@ spec:
       CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/cert-manager/certificate/certificate.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/certificate/certificate.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -1115,8 +1247,8 @@ EOF
 * [default values.yaml](https://github.com/dexidp/helm-charts/blob/master/charts/dex/values.yaml):
 
 ```bash
-mkdir -vp apps/base/dex/helmrelease
-cat > apps/base/dex/kustomization.yaml << \EOF
+mkdir -vp apps/dex/dex-helmrelease
+cat > apps/dex/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1124,7 +1256,7 @@ resources:
   - dex.yaml
 EOF
 
-cat > apps/base/dex/namespace-dex.yaml << \EOF
+cat > apps/dex/namespace-dex.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1133,12 +1265,12 @@ EOF
 
 flux create kustomization dex \
   --interval="10m" \
-  --path="./apps/base/dex/helmrelease" \
+  --path="./apps/dex/dex-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/dex.dex" \
-  --export > apps/base/dex/dex.yaml
+  --export > apps/dex/dex.yaml
 
 cat << \EOF |
 config:
@@ -1159,21 +1291,21 @@ flux create helmrelease dex \
   --chart="dex" \
   --chart-version="0.6.3" \
   --values="/dev/stdin" \
-  --export > apps/base/dex/helmrelease/dex.yaml
+  --export > apps/dex/dex-helmrelease/dex.yaml
 
-mkdir -vp "apps/${ENVIRONMENT}/base/dex"
-yq e '.resources += ["dex"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -vp "groups/${ENVIRONMENT}/apps/dex"
+yq e '.resources += ["dex"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/dex/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/dex/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/dex
+  - ../../../../apps/dex
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - dex-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/dex/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/dex/dex-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1249,8 +1381,8 @@ EOF
 * [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/external-dns/values.yaml):
 
 ```bash
-mkdir -vp apps/base/external-dns/helmrelease
-cat > apps/base/external-dns/kustomization.yaml << \EOF
+mkdir -vp apps/external-dns/external-dns-helmrelease
+cat > apps/external-dns/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1260,12 +1392,12 @@ EOF
 flux create kustomization external-dns \
   --interval="10m" \
   --depends-on="ingress-nginx" \
-  --path="./apps/base/external-dns/helmrelease" \
+  --path="./apps/external-dns/external-dns-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/external-dns.external-dns" \
-  --export > apps/base/external-dns/external-dns.yaml
+  --export > apps/external-dns/external-dns.yaml
 
 cat << \EOF |
 serviceAccount:
@@ -1279,21 +1411,21 @@ flux create helmrelease external-dns \
   --chart="external-dns" \
   --chart-version="5.4.7" \
   --values="/dev/stdin" \
-  --export > apps/base/external-dns/helmrelease/external-dns.yaml
+  --export > apps/external-dns/external-dns-helmrelease/external-dns.yaml
 
-mkdir -vp apps/${ENVIRONMENT}/base/external-dns/
-yq e '.resources += ["external-dns"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -vp groups/${ENVIRONMENT}/apps/external-dns/
+yq e '.resources += ["external-dns"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/external-dns/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/external-dns/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/external-dns
+  - ../../../../apps/external-dns
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - external-dns-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/external-dns/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/external-dns/external-dns-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1312,7 +1444,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
           domainFilters:
             - ${CLUSTER_FQDN}
-          interval: 20s
+          interval: 5m
           policy: sync
           serviceAccount:
             create: false
@@ -1329,9 +1461,9 @@ EOF
 [flux](https://fluxcd.io/)
 
 ```bash
-mkdir -vp "apps/${ENVIRONMENT}/base/flux"/{providers,alerts,receivers,podmonitor}
-yq e '.resources += ["flux"]' -i apps/${ENVIRONMENT}/base/kustomization.yaml
-cat > "apps/${ENVIRONMENT}/base/flux/kustomization.yaml" << \EOF
+mkdir -vp "groups/${ENVIRONMENT}/apps/flux"/{providers,alerts,receivers,podmonitor}
+yq e '.resources += ["flux"]' -i groups/${ENVIRONMENT}/apps/kustomization.yaml
+cat > "groups/${ENVIRONMENT}/apps/flux/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1341,14 +1473,14 @@ resources:
   - flux-podmonitor.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/flux/flux-providers.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-providers.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: flux-providers
   namespace: flux-system
 spec:
-  interval: 1m
+  interval: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -1357,7 +1489,7 @@ spec:
       kind: Provider
       name: slack
       namespace: flux-system
-  path: ./apps/${ENVIRONMENT}/base/flux/providers/
+  path: ./groups/${ENVIRONMENT}/apps/flux/providers/
   prune: true
   validation: client
   postBuild:
@@ -1370,9 +1502,9 @@ flux create alert-provider slack \
   --type=slack \
   --channel="\${SLACK_CHANNEL}" \
   --secret-ref=slack-url \
-  --export > "apps/${ENVIRONMENT}/base/flux/providers/provider-slack.yaml"
+  --export > "groups/${ENVIRONMENT}/apps/flux/providers/provider-slack.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/flux/providers/provider-slack-url-secret.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/providers/provider-slack-url-secret.yaml" << \EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1382,14 +1514,14 @@ data:
   address: ${SLACK_INCOMING_WEBHOOK_URL_BASE64}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/flux/flux-alerts.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-alerts.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: flux-alerts
   namespace: flux-system
 spec:
-  interval: 1m
+  interval: 5m
   dependsOn:
     - name: flux-providers
   sourceRef:
@@ -1400,7 +1532,7 @@ spec:
       kind: Alert
       name: alert-slack
       namespace: flux-system
-  path: ./apps/${ENVIRONMENT}/base/flux/alerts/
+  path: ./groups/${ENVIRONMENT}/apps/flux/alerts/
   prune: true
   validation: client
 EOF
@@ -1409,16 +1541,16 @@ flux create alert alert-slack \
   --event-severity=error \
   --event-source="GitRepository/*,Kustomization/*,HelmRepository/*,HelmChart/*,HelmRelease/*" \
   --provider-ref=slack \
-  --export > "apps/${ENVIRONMENT}/base/flux/alerts/alert-slack.yaml"
+  --export > "groups/${ENVIRONMENT}/apps/flux/alerts/alert-slack.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/flux/flux-podmonitor.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-podmonitor.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: flux-podmonitor
   namespace: flux-system
 spec:
-  interval: 1m
+  interval: 5m
   dependsOn:
     - name: kube-prometheus-stack
   sourceRef:
@@ -1429,12 +1561,12 @@ spec:
       kind: PodMonitor
       name: flux-system
       namespace: flux-system
-  path: ./apps/${ENVIRONMENT}/base/flux/podmonitor/
+  path: ./groups/${ENVIRONMENT}/apps/flux/podmonitor/
   prune: true
   validation: client
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/flux/podmonitor/podmonitor.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/podmonitor/podmonitor.yaml" << \EOF
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -1461,14 +1593,14 @@ spec:
     - port: http-prom
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/flux/flux-receivers.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-receivers.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
   name: flux-receivers
   namespace: flux-system
 spec:
-  interval: 1m
+  interval: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -1477,7 +1609,7 @@ spec:
       kind: Receiver
       name: github-receiver
       namespace: flux-system
-  path: ./apps/${ENVIRONMENT}/base/flux/receivers/
+  path: ./groups/${ENVIRONMENT}/apps/flux/receivers/
   prune: true
   validation: client
   postBuild:
@@ -1486,7 +1618,7 @@ spec:
       CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/flux/receivers/receiver-github-webhook-token-secret.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/receivers/receiver-github-webhook-token-secret.yaml" << \EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1502,9 +1634,9 @@ flux create receiver github-receiver \
   --event=push \
   --secret-ref=github-webhook-token \
   --resource="GitRepository/flux-system" \
-  --export > "apps/${ENVIRONMENT}/base/flux/receivers/receiver-github.yaml"
+  --export > "groups/${ENVIRONMENT}/apps/flux/receivers/receiver-github.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/flux/receivers/receiver-github-ingress.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/receivers/receiver-github-ingress.yaml" << \EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -1536,8 +1668,8 @@ EOF
 * [default values.yaml](https://github.com/kubernetes/ingress-nginx/blob/master/charts/ingress-nginx/values.yaml):
 
 ```bash
-mkdir -vp apps/base/ingress-nginx/helmrelease
-cat > apps/base/ingress-nginx/kustomization.yaml << \EOF
+mkdir -vp apps/ingress-nginx/ingress-nginx-helmrelease
+cat > apps/ingress-nginx/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1545,7 +1677,7 @@ resources:
   - ingress-nginx.yaml
 EOF
 
-cat > apps/base/ingress-nginx/namespace-ingress-nginx.yaml << \EOF
+cat > apps/ingress-nginx/namespace-ingress-nginx.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1555,12 +1687,12 @@ EOF
 flux create kustomization ingress-nginx \
   --interval="10m" \
   --depends-on="kube-prometheus-stack,cert-manager-certificate" \
-  --path="./apps/base/ingress-nginx/helmrelease" \
+  --path="./apps/ingress-nginx/ingress-nginx-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/ingress-nginx.ingress-nginx" \
-  --export > apps/base/ingress-nginx/ingress-nginx.yaml
+  --export > apps/ingress-nginx/ingress-nginx.yaml
 
 flux create helmrelease ingress-nginx \
   --namespace="ingress-nginx" \
@@ -1568,21 +1700,21 @@ flux create helmrelease ingress-nginx \
   --source="HelmRepository/ingress-nginx.flux-system" \
   --chart="ingress-nginx" \
   --chart-version="3.36.0" \
-  --export > apps/base/ingress-nginx/helmrelease/ingress-nginx.yaml
+  --export > apps/ingress-nginx/ingress-nginx-helmrelease/ingress-nginx.yaml
 
-mkdir -vp apps/${ENVIRONMENT}/base/ingress-nginx/
-yq e '.resources += ["ingress-nginx"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -vp groups/${ENVIRONMENT}/apps/ingress-nginx/
+yq e '.resources += ["ingress-nginx"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/ingress-nginx/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/ingress-nginx/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/ingress-nginx
+  - ../../../../apps/ingress-nginx
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - ingress-nginx-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/ingress-nginx/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/ingress-nginx/ingress-nginx-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1655,8 +1787,8 @@ EOF
 * [default values.yaml](https://github.com/codecentric/helm-charts/blob/master/charts/mailhog/values.yaml):
 
 ```bash
-mkdir -vp apps/base/mailhog/helmrelease
-cat > apps/base/mailhog/kustomization.yaml << \EOF
+mkdir -vp apps/mailhog/mailhog-helmrelease
+cat > apps/mailhog/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1664,7 +1796,7 @@ resources:
   - mailhog.yaml
 EOF
 
-cat > apps/base/mailhog/namespace-mailhog.yaml << \EOF
+cat > apps/mailhog/namespace-mailhog.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1673,12 +1805,12 @@ EOF
 
 flux create kustomization mailhog \
   --interval="10m" \
-  --path="./apps/base/mailhog/helmrelease" \
+  --path="./apps/mailhog/mailhog-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/mailhog.mailhog" \
-  --export > apps/base/mailhog/mailhog.yaml
+  --export > apps/mailhog/mailhog.yaml
 
 flux create helmrelease mailhog \
   --namespace="mailhog" \
@@ -1686,21 +1818,21 @@ flux create helmrelease mailhog \
   --source="HelmRepository/codecentric.flux-system" \
   --chart="mailhog" \
   --chart-version="4.1.0" \
-  --export > apps/base/mailhog/helmrelease/mailhog.yaml
+  --export > apps/mailhog/mailhog-helmrelease/mailhog.yaml
 
-mkdir -vp apps/${ENVIRONMENT}/base/mailhog/
-yq e '.resources += ["mailhog"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -vp groups/${ENVIRONMENT}/apps/mailhog/
+yq e '.resources += ["mailhog"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/mailhog/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/mailhog/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/mailhog
+  - ../../../../apps/mailhog
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - mailhog-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/mailhog/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/mailhog/mailhog-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1737,8 +1869,8 @@ EOF
 * [default values.yaml](https://github.com/oauth2-proxy/manifests/blob/main/helm/oauth2-proxy/values.yaml):
 
 ```bash
-mkdir -vp apps/base/oauth2-proxy/helmrelease
-cat > apps/base/oauth2-proxy/kustomization.yaml << \EOF
+mkdir -vp apps/oauth2-proxy/oauth2-proxy-helmrelease
+cat > apps/oauth2-proxy/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -1746,7 +1878,7 @@ resources:
   - oauth2-proxy.yaml
 EOF
 
-cat > apps/base/oauth2-proxy/namespace-oauth2-proxy.yaml << \EOF
+cat > apps/oauth2-proxy/namespace-oauth2-proxy.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1756,12 +1888,12 @@ EOF
 flux create kustomization oauth2-proxy \
   --interval="10m" \
   --depends-on="kube-prometheus-stack" \
-  --path="./apps/base/oauth2-proxy/helmrelease" \
+  --path="./apps/oauth2-proxy/oauth2-proxy-helmrelease" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
   --health-check="HelmRelease/oauth2-proxy.oauth2-proxy" \
-  --export > apps/base/oauth2-proxy/oauth2-proxy.yaml
+  --export > apps/oauth2-proxy/oauth2-proxy.yaml
 
 flux create helmrelease oauth2-proxy \
   --namespace="oauth2-proxy" \
@@ -1769,21 +1901,21 @@ flux create helmrelease oauth2-proxy \
   --source="HelmRepository/oauth2-proxy.flux-system" \
   --chart="oauth2-proxy" \
   --chart-version="4.2.1" \
-  --export > apps/base/oauth2-proxy/helmrelease/oauth2-proxy.yaml
+  --export > apps/oauth2-proxy/oauth2-proxy-helmrelease/oauth2-proxy.yaml
 
-mkdir -vp apps/${ENVIRONMENT}/base/oauth2-proxy/
-yq e '.resources += ["oauth2-proxy"]' -i "apps/${ENVIRONMENT}/base/kustomization.yaml"
+mkdir -vp groups/${ENVIRONMENT}/apps/oauth2-proxy/
+yq e '.resources += ["oauth2-proxy"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
-cat > "apps/${ENVIRONMENT}/base/oauth2-proxy/kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/oauth2-proxy/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../base/oauth2-proxy
+  - ../../../../apps/oauth2-proxy
 patchesStrategicMerge:
-  - kustomization-patch.yaml
+  - oauth2-proxy-patch.yaml
 EOF
 
-cat > "apps/${ENVIRONMENT}/base/oauth2-proxy/kustomization-patch.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/oauth2-proxy/oauth2-proxy-patch.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
