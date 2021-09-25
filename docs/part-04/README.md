@@ -299,7 +299,7 @@ flux create helmrelease policy-reporter \
   --chart-version="1.9.4" \
   --export > apps/policy-reporter/policy-reporter-helmrelease/policy-reporter.yaml
 
-mkdir -vp "groups/${ENVIRONMENT}/apps/policy-reporter/ingress"
+mkdir -vp "groups/${ENVIRONMENT}/apps/policy-reporter/policy-reporter-ingress"
 yq e '.resources += ["policy-reporter"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
 cat > "groups/${ENVIRONMENT}/apps/policy-reporter/kustomization.yaml" << \EOF
@@ -307,7 +307,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../../../apps/policy-reporter
-  - ingress-kustomization.yaml
+  - policy-reporter-ingress-kustomization.yaml
 patchesStrategicMerge:
   - policy-reporter-patch.yaml
 EOF
@@ -342,7 +342,7 @@ spec:
               minimumPriority: "warning"
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/policy-reporter/ingress-kustomization.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/policy-reporter/policy-reporter-ingress-kustomization.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -361,7 +361,7 @@ spec:
       kind: Ingress
       name: policy-reporter
       namespace: policy-reporter
-  path: "./groups/${ENVIRONMENT}/apps/policy-reporter/ingress"
+  path: "./groups/${ENVIRONMENT}/apps/policy-reporter/policy-reporter-ingress"
   prune: true
   validation: client
   postBuild:
@@ -369,7 +369,7 @@ spec:
       CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/policy-reporter/ingress/ingress.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/policy-reporter/policy-reporter-ingress/policy-reporter-ingress.yaml" << \EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -481,6 +481,97 @@ spec:
               secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
           replicas: 1
           bootstrapPassword: ${MY_PASSWORD}
+EOF
+```
+
+### Secrets Store CSI driver
+
+[secrets-store-csi-driver](https://secrets-store-csi-driver.sigs.k8s.io/)
+
+* [secrets-store-csi-driver](https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/master/charts/secrets-store-csi-driver)
+* [default values.yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/charts/secrets-store-csi-driver/values.yaml):
+
+```bash
+mkdir -vp apps/secrets-store-csi-driver/secrets-store-csi-driver-helmrelease
+cat > apps/secrets-store-csi-driver/kustomization.yaml << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace-secrets-store-csi-driver.yaml
+  - secrets-store-csi-driver.yaml
+EOF
+
+cat > apps/secrets-store-csi-driver/namespace-secrets-store-csi-driver.yaml << \EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secrets-store-csi-driver
+EOF
+
+flux create kustomization secrets-store-csi-driver \
+  --interval="10m" \
+  --path="./apps/secrets-store-csi-driver/secrets-store-csi-driver-helmrelease" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/secrets-store-csi-driver.secrets-store-csi-driver" \
+  --export > apps/secrets-store-csi-driver/secrets-store-csi-driver.yaml
+
+flux create helmrelease secrets-store-csi-driver \
+  --namespace="secrets-store-csi-driver" \
+  --interval="1h" \
+  --source="HelmRepository/secrets-store-csi-driver.flux-system" \
+  --chart="secrets-store-csi-driver" \
+  --chart-version="0.3.0" \
+  --export > apps/secrets-store-csi-driver/secrets-store-csi-driver-helmrelease/secrets-store-csi-driver.yaml
+
+mkdir -pv "groups/${ENVIRONMENT}/apps/secrets-store-csi-driver"/secrets-store-csi-driver-provider-aws
+yq e '.resources += ["secrets-store-csi-driver"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
+
+cat > "groups/${ENVIRONMENT}/apps/secrets-store-csi-driver/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../../apps/secrets-store-csi-driver
+  - secrets-store-csi-driver-provider-aws.yaml
+patchesStrategicMerge:
+  - secrets-store-csi-driver-patch.yaml
+EOF
+
+cat > "groups/${ENVIRONMENT}/apps/secrets-store-csi-driver/secrets-store-csi-driver-patch.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: secrets-store-csi-driver
+  namespace: flux-system
+spec:
+  patchesStrategicMerge:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      metadata:
+        name: secrets-store-csi-driver
+        namespace: secrets-store-csi-driver
+      spec:
+        values:
+          syncSecret:
+            enabled: true
+EOF
+
+flux create kustomization secrets-store-csi-driver-provider-aws \
+  --interval="1h" \
+  --depends-on="secrets-store-csi-driver" \
+  --path="./groups/\${ENVIRONMENT}/apps/secrets-store-csi-driver/secrets-store-csi-driver-provider-aws" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --validation="client" \
+  --health-check="HelmRelease/secrets-store-csi-driver.secrets-store-csi-driver" \
+  --export > "groups/${ENVIRONMENT}/apps/secrets-store-csi-driver/secrets-store-csi-driver-provider-aws.yaml"
+
+cat > "groups/${ENVIRONMENT}/apps/secrets-store-csi-driver/secrets-store-csi-driver-provider-aws/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/807d3cea12264c518e2a5007d6009cee159c2917/deployment/aws-provider-installer.yaml
 EOF
 ```
 

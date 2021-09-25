@@ -45,6 +45,7 @@ oauth2-proxy
 prometheus-community
 ReadWriteMany
 Route53
+secrets-store-csi-driver
 Snapshotter
 toc
 values.yaml
