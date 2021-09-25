@@ -117,6 +117,7 @@ declare -A HELMREPOSITORIES=(
   ["policy-reporter"]="https://kyverno.github.io/policy-reporter"
   ["prometheus-community"]="https://prometheus-community.github.io/helm-charts"
   ["rancher-latest"]="https://releases.rancher.com/server-charts/latest"
+  ["secrets-store-csi-driver"]="https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
 )
 
 cat > helmrepositories/kustomization.yaml << EOF
@@ -503,7 +504,7 @@ flux create helmrelease crossplane \
   --chart-version="1.4.1" \
   --export > apps/crossplane/crossplane-helmrelease/crossplane.yaml
 
-mkdir -pv "groups/${ENVIRONMENT}/apps/crossplane"/{provider,providerconfig}
+mkdir -pv "groups/${ENVIRONMENT}/apps/crossplane"/crossplane-{provider,providerconfig}
 yq e '.resources += ["crossplane"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
 cat > "groups/${ENVIRONMENT}/apps/crossplane/kustomization.yaml" << \EOF
@@ -511,11 +512,11 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../../../apps/crossplane
-  - provider.yaml
-  - providerconfig.yaml
+  - crossplane-provider.yaml
+  - crossplane-providerconfig.yaml
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/provider.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/crossplane-provider.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -533,7 +534,7 @@ spec:
     - apiVersion: pkg.crossplane.io/v1
       kind: Provider
       name: provider-aws
-  path: "./groups/${ENVIRONMENT}/apps/crossplane/provider"
+  path: "./groups/${ENVIRONMENT}/apps/crossplane/crossplane-provider"
   prune: true
   validation: client
   postBuild:
@@ -542,7 +543,7 @@ spec:
       CLUSTER_NAME: ${CLUSTER_NAME:=CLUSTER_NAME}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/provider/provider-aws.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/crossplane-provider/crossplane-provider-aws.yaml" << \EOF
 apiVersion: pkg.crossplane.io/v1alpha1
 kind: ControllerConfig
 metadata:
@@ -565,7 +566,7 @@ spec:
     name: aws-config
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/providerconfig.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/crossplane-providerconfig.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -583,12 +584,12 @@ spec:
     - apiVersion: aws.crossplane.io/v1beta1
       kind: ProviderConfig
       name: aws-provider
-  path: "./groups/${ENVIRONMENT}/apps/crossplane/providerconfig"
+  path: "./groups/${ENVIRONMENT}/apps/crossplane/crossplane-providerconfig"
   prune: true
   validation: client
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/providerconfig/providerconfig-aws.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/crossplane/crossplane-providerconfig/crossplane-providerconfig-aws.yaml" << \EOF
 apiVersion: aws.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
@@ -1077,7 +1078,7 @@ flux create helmrelease cert-manager \
   --values="/dev/stdin" \
   --export > apps/cert-manager/cert-manager-helmrelease/cert-manager.yaml
 
-mkdir -pv "groups/${ENVIRONMENT}/apps/cert-manager"/{clusterissuer,certificate}
+mkdir -pv "groups/${ENVIRONMENT}/apps/cert-manager"/cert-manager-{clusterissuer,certificate}
 yq e '.resources += ["cert-manager"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
 
 cat > "groups/${ENVIRONMENT}/apps/cert-manager/kustomization.yaml" << \EOF
@@ -1085,8 +1086,8 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../../../apps/cert-manager
-  - clusterissuer.yaml
-  - certificate.yaml
+  - cert-manager-clusterissuer.yaml
+  - cert-manager-certificate.yaml
 patchesStrategicMerge:
   - cert-manager-patch.yaml
 EOF
@@ -1117,7 +1118,7 @@ spec:
               enabled: true
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/clusterissuer.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1138,7 +1139,7 @@ spec:
     - apiVersion: cert-manager.io/v1
       kind: ClusterIssuer
       name: letsencrypt-production-dns
-  path: "./groups/${ENVIRONMENT}/apps/cert-manager/clusterissuer"
+  path: "./groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer"
   prune: true
   validation: client
   postBuild:
@@ -1148,7 +1149,7 @@ spec:
       MY_EMAIL: ${MY_EMAIL:=MY_EMAIL}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/clusterissuer/clusterissuer-letsencrypt-staging-dns.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer/cert-manager-clusterissuer-letsencrypt-staging-dns.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1169,7 +1170,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/clusterissuer/clusterissuer-letsencrypt-production-dns.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer/cert-manager-clusterissuer-letsencrypt-production-dns.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1190,7 +1191,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/certificate.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-certificate.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -1209,7 +1210,7 @@ spec:
       kind: Certificate
       name: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
       namespace: cert-manager
-  path: "./groups/${ENVIRONMENT}/apps/cert-manager/certificate"
+  path: "./groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-certificate"
   prune: true
   validation: client
   postBuild:
@@ -1218,7 +1219,7 @@ spec:
       CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/certificate/certificate.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-certificate/cert-manager-certificate.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -1461,23 +1462,23 @@ EOF
 [flux](https://fluxcd.io/)
 
 ```bash
-mkdir -vp "groups/${ENVIRONMENT}/apps/flux"/{providers,alerts,receivers,podmonitor}
+mkdir -vp "groups/${ENVIRONMENT}/apps/flux"/flux-{provider,alert,receiver,podmonitor}
 yq e '.resources += ["flux"]' -i groups/${ENVIRONMENT}/apps/kustomization.yaml
 cat > "groups/${ENVIRONMENT}/apps/flux/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - flux-providers.yaml
-  - flux-alerts.yaml
-  - flux-receivers.yaml
+  - flux-provider.yaml
+  - flux-alert.yaml
+  - flux-receiver.yaml
   - flux-podmonitor.yaml
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-providers.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-provider.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: flux-providers
+  name: flux-provider
   namespace: flux-system
 spec:
   interval: 5m
@@ -1489,7 +1490,7 @@ spec:
       kind: Provider
       name: slack
       namespace: flux-system
-  path: ./groups/${ENVIRONMENT}/apps/flux/providers/
+  path: ./groups/${ENVIRONMENT}/apps/flux/flux-provider/
   prune: true
   validation: client
   postBuild:
@@ -1502,9 +1503,9 @@ flux create alert-provider slack \
   --type=slack \
   --channel="\${SLACK_CHANNEL}" \
   --secret-ref=slack-url \
-  --export > "groups/${ENVIRONMENT}/apps/flux/providers/provider-slack.yaml"
+  --export > "groups/${ENVIRONMENT}/apps/flux/flux-provider/flux-provider-slack.yaml"
 
-cat > "groups/${ENVIRONMENT}/apps/flux/providers/provider-slack-url-secret.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-provider/flux-provider-slack-url-secret.yaml" << \EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1514,16 +1515,16 @@ data:
   address: ${SLACK_INCOMING_WEBHOOK_URL_BASE64}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-alerts.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-alert.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: flux-alerts
+  name: flux-alert
   namespace: flux-system
 spec:
   interval: 5m
   dependsOn:
-    - name: flux-providers
+    - name: flux-provider
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -1532,7 +1533,7 @@ spec:
       kind: Alert
       name: alert-slack
       namespace: flux-system
-  path: ./groups/${ENVIRONMENT}/apps/flux/alerts/
+  path: ./groups/${ENVIRONMENT}/apps/flux/flux-alert/
   prune: true
   validation: client
 EOF
@@ -1541,7 +1542,7 @@ flux create alert alert-slack \
   --event-severity=error \
   --event-source="GitRepository/*,Kustomization/*,HelmRepository/*,HelmChart/*,HelmRelease/*" \
   --provider-ref=slack \
-  --export > "groups/${ENVIRONMENT}/apps/flux/alerts/alert-slack.yaml"
+  --export > "groups/${ENVIRONMENT}/apps/flux/flux-alert/flux-alert-slack.yaml"
 
 cat > "groups/${ENVIRONMENT}/apps/flux/flux-podmonitor.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
@@ -1561,12 +1562,12 @@ spec:
       kind: PodMonitor
       name: flux-system
       namespace: flux-system
-  path: ./groups/${ENVIRONMENT}/apps/flux/podmonitor/
+  path: ./groups/${ENVIRONMENT}/apps/flux/flux-podmonitor/
   prune: true
   validation: client
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/flux/podmonitor/podmonitor.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-podmonitor/flux-podmonitor.yaml" << \EOF
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -1593,11 +1594,11 @@ spec:
     - port: http-prom
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-receivers.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-receiver.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: flux-receivers
+  name: flux-receiver
   namespace: flux-system
 spec:
   interval: 5m
@@ -1609,7 +1610,7 @@ spec:
       kind: Receiver
       name: github-receiver
       namespace: flux-system
-  path: ./groups/${ENVIRONMENT}/apps/flux/receivers/
+  path: ./groups/${ENVIRONMENT}/apps/flux/flux-receiver/
   prune: true
   validation: client
   postBuild:
@@ -1618,7 +1619,7 @@ spec:
       CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/flux/receivers/receiver-github-webhook-token-secret.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-receiver/flux-receiver-github-webhook-token-secret.yaml" << \EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1634,9 +1635,9 @@ flux create receiver github-receiver \
   --event=push \
   --secret-ref=github-webhook-token \
   --resource="GitRepository/flux-system" \
-  --export > "groups/${ENVIRONMENT}/apps/flux/receivers/receiver-github.yaml"
+  --export > "groups/${ENVIRONMENT}/apps/flux/flux-receiver/flux-receiver-github.yaml"
 
-cat > "groups/${ENVIRONMENT}/apps/flux/receivers/receiver-github-ingress.yaml" << \EOF
+cat > "groups/${ENVIRONMENT}/apps/flux/flux-receiver/flux-receiver-github-ingress.yaml" << \EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -1699,7 +1700,7 @@ flux create helmrelease ingress-nginx \
   --interval="1h" \
   --source="HelmRepository/ingress-nginx.flux-system" \
   --chart="ingress-nginx" \
-  --chart-version="3.36.0" \
+  --chart-version="4.0.1" \
   --export > apps/ingress-nginx/ingress-nginx-helmrelease/ingress-nginx.yaml
 
 mkdir -vp groups/${ENVIRONMENT}/apps/ingress-nginx/
