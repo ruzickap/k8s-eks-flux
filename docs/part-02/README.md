@@ -164,8 +164,10 @@ gitops:
       path: "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
 EOF
 
-if [[ ! -s "${KUBECONFIG}" ]] ; then
+if [[ ! -s "${KUBECONFIG}" ]] || ! eksctl get clusters --name="${CLUSTER_NAME}" &> /dev/null ; then
   eksctl create cluster --config-file "tmp/${CLUSTER_FQDN}/eksctl-${CLUSTER_NAME}.yaml" --kubeconfig "${KUBECONFIG}"
+else
+  [[ ! -s "${KUBECONFIG}" ]] && eksctl utils write-kubeconfig --cluster="${CLUSTER_NAME}" --kubeconfig "${KUBECONFIG}"
 fi
 ```
 
