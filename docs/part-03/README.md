@@ -42,7 +42,7 @@ Create basic Flux structure in git with following requirements or statements:
 Create initial git repository structure which will be used by Flux:
 
 ```bash
-mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}
+mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}/{apps,helmrepositories}
 mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/{helmrepositories,apps}
 mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/groups/{"${ENVIRONMENT}",prd,mygroup}/{apps,helmrepositories}
 ```
@@ -123,34 +123,38 @@ declare -A HELMREPOSITORIES=(
 cat > helmrepositories/kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources:
 EOF
 
 for HELMREPOSITORY in "${!HELMREPOSITORIES[@]}"; do
   echo "${HELMREPOSITORY} : ${HELMREPOSITORIES[${HELMREPOSITORY}]}";
   mkdir -vp "helmrepositories/${HELMREPOSITORY}"
-  yq e ".resources += [\"${HELMREPOSITORY}\"]" -i helmrepositories/kustomization.yaml
-  cat > "helmrepositories/${HELMREPOSITORY}/kustomization.yaml" << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ${HELMREPOSITORY}.yaml
-EOF
+  yq e ".resources += [\"${HELMREPOSITORY}/${HELMREPOSITORY}.yaml\"]" -i helmrepositories/kustomization.yaml
   flux create source helm "${HELMREPOSITORY}" --url="${HELMREPOSITORIES[${HELMREPOSITORY}]}" --interval=1h --export > "helmrepositories/${HELMREPOSITORY}/${HELMREPOSITORY}.yaml"
 done
 ```
 
 ## Clusters
 
+```bash
+mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"/{apps,helmrepositories}
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - apps.yaml
+  - flux-system
+  - helmrepositories.yaml
+EOF
+```
+
 It is necessary to split `HelmRepository` and `HelmRelease`, otherwise there
 are many errors in flux logs. `HelmRepository` should be always installed
 before `HelmRelease` using `dependsOn`.
 
 ```bash
-mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
 flux create kustomization helmrepositories \
   --interval="10m" \
-  --path="./groups/${ENVIRONMENT}/helmrepositories" \
+  --path="./clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --validation="client" \
@@ -163,14 +167,14 @@ metadata:
   name: apps
   namespace: flux-system
 spec:
-  interval: 5m
   dependsOn:
     - name: helmrepositories
+  interval: 5m
+  path: "./clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: "./groups/${ENVIRONMENT}/apps"
-  prune: true
   validation: client
   postBuild:
     substitute:
@@ -335,6 +339,98 @@ EOF
 sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml"
 ```
 
+```bash
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../../groups/dev/helmrepositories
+  - podinfo/podinfo.yaml
+EOF
+
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../../groups/dev/apps
+  - podinfo
+EOF
+```
+
+```bash
+mkdir -pv clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories/podinfo
+flux create source helm "podinfo" --url="https://stefanprodan.github.io/podinfo" --interval=1h --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories/podinfo/podinfo.yaml"
+
+mkdir -pv clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/podinfo-helmrelease
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - podinfo-namespace.yaml
+  - podinfo.yaml
+EOF
+
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/podinfo-namespace.yaml" << \EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: podinfo
+EOF
+
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/podinfo.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: kube-prometheus-stack
+  healthChecks:
+  - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+    kind: HelmRelease
+    name: podinfo
+    namespace: podinfo
+  interval: 10m0s
+  path: ./clusters/dev/${CLUSTER_FQDN}/apps/podinfo/podinfo-helmrelease
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  validation: client
+  postBuild:
+    substitute:
+      CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
+EOF
+
+cat << \EOF |
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
+    nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+  enabled: true
+  hosts:
+  - host: podinfo.${CLUSTER_FQDN}
+    paths:
+    - path: /
+      pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - podinfo.${CLUSTER_FQDN}
+serviceMonitor:
+  enabled: true
+EOF
+flux create helmrelease podinfo \
+  --namespace="podinfo" \
+  --interval="1h" \
+  --source="HelmRepository/podinfo.flux-system" \
+  --chart="podinfo" \
+  --chart-version="6.0.0" \
+  --values="/dev/stdin" \
+  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/podinfo-helmrelease/podinfo.yaml"
+```
+
 ## Create initial Apps dev group definitions
 
 Create `groups/${ENVIRONMENT}/apps/kustomization.yaml` which will contain base
@@ -476,11 +572,11 @@ cat > apps/crossplane/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-crossplane.yaml
+  - crossplane-namespace.yaml
   - crossplane.yaml
 EOF
 
-cat > apps/crossplane/namespace-crossplane.yaml << \EOF
+cat > apps/crossplane/crossplane-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -523,19 +619,19 @@ metadata:
   name: crossplane-provider
   namespace: flux-system
 spec:
-  interval: 5m0s
   dependsOn:
     - name: crossplane
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   healthChecks:
     - apiVersion: pkg.crossplane.io/v1
       kind: Provider
       name: provider-aws
+  interval: 5m0s
   path: "./groups/${ENVIRONMENT}/apps/crossplane/crossplane-provider"
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
   validation: client
   postBuild:
     substitute:
@@ -573,19 +669,19 @@ metadata:
   name: crossplane-providerconfig
   namespace: flux-system
 spec:
-  interval: 5m0s
   dependsOn:
     - name: crossplane-provider
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   healthChecks:
     - apiVersion: aws.crossplane.io/v1beta1
       kind: ProviderConfig
       name: aws-provider
+  interval: 5m0s
   path: "./groups/${ENVIRONMENT}/apps/crossplane/crossplane-providerconfig"
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
   validation: client
 EOF
 
@@ -649,11 +745,11 @@ cat > apps/metrics-server/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-metrics-server.yaml
+  - metrics-server-namespace.yaml
   - metrics-server.yaml
 EOF
 
-cat > apps/metrics-server/namespace-metrics-server.yaml << \EOF
+cat > apps/metrics-server/metrics-server-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -722,11 +818,11 @@ cat > apps/kube-prometheus-stack/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-kube-prometheus-stack.yaml
+  - kube-prometheus-stack-namespace.yaml
   - kube-prometheus-stack.yaml
 EOF
 
-cat > apps/kube-prometheus-stack/namespace-kube-prometheus-stack.yaml << EOF
+cat > apps/kube-prometheus-stack/kube-prometheus-stack-namespace.yaml << EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1125,13 +1221,8 @@ metadata:
   name: cert-manager-clusterissuer
   namespace: flux-system
 spec:
-  interval: 5m
   dependsOn:
     - name: cert-manager
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   healthChecks:
     - apiVersion: cert-manager.io/v1
       kind: ClusterIssuer
@@ -1139,8 +1230,13 @@ spec:
     - apiVersion: cert-manager.io/v1
       kind: ClusterIssuer
       name: letsencrypt-production-dns
+  interval: 5m
   path: "./groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer"
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
   validation: client
   postBuild:
     substitute:
@@ -1198,20 +1294,20 @@ metadata:
   name: cert-manager-certificate
   namespace: flux-system
 spec:
-  interval: 5m
   dependsOn:
     - name: cert-manager-clusterissuer
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   healthChecks:
     - apiVersion: cert-manager.io/v1
       kind: Certificate
       name: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
       namespace: cert-manager
+  interval: 5m
   path: "./groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-certificate"
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
   validation: client
   postBuild:
     substitute:
@@ -1253,11 +1349,11 @@ cat > apps/dex/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-dex.yaml
+  - dex-namespace.yaml
   - dex.yaml
 EOF
 
-cat > apps/dex/namespace-dex.yaml << \EOF
+cat > apps/dex/dex-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1445,7 +1541,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
           domainFilters:
             - ${CLUSTER_FQDN}
-          interval: 5m
+          interval: 20s
           policy: sync
           serviceAccount:
             create: false
@@ -1481,17 +1577,17 @@ metadata:
   name: flux-provider
   namespace: flux-system
 spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
   healthChecks:
     - apiVersion: notification.toolkit.fluxcd.io/v1beta1
       kind: Provider
       name: slack
       namespace: flux-system
+  interval: 5m
   path: ./groups/${ENVIRONMENT}/apps/flux/flux-provider/
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
   validation: client
   postBuild:
     substitute:
@@ -1522,19 +1618,19 @@ metadata:
   name: flux-alert
   namespace: flux-system
 spec:
-  interval: 5m
   dependsOn:
     - name: flux-provider
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
   healthChecks:
     - apiVersion: notification.toolkit.fluxcd.io/v1beta1
       kind: Alert
       name: alert-slack
       namespace: flux-system
+  interval: 5m
   path: ./groups/${ENVIRONMENT}/apps/flux/flux-alert/
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
   validation: client
 EOF
 
@@ -1551,19 +1647,19 @@ metadata:
   name: flux-podmonitor
   namespace: flux-system
 spec:
-  interval: 5m
   dependsOn:
     - name: kube-prometheus-stack
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
   healthChecks:
     - apiVersion: monitoring.coreos.com/v1
       kind: PodMonitor
       name: flux-system
       namespace: flux-system
+  interval: 5m
   path: ./groups/${ENVIRONMENT}/apps/flux/flux-podmonitor/
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
   validation: client
 EOF
 
@@ -1601,17 +1697,17 @@ metadata:
   name: flux-receiver
   namespace: flux-system
 spec:
-  interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
   healthChecks:
     - apiVersion: notification.toolkit.fluxcd.io/v1beta1
       kind: Receiver
       name: github-receiver
       namespace: flux-system
+  interval: 5m
   path: ./groups/${ENVIRONMENT}/apps/flux/flux-receiver/
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
   validation: client
   postBuild:
     substitute:
@@ -1674,11 +1770,11 @@ cat > apps/ingress-nginx/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-ingress-nginx.yaml
+  - ingress-nginx-namespace.yaml
   - ingress-nginx.yaml
 EOF
 
-cat > apps/ingress-nginx/namespace-ingress-nginx.yaml << \EOF
+cat > apps/ingress-nginx/ingress-nginx-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1793,11 +1889,11 @@ cat > apps/mailhog/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-mailhog.yaml
+  - mailhog-namespace.yaml
   - mailhog.yaml
 EOF
 
-cat > apps/mailhog/namespace-mailhog.yaml << \EOF
+cat > apps/mailhog/mailhog-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1875,11 +1971,11 @@ cat > apps/oauth2-proxy/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-oauth2-proxy.yaml
+  - oauth2-proxy-namespace.yaml
   - oauth2-proxy.yaml
 EOF
 
-cat > apps/oauth2-proxy/namespace-oauth2-proxy.yaml << \EOF
+cat > apps/oauth2-proxy/oauth2-proxy-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
