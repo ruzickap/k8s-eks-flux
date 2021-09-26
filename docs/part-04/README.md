@@ -111,11 +111,11 @@ cat > apps/kubed/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-kubed.yaml
+  - kubed-namespace.yaml
   - kubed.yaml
 EOF
 
-cat > apps/kubed/namespace-kubed.yaml << \EOF
+cat > apps/kubed/kubed-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -155,12 +155,12 @@ cat > apps/kyverno/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-kyverno.yaml
+  - kyverno-namespace.yaml
   - kyverno-crds.yaml
   - kyverno.yaml
 EOF
 
-cat > apps/kyverno/namespace-kyverno.yaml << \EOF
+cat > apps/kyverno/kyverno-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -271,11 +271,11 @@ cat > apps/policy-reporter/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-policy-reporter.yaml
+  - policy-reporter-namespace.yaml
   - policy-reporter.yaml
 EOF
 
-cat > apps/policy-reporter/namespace-policy-reporter.yaml << \EOF
+cat > apps/policy-reporter/policy-reporter-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -349,20 +349,20 @@ metadata:
   name: policy-reporter-ingress
   namespace: flux-system
 spec:
-  interval: 5m
   dependsOn:
     - name: policy-reporter
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
   healthChecks:
     - apiVersion: networking.k8s.io/v1
       kind: Ingress
       name: policy-reporter
       namespace: policy-reporter
+  interval: 5m
   path: "./groups/${ENVIRONMENT}/apps/policy-reporter/policy-reporter-ingress"
   prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
   validation: client
   postBuild:
     substitute:
@@ -409,11 +409,11 @@ cat > apps/rancher/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-rancher.yaml
+  - rancher-namespace.yaml
   - rancher.yaml
 EOF
 
-cat > apps/rancher/namespace-rancher.yaml << \EOF
+cat > apps/rancher/rancher-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -497,11 +497,11 @@ cat > apps/secrets-store-csi-driver/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - namespace-secrets-store-csi-driver.yaml
+  - secrets-store-csi-driver-namespace.yaml
   - secrets-store-csi-driver.yaml
 EOF
 
-cat > apps/secrets-store-csi-driver/namespace-secrets-store-csi-driver.yaml << \EOF
+cat > apps/secrets-store-csi-driver/secrets-store-csi-driver-namespace.yaml << \EOF
 apiVersion: v1
 kind: Namespace
 metadata:
