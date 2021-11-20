@@ -7,8 +7,9 @@
 If you would like to follow this documents and it's task you will need to set up
 few environment variables.
 
-`BASE_DOMAIN` contains DNS records for all your Kubernetes clusters. The cluster
-names will look like `CLUSTER_NAME`.`BASE_DOMAIN` (`kube1.k8s.mylabs.dev`).
+`BASE_DOMAIN` (`k8s.mylabs.dev`) contains DNS records for all your Kubernetes
+clusters. The cluster names will look like `CLUSTER_NAME`.`BASE_DOMAIN`
+(`kube1.k8s.mylabs.dev`).
 
 ```bash
 # Hostname / FQDN definitions
@@ -21,43 +22,37 @@ export MY_EMAIL="petr.ruzicka@gmail.com"
 # to K8s resources (Grafana). Only users in GitHub organization
 # (MY_GITHUB_ORG_NAME) will be able to access the apps via ingress.
 export MY_GITHUB_ORG_NAME="ruzickap-org"
-# Flux GitHub repository
-export GITHUB_USER="ruzickap"
-export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
-
-# Do not change the random variables if executed multiple times
-if [[ ! -f "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}/clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml" ]] ; then
-  MY_GITHUB_WEBHOOK_TOKEN=${MY_GITHUB_WEBHOOK_TOKEN:-$(head -c 12 /dev/urandom | md5sum | cut -d " " -f1)}
-  export MY_GITHUB_WEBHOOK_TOKEN
-  COOKIE_SECRET=${COOKIE_SECRET:-$( openssl rand -base64 32 | head -c 32 | base64 )}
-  export COOKIE_SECRET
-fi
-
-export SLACK_CHANNEL="mylabs"
-# AWS Region
-export AWS_DEFAULT_REGION="eu-west-1"
-AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}
-export AWS_ACCOUNT_ID
 # Set dev, prd, stg or eny other environment
-export ENVIRONMENT=dev
+export ENVIRONMENT="dev"
+export LETSENCRYPT_ENVIRONMENT="staging"
 # * "production" - valid certificates signed by Lets Encrypt ""
 # * "staging" - not trusted certs signed by Lets Encrypt "Fake LE Intermediate X1"
-export LETSENCRYPT_ENVIRONMENT="staging"
+# Flux GitHub repository
+export GITHUB_USER="ruzickap"
+export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-repo"
+MY_GITHUB_WEBHOOK_TOKEN=${MY_GITHUB_WEBHOOK_TOKEN:-$(head -c 12 /dev/urandom | md5sum | cut -d " " -f1)}
+export MY_GITHUB_WEBHOOK_TOKEN
+MY_COOKIE_SECRET=${MY_COOKIE_SECRET:-$(head -c 32 /dev/urandom | base64)}
+export MY_COOKIE_SECRET
+export SLACK_CHANNEL="mylabs"
+# AWS Region
+export AWS_DEFAULT_REGION="eu-central-1"
+# Disable pager for AWS CLI
+export AWS_PAGER=""
 # Tags used to tag the AWS resources
-export TAGS="Owner=${MY_EMAIL} Environment=${ENVIRONMENT} Group=Cloud_Native Squad=Cloud_Container_Platform compliance:na:defender=bottlerocket"
+export TAGS="Owner=${MY_EMAIL} Environment=${ENVIRONMENT} Group=Cloud_Native Squad=Cloud_Container_Platform"
 echo -e "${MY_EMAIL} | ${CLUSTER_NAME} | ${BASE_DOMAIN} | ${CLUSTER_FQDN}\n${TAGS}"
 ```
 
-You will need to configure AWS CLI: [https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
+You will need to configure [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
+and other secrets/variables.
 
 ```shell
+# AWS Credentials
+export AWS_ACCESS_KEY_ID="xxxxxxxxxxxxxxxxxx"
+export AWS_SECRET_ACCESS_KEY="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # Common password
 export MY_PASSWORD="xxxx"
-# AWS Credentials
-export AWS_ACCESS_KEY_ID="AxxxxxxxxxxxxxxxxxxY"
-export AWS_SECRET_ACCESS_KEY="txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxh"
-# Disable pager for AWS CLI
-export AWS_PAGER=""
 export GITHUB_TOKEN="xxxxx"
 # Slack incoming webhook
 export SLACK_INCOMING_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
@@ -89,8 +84,22 @@ case "${CLUSTER_NAME}" in
 esac
 
 : "${AWS_ACCESS_KEY_ID?}"
+: "${AWS_DEFAULT_REGION?}"
 : "${AWS_SECRET_ACCESS_KEY?}"
+: "${BASE_DOMAIN?}"
+: "${CLUSTER_FQDN?}"
+: "${CLUSTER_NAME?}"
+: "${ENVIRONMENT?}"
+: "${GITHUB_FLUX_REPOSITORY?}"
 : "${GITHUB_TOKEN?}"
+: "${GITHUB_USER?}"
+: "${KUBECONFIG?}"
+: "${LETSENCRYPT_ENVIRONMENT?}"
+: "${MY_COOKIE_SECRET?}"
+: "${MY_EMAIL?}"
+: "${MY_GITHUB_ORG_NAME?}"
+: "${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID?}"
+: "${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET?}"
 : "${MY_GITHUB_WEBHOOK_TOKEN?}"
 : "${MY_PASSWORD?}"
 : "${OKTA_CLIENT_ID?}"
@@ -98,6 +107,7 @@ esac
 : "${OKTA_ISSUER?}"
 : "${SLACK_CHANNEL?}"
 : "${SLACK_INCOMING_WEBHOOK_URL?}"
+: "${TAGS?}"
 ```
 
 ## Prepare the local working environment
@@ -131,7 +141,7 @@ Install [AWS IAM Authenticator for Kubernetes](https://github.com/kubernetes-sig
 ```bash
 if ! command -v aws-iam-authenticator &> /dev/null; then
   # https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html
-  sudo curl -s -Lo /usr/local/bin/aws-iam-authenticator "https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/$(uname | sed "s/./\L&/g")/amd64/aws-iam-authenticator"
+  sudo curl -s -Lo /usr/local/bin/aws-iam-authenticator "https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/$(uname | sed "s/./\L&/g")/amd64/aws-iam-authenticator"
   sudo chmod a+x /usr/local/bin/aws-iam-authenticator
 fi
 ```
@@ -141,7 +151,7 @@ Install [kubectl](https://github.com/kubernetes/kubectl) binary:
 ```bash
 if ! command -v kubectl &> /dev/null; then
   # https://github.com/kubernetes/kubectl/releases
-  sudo curl -s -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.21.1/bin/$(uname | sed "s/./\L&/g" )/amd64/kubectl"
+  sudo curl -s -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.21.5/bin/$(uname | sed "s/./\L&/g" )/amd64/kubectl"
   sudo chmod a+x /usr/local/bin/kubectl
 fi
 ```
@@ -151,7 +161,7 @@ Install [eksctl](https://eksctl.io/):
 ```bash
 if ! command -v eksctl &> /dev/null; then
   # https://github.com/weaveworks/eksctl/releases
-  curl -s -L "https://github.com/weaveworks/eksctl/releases/download/0.63.0/eksctl_$(uname)_amd64.tar.gz" | sudo tar xz -C /usr/local/bin/
+  curl -s -L "https://github.com/weaveworks/eksctl/releases/download/v0.73.0/eksctl_$(uname)_amd64.tar.gz" | sudo tar xz -C /usr/local/bin/
 fi
 ```
 
@@ -159,7 +169,8 @@ Install [flux](https://toolkit.fluxcd.io/):
 
 ```bash
 if ! command -v flux &> /dev/null; then
-  curl -s https://fluxcd.io/install.sh | sudo bash
+  export FLUX_VERSION=0.23.0
+  curl -s https://fluxcd.io/install.sh | sudo -E bash
 fi
 ```
 
@@ -168,7 +179,7 @@ Install [Helm](https://helm.sh/):
 ```bash
 if ! command -v helm &> /dev/null; then
   # https://github.com/helm/helm/releases
-  curl -s https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash -s -- --version v3.6.3
+  curl -s https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash -s -- --version v3.7.1
 fi
 ```
 
@@ -181,12 +192,11 @@ if ! command -v sops &> /dev/null; then
 fi
 ```
 
-Install [yq](https://mikefarah.gitbook.io/yq/):
+Install [kustomize](https://kustomize.io/):
 
 ```bash
-if ! command -v yq &> /dev/null; then
-  curl -sL "https://github.com/mikefarah/yq/releases/download/v4.13.0/yq_$(uname | sed "s/./\L&/g")_amd64" -o /usr/local/bin/yq
-  chmod a+x /usr/local/bin/yq
+if ! command -v kustomize &> /dev/null; then
+  curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | sudo bash -s 4.4.0 /usr/local/bin/
 fi
 ```
 
@@ -292,19 +302,18 @@ Details with examples are described on these links:
 * [https://cert-manager.io/docs/configuration/acme/dns01/route53/](https://cert-manager.io/docs/configuration/acme/dns01/route53/)
 * [https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md)
 
-Create temporary directory for files used for creating/configuring/ EKS Cluster:
+Create temporary directory for files used for creating/configuring EKS Cluster
+and it's components:
 
 ```bash
 mkdir -p "tmp/${CLUSTER_FQDN}"
 ```
 
-Create CloudFormation template with Networking for Amazon EKS:
+Create CloudFormation template with Networking and KMS key for Amazon EKS. The
+template was taken from [Creating a VPC for your Amazon EKS cluster](https://docs.aws.amazon.com/eks/latest/userguide/create-public-private-vpc.html):
 
 ```bash
 cat > "tmp/${CLUSTER_FQDN}/cf-amazon-eks-vpc-private-subnets-kms.yml" << \EOF
----
-# Taken from https://s3.us-west-2.amazonaws.com/amazon-eks/cloudformation/2020-10-29/amazon-eks-vpc-private-subnets.yaml
-
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Amazon EKS VPC with Private and Public subnets and KMS key'
 
@@ -707,4 +716,6 @@ AWS_PRIVATESUBNETID1=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"Privat
 AWS_PRIVATESUBNETID2=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"PrivateSubnetId2\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 AWS_KMS_KEY_ARN=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"KMSKeyArn\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
 AWS_KMS_KEY_ID=$(jq -r ".Stacks[0].Outputs[] | select(.OutputKey==\"KMSKeyId\") .OutputValue" "tmp/${CLUSTER_FQDN}/${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms.json")
+AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}
+export AWS_ACCOUNT_ID
 ```

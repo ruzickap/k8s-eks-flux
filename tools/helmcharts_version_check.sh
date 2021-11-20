@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eu
+set -euo pipefail
 
 test -d tools || ( echo -e "\n*** Run in top level of git repository\n"; exit 1 )
 
@@ -11,6 +11,8 @@ for HELMREPOSITORY in "${!HELMREPOSITORIES[@]}"; do
     helm repo add "${HELMREPOSITORY}" "${HELMREPOSITORIES[${HELMREPOSITORY}]}"
   fi
 done
+
+helm repo update
 
 while IFS= read -r HELM_LINE ; do
   HELM_REPOSITORY_NAME=$( echo "${HELM_LINE}" | awk -F'[/.]' '/--source=/ { print $2 }' )
@@ -36,9 +38,11 @@ echo "--------------------------------------------------------------------------
 
 (
 for i in "${!HELM_CHART_NAMES[@]}"; do
-  LATEST_HELM_CHART_VERSION=$(helm search repo "${HELM_REPOSITORY_NAMES[i]}/${HELM_CHART_NAMES[i]}" --output json | jq -r ".[0].version")
+  helm search repo "${HELM_REPOSITORY_NAMES[i]}/${HELM_CHART_NAMES[i]}" --output json > /tmp/latest_helm_chart
+  LATEST_HELM_CHART_VERSION=$(jq -r ".[0].version" /tmp/latest_helm_chart)
+  LATEST_HELM_CHART_APP_VERSION=$(jq -r ".[0].app_version" /tmp/latest_helm_chart)
   if [[ "${LATEST_HELM_CHART_VERSION}" != "${HELM_CHART_VERSIONS[i]}" ]]; then
-    echo "| ${HELM_CHART_NAMES[i]} ; Current: ${HELM_CHART_VERSIONS[i]} ; Latest version: ${LATEST_HELM_CHART_VERSION}"
+    echo "chart=\"${HELM_CHART_NAMES[i]}\" ; Current: ${HELM_CHART_VERSIONS[i]} ; Latest version: ${LATEST_HELM_CHART_VERSION} (${LATEST_HELM_CHART_APP_VERSION})"
   fi
 done
 ) | column -s \; -t

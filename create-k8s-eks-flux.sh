@@ -6,4 +6,8 @@ fi
 
 set -euo pipefail
 
-sed -n "/^\`\`\`bash.*/,/^\`\`\`$/p" docs/part-??/README.md | sed "/^\`\`\`*/d" | bash -exo pipefail
+if [ "$#" -eq 0 ]; then
+  sed -n "/^\`\`\`bash.*/,/^\`\`\`$/p" docs/part-??/README.md | sed "/^\`\`\`*/d" | bash -euxo pipefail
+else
+  sed -n "/^\`\`\`bash.*/,/^\`\`\`$/p" docs/part-??/README.md | sed "/^\`\`\`*/d"
+fi

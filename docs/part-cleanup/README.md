@@ -16,7 +16,7 @@ Install [eksctl](https://eksctl.io/):
 
 ```bash
 if ! command -v eksctl &> /dev/null; then
-  curl -s -L "https://github.com/weaveworks/eksctl/releases/download/0.62.0/eksctl_$(uname)_amd64.tar.gz" | sudo tar xz -C /usr/local/bin/
+  curl -s -L "https://github.com/weaveworks/eksctl/releases/download/v0.71.0/eksctl_$(uname)_amd64.tar.gz" | sudo tar xz -C /usr/local/bin/
 fi
 ```
 
@@ -30,27 +30,62 @@ if ! command -v aws &> /dev/null; then
 fi
 ```
 
+Install [kubectl](https://github.com/kubernetes/kubectl) binary:
+
+```bash
+if ! command -v kubectl &> /dev/null; then
+  sudo curl -s -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.21.5/bin/$(uname | sed "s/./\L&/g" )/amd64/kubectl"
+  sudo chmod a+x /usr/local/bin/kubectl
+fi
+```
+
+Install [flux](https://toolkit.fluxcd.io/):
+
+```bash
+if ! command -v flux &> /dev/null; then
+  curl -s https://fluxcd.io/install.sh | sudo bash
+fi
+```
+
 Set necessary variables and verify if all the necessary variables were set:
 
 ```bash
 export BASE_DOMAIN=${BASE_DOMAIN:-k8s.mylabs.dev}
 export CLUSTER_NAME=${CLUSTER_NAME:-kube1}
 export CLUSTER_FQDN="${CLUSTER_NAME}.${BASE_DOMAIN}"
-export AWS_DEFAULT_REGION="eu-west-1"
+export AWS_DEFAULT_REGION="eu-central-1"
 export AWS_PAGER=""
 export GITHUB_USER="ruzickap"
-export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-${CLUSTER_NAME}-repo"
+export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-repo"
+export KUBECONFIG=/tmp/kubeconfig-${CLUSTER_NAME}.conf
 
 : "${AWS_ACCESS_KEY_ID?}"
+: "${AWS_DEFAULT_REGION?}"
 : "${AWS_SECRET_ACCESS_KEY?}"
+: "${BASE_DOMAIN?}"
+: "${CLUSTER_FQDN?}"
+: "${CLUSTER_NAME?}"
+: "${GITHUB_FLUX_REPOSITORY?}"
 : "${GITHUB_TOKEN?}"
+: "${GITHUB_USER?}"
 ```
 
-Remove EKS cluster:
+Remove EKS cluster and created components:
 
 ```bash
 if eksctl get cluster --name="${CLUSTER_NAME}" 2>/dev/null ; then
-  eksctl delete cluster --name="${CLUSTER_NAME}"
+  eksctl utils write-kubeconfig --cluster="${CLUSTER_NAME}" --kubeconfig "${KUBECONFIG}"
+  flux suspend source git -n flux-system --all || true
+  kubectl delete secrets.secretsmanager.aws.crossplane.io --timeout=1m -n crossplane-system --wait=true --all || true
+  eksctl delete cluster --name="${CLUSTER_NAME}" --force
+fi
+```
+
+Remove GitHub repository created for Flux:
+
+```bash
+if ! curl -s -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}" | grep -q '"message": "Not Found"' ; then
+  curl -s -H "Authorization: token ${GITHUB_TOKEN}" -X DELETE "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}"
 fi
 ```
 
@@ -75,14 +110,6 @@ Remove CloudFormation stacks:
 aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-route53"
 ```
 
-Remove GitHub repository created for Flux:
-
-```bash
-if ! curl -s -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}" | grep -q '"message": "Not Found"' ; then
-  curl -s -H "Authorization: token ${GITHUB_TOKEN}" -X DELETE "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}"
-fi
-```
-
 Remove Volumes and Snapshots related to the cluster:
 
 ```bash
@@ -99,15 +126,34 @@ for SNAPSHOT in ${SNAPSHOTS}; do
 done
 ```
 
+Delete entries in Amazon Secret Manager if not done correctly before:
+
+```bash
+aws secretsmanager delete-secret --secret-id "cp-aws-asm-secret-eks-${CLUSTER_NAME}-key" --force-delete-without-recovery
+```
+
+Remove orphan ELBs (if exists):
+
+```bash
+for ELB in $(aws elb describe-load-balancers --query "LoadBalancerDescriptions[].LoadBalancerName" --output=text) ; do
+  if [[ -n "$(aws elb describe-tags --load-balancer-names "${ELB}" --query "TagDescriptions[].Tags[?Key == \`kubernetes.io/cluster/${CLUSTER_NAME}\`]" --output text)" ]]; then
+    echo "Deleting ELB: ${ELB}"
+    aws elb delete-load-balancer --load-balancer-name "${ELB}"
+  fi
+done
+```
+
 Delete CloudFormation stack which created VPC, Subnets, Route53, EKS, ...:
 
 ```bash
-while [[ $(aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" --query 'Stacks[0].StackStatus' --output text) == "CREATE_COMPLETE" ]] ; do
+AWS_STACK_STATUS="x"
+while [[ "${AWS_STACK_STATUS}" != '' && "${AWS_STACK_STATUS}" != "DELETE_IN_PROGRESS" ]] ; do
+  AWS_STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" --query 'Stacks[0].StackStatus' --output text || true)
   aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
   sleep 5
 done;
 aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
-aws cloudformation wait stack-delete-complete --stack-name eksctl-${CLUSTER_NAME}-cluster
+aws cloudformation wait stack-delete-complete --stack-name "eksctl-${CLUSTER_NAME}-cluster"
 ```
 
 Remove `tmp/${CLUSTER_FQDN}` directory:

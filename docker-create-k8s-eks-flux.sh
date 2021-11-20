@@ -11,8 +11,8 @@ docker run -it --rm \
   -e AWS_ACCOUNT_ID \
   -e AWS_SECRET_ACCESS_KEY \
   -e CLUSTER_NAME="kube2" \
-  -e COOKIE_SECRET \
   -e GITHUB_TOKEN \
+  -e MY_COOKIE_SECRET \
   -e MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID_KUBE1 \
   -e MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID_KUBE2 \
   -e MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET_KUBE1 \
@@ -25,7 +25,4 @@ docker run -it --rm \
   -e SLACK_INCOMING_WEBHOOK_URL \
   -v "${PWD}:/mnt" \
   -w /mnt \
-  ubuntu \
-  bash -eu -c " \
-    ./create-k8s-eks-flux.sh ;\
-  "
+  ubuntu ./create-k8s-eks-flux.sh

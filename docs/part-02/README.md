@@ -10,7 +10,7 @@ Create CloudFormation template containing policies for Route53, S3 access
 Put new domain `CLUSTER_FQDN` to the Route 53 and configure the DNS delegation
 from the `BASE_DOMAIN`.
 
-Create EFS which will be used by Amazon EKS cluster, Route53 entries:
+Create Route53 zone:
 
 ```bash
 cat > "tmp/${CLUSTER_FQDN}/cf-route53.yml" << \EOF
@@ -24,7 +24,7 @@ Parameters:
     Type: String
 
   ClusterFQDN:
-    Description: "Cluster domain where all necessary app subdomains will live (subdomain of BaseDomain). Ex: kube1.k8s.mylabs.dev"
+    Description: "Cluster FQDN. (domain for all applications) Ex: kube1.k8s.mylabs.dev"
     Type: String
 
 Resources:
@@ -45,17 +45,13 @@ Resources:
 EOF
 
 if ! aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-route53" ; then
-  CLOUDFORMATION_ACTION='create-stack'
-else
-  CLOUDFORMATION_ACTION='update-stack'
+  # shellcheck disable=SC2001
+  eval aws cloudformation "create-stack" \
+    --parameters "ParameterKey=BaseDomain,ParameterValue=${BASE_DOMAIN} ParameterKey=ClusterFQDN,ParameterValue=${CLUSTER_FQDN}" \
+    --stack-name "${CLUSTER_NAME}-route53" \
+    --template-body "file://tmp/${CLUSTER_FQDN}/cf-route53.yml" \
+    --tags "$(echo "${TAGS}" | sed  -e 's/\([^ =]*\)=\([^ ]*\)/Key=\1,Value=\2/g')" || true
 fi
-
-# shellcheck disable=SC2001
-eval aws cloudformation "${CLOUDFORMATION_ACTION}" \
-  --parameters "ParameterKey=BaseDomain,ParameterValue=${BASE_DOMAIN} ParameterKey=ClusterFQDN,ParameterValue=${CLUSTER_FQDN}" \
-  --stack-name "${CLUSTER_NAME}-route53" \
-  --template-body "file://tmp/${CLUSTER_FQDN}/cf-route53.yml" \
-  --tags "$(echo "${TAGS}" | sed  -e 's/\([^ =]*\)=\([^ ]*\)/Key=\1,Value=\2/g')" || true
 ```
 
 ## Create Amazon EKS
@@ -124,6 +120,28 @@ iam:
             - kms:DescribeKey
           Resource:
           - ${AWS_KMS_KEY_ARN}
+    - metadata:
+        name: kuard-sa
+        namespace: kuard
+      attachPolicy:
+        Version: 2012-10-17
+        Statement:
+        - Sid: AllowSecretManagerAccess
+          Effect: Allow
+          Action:
+          - secretsmanager:GetSecretValue
+          Resource:
+          - arn:*:secretsmanager:*:*:secret:*
+        - Sid: AllowKMSAccess
+          Effect: Allow
+          Action:
+          - kms:Decrypt
+          Resource:
+          - ${AWS_KMS_KEY_ARN}
+          Condition:
+            StringLike:
+              kms:ViaService:
+                - secretsmanager.*.amazonaws.com
 vpc:
   id: "${AWS_VPC_ID}"
   subnets:
@@ -146,7 +164,9 @@ managedNodeGroups:
     minSize: 2
     maxSize: 5
     volumeSize: 30
-    tags: *tags
+    tags:
+      <<: *tags
+      compliance:na:defender: bottlerocket
     volumeEncrypted: true
     volumeKmsKeyID: ${AWS_KMS_KEY_ID}
     disableIMDSv1: true
@@ -178,11 +198,11 @@ using different user for CLI operations and different user/role for accessing
 the AWS Console to see EKS Workloads in Cluster's tab.
 
 ```bash
-if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" &> /dev/null && [[ -n ${AWS_CONSOLE_ADMIN_ROLE_ARN+x} ]] ; then
+if [[ -n ${AWS_CONSOLE_ADMIN_ROLE_ARN+x} ]] && ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" &> /dev/null ; then
   eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_CONSOLE_ADMIN_ROLE_ARN}" --group system:masters --username admin
 fi
 
-if ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_USER_ROLE_ARN}" &> /dev/null && [[ -n ${AWS_USER_ROLE_ARN+x} ]] ; then
+if [[ -n ${AWS_USER_ROLE_ARN+x} ]] && ! eksctl get iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_USER_ROLE_ARN}" &> /dev/null ; then
   eksctl create iamidentitymapping --cluster="${CLUSTER_NAME}" --arn="${AWS_USER_ROLE_ARN}" --group system:masters --username admin
 fi
 ```

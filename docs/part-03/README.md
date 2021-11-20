@@ -2,55 +2,227 @@
 
 [[toc]]
 
-Flux (dis)advantages:
+## Flux (dis)advantages
 
 * `dependsOn` can not be used between `HelmRelease` and `Kustomization`:
   [HelmRelease, Kustomization DependsOn](https://github.com/fluxcd/kustomize-controller/issues/242).
   Due to [https://github.com/fluxcd/flux2/discussions/730](https://github.com/fluxcd/flux2/discussions/730),
   [https://github.com/fluxcd/flux2/discussions/1010](https://github.com/fluxcd/flux2/discussions/1010)
-  it is necessary to "pack" HelmRelease "inside" Kustomization to be able to do
-  dependency using `dependsOn` later...
-  This "forces" you to use `Kustomization` almost everywhere...
+  it is necessary to "pack" `HelmRelease` inside "flux `Kustomization`" to be
+  able to do dependency using `dependsOn` later...
+  This "forces" you to use "flux `Kustomization`" almost everywhere where you
+  are using "dependencies"
 * [HelmReleases](https://fluxcd.io/docs/components/helm/helmreleases/) are
   compatible with Helm (`helm ls -A` works fine)
 * [Variable substitution](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
-  is really handy and easy to use in case you do not want to use too much [patches](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
+  is really handy and easy to use in case you do not want to use too much
+  [patching](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
+* Changing values inside patches which are use `|-` is not possible, because
+  it is a block of "text" and not "structure"
+
+## Solution requirements for Flux
+
+* `HelmRepositories` must be installed in `flux-system` namespace and separated,
+  because definitions there are shared by multiple `HelmReleases`
+* `HelmRepositories` must be installed before `HelmReleases` (`dependsOn`)
+  to prevent generating errors in Flux log
+* I want to define flexible cluster "infrastructure groups"
+  (`prod`, `dev`, `mygroup`, `myteam`):
+  * It should be possible to define infrastructure group containing various
+    applications
+  * It should also help you to easily manage groups of clusters because their
+    definitions will be in the specific directory (like `infrastructure/dev`)
+  * [Variables](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
+    should be used per cluster (`clusters/dev/kube1/cluster-apps-substitutefrom-secret.yaml`)
+* `HelmRepository` / `HelmReleases` can be defined per "cluster":
+  * `clusters/dev/kube1/sources/fairwinds-stable.yaml`
+  * `clusters/dev/kube1/cluster-apps/polaris/polaris-helmrelease.yaml`
+
+### Naming convention and directory structure
+
+Most of the applications installed to K8s cluster are using Helm charts.
+Therefore you need Flux objects `HelmRepositories` and `HelmReleases` where
+`HelmRepositories` needs to be installed first.
+
+* `HelmRepositories` are separated from app definition, because they may be
+  shared by multiple applications (like `bitnami` and
+  `external-dns` + `metrics-server`). `HelmRepositories` are installed first to
+  prevent flux from logging errors...
+* Applications can be installed on multiple levels
+  * **Apps level** - not used
+  * **Infrastructure level** - configuration for specific group of K8s
+    servers. Usually contains objects, patches, certificates, which are applied
+    to multiple clusters (different objects for "dev" and "prod" clusters)
+  * **Cluster level** - specific app configurations, `HelmReleases` /
+    `HelmRepositories` for single cluster. Usually contains variables like
+    `CLUSTER_FQDN`, `CLUSTER_NAME`, `MY_PASSWORD`, `LETSENCRYPT_ENVIRONMENT` ...
+
+#### Cluster level
+
+Cluster level directory `/clusters/` contains individual cluster definitions.
+
+* `clusters/${ENVIRONMENT}/${CLUSTER_FQDN}`
+  * `sources.yaml` - main "flux Kustomization" pointing do
+    the `./sources` where are the `HelmRepository` definitions for cluster
+  * `sources/kustomization.yaml` - list of all "enabled HelmRepositories"
+  * `sources/fairwinds-stable.yaml` - HelmRepository file
+  * `cluster-apps.yaml` - main "flux Kustomization" pointing to
+    `./clusters/dev/kube1.k8s.mylabs.dev/cluster-apps`
+  * `cluster-apps/kustomization.yaml` - kustomization file containing patches,
+    app directories and `./infrastructure/dev`
+  * `cluster-apps-substitutefrom-secret.yaml` - encrypted variables used in
+    `postBuild.substituteFrom` flux Kustomization sections
+  * `cluster-apps/polaris/polaris-namespace` - application namespace
+  * `cluster-apps/polaris/polaris-helmrelease` - `HelmRelease` file
+  * `flux-system/gotk-patches.yaml,kustomization.yaml` - files configuring Flux
+    to work with SOPS (decryption)
+
+```text
+clusters
+└── dev
+    └── kube1.k8s.mylabs.dev
+        ├── cluster-apps
+        │   ├── kustomization.yaml
+        │   └── polaris
+        │       ├── kustomization.yaml
+        │       ├── polaris-helmrelease.yaml
+        │       └── polaris-namespace.yaml
+        ├── cluster-apps-substitutefrom-secret.yaml
+        ├── cluster-apps.yaml
+        ├── flux-system
+        │   ├── gotk-components.yaml
+        │   ├── gotk-patches.yaml
+        │   ├── gotk-sync.yaml
+        │   └── kustomization.yaml
+        ├── kustomization.yaml
+        ├── sources
+        │   ├── fairwinds-stable.yaml
+        │   └── kustomization.yaml
+        └── sources.yaml
+```
+
+#### Infrastructure level
+
+Infrastructure level contain applications or patches located in `base`
+directory. All definitions in infrastructure level are applied to all servers
+in that "group". Infrastructure also contains the `sources` directory where you
+can find "common" HelmRepositories. Usually there are "groups" (directories)
+like `prd`, `dev`, `stg`, ...
+
+* `infrastructure` - directory containing "infrastructure level" definitions
+  * `sources/kustomization.yaml` - globally allowed HelmRepositories
+  * `sources/bitnami-helmrepository.yaml` - HelmRepository file
+  * `base` - base application directory
+    * `dex` - "base" dex directory containing HelmRelease,
+      and namespace manifests
+* `infrastructure/${ENVIRONMENT}`
+  * `kustomization.yaml` - list of all enabled "infrastructure dev level" apps
+  * `dex` - directory containing values for HelmRelease
+
+```text
+infrastructure
+├── base
+│   ├── cert-manager
+│   │   ├── cert-manager-helmrelease.yaml
+│   │   └── kustomization.yaml
+│   ├── dex
+│   │   ├── dex-helmrelease.yaml
+│   │   ├── dex-namespace.yaml
+│   │   └── kustomization.yaml
+│   ├── external-dns
+│   │   ├── external-dns-helmrelease.yaml
+│   │   └── kustomization.yaml
+│   ├── external-snapshotter
+│   │   └── kustomization.yaml
+│   └── secrets-store-csi-driver
+│       ├── kustomization.yaml
+│       ├── secrets-store-csi-driver-helmrelease.yaml
+│       └── secrets-store-csi-driver-namespace.yaml
+├── dev
+│   ├── cert-manager
+│   │   ├── cert-manager-certificate
+│   │   │   └── cert-manager-certificate.yaml
+│   │   ├── cert-manager-certificate.yaml
+│   │   ├── cert-manager-clusterissuer
+│   │   │   ├── cert-manager-clusterissuer-letsencrypt-production-dns.yaml
+│   │   │   └── cert-manager-clusterissuer-letsencrypt-staging-dns.yaml
+│   │   ├── cert-manager-clusterissuer.yaml
+│   │   ├── cert-manager-kustomization
+│   │   │   ├── cert-manager-values.yaml
+│   │   │   ├── kustomization.yaml
+│   │   │   └── kustomizeconfig.yaml
+│   │   ├── cert-manager-kustomization.yaml
+│   │   └── kustomization.yaml
+│   ├── crossplane
+│   │   ├── crossplane-kustomization
+│   │   │   └── kustomization.yaml
+│   │   ├── crossplane-kustomization.yaml
+│   │   ├── crossplane-provider
+│   │   │   ├── crossplane-controllerconfig-aws.yaml
+│   │   │   └── crossplane-provider-aws.yaml
+│   │   ├── crossplane-provider.yaml
+│   │   ├── crossplane-providerconfig
+│   │   │   └── crossplane-providerconfig-aws.yaml
+│   │   ├── crossplane-providerconfig.yaml
+│   │   └── kustomization.yaml
+│   ├── dex
+│   │   ├── dex-values.yaml
+│   │   ├── kustomization.yaml
+│   │   └── kustomizeconfig.yaml
+│   ├── external-dns
+│   │   ├── external-dns-kustomization
+│   │   │   ├── external-dns-values.yaml
+│   │   │   ├── kustomization.yaml
+│   │   │   └── kustomizeconfig.yaml
+│   │   ├── external-dns-kustomization.yaml
+│   │   └── kustomization.yaml
+│   ├── external-snapshotter
+│   │   ├── external-snapshotter-kustomization
+│   │   │   └── kustomization.yaml
+│   │   ├── external-snapshotter.yaml
+│   │   └── kustomization.yaml
+│   ├── kustomization.yaml
+│   └── secrets-store-csi-driver
+│       ├── kustomization.yaml
+│       ├── secrets-store-csi-driver-kustomization
+│       │   └── kustomization.yaml
+│       ├── secrets-store-csi-driver-kustomization.yaml
+│       ├── secrets-store-csi-driver-provider-aws
+│       │   └── kustomization.yaml
+│       └── secrets-store-csi-driver-provider-aws.yaml
+└── sources
+    ├── bitnami-helmrepository.yaml
+    ├── crossplane-stable-helmrepository.yaml
+    ├── dex-helmrepository.yaml
+    ├── jetstack-helmrepository.yaml
+    ├── kustomization.yaml
+    └── secrets-store-csi-driver-helmrepository.yaml
+```
+
+---
 
 ## Create basic Flux structure in git repository
 
 Clone initial git repository created by `eksctl` used by Flux:
 
 ```bash
-test -d "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}" || git clone "https://${GITHUB_TOKEN}@github.com/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}.git" "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"
+if [[ -d "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}" ]] ; then
+  git -C "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}" pull -r
+else
+  git clone "https://${GITHUB_TOKEN}@github.com/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}.git" "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"
+fi
 ```
 
-Create basic Flux structure in git with following requirements or statements:
-
-* `HelmRepositories` must be installed in `flux-system` namespace and separated,
-  because definitions there are shared by multiple `HelmReleases` (apps)
-* `HelmRepositories` must be installed before `HelmReleases` (`dependsOn`) to prevent
-  generation errors in Flux log
-* I want to define "flexible" cluster groups + applications like `prod`, `dev`,
-  `mygroup`, `myteam`
-  * It should be possible to define application groups containing various
-    applications
-  * It should also help you to easily manage groups of clusters because their
-    definitions will be in the specific directory
-* `HelmRepository` definitions should be set based on application group
-  or per cluster
-
-Create initial git repository structure which will be used by Flux:
+Create initial git repository structure:
 
 ```bash
-mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/clusters/{prd/{k01,k02},dev/{k03,k04},mygroup/{k05,k06}}/{apps,helmrepositories}
-mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/{helmrepositories,apps}
-mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/groups/{"${ENVIRONMENT}",prd,mygroup}/{apps,helmrepositories}
+mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/infrastructure/{base,dev,sources}
 ```
 
-Set `user.name` and `user.email` for git:
+Set `user.name` and `user.email` for git (if not already configured):
 
 ```bash
-git config user.name || git config --global user.name "${GITHUB_USER}"
+git config user.name  || git config --global user.name  "${GITHUB_USER}"
 git config user.email || git config --global user.email "${MY_EMAIL}"
 ```
 
@@ -65,10 +237,11 @@ cd "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}" || exit
 Configure the Git directory for encryption:
 
 ```bash
-cat > .sops.yaml << EOF
-creation_rules:
-  - path_regex: .*.yaml
-    encrypted_regex: ^(substitute)$
+[[ ! -s .sops.yaml ]] && echo "creation_rules:" > .sops.yaml
+
+grep -q "${CLUSTER_FQDN}" .sops.yaml || cat >> .sops.yaml << EOF
+  - path_regex: clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/.*
+    encrypted_regex: ^(data)$
     kms: ${AWS_KMS_KEY_ARN}
 EOF
 ```
@@ -77,10 +250,8 @@ Add SOPS configuration to git repository and sync it with Flux:
 
 ```bash
 if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/gotk-patches.yaml" ]]; then
-  yq e 'select(fileIndex == 0) * {"patchesStrategicMerge":["gotk-patches.yaml"]}' -i "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/kustomization.yaml"
-
-  cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/gotk-patches.yaml" << EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+  cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system/gotk-patches.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: flux-system
@@ -90,8 +261,14 @@ spec:
     provider: sops
 EOF
 
+  (
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system" && \
+    kustomize edit add patch --path gotk-patches.yaml && \
+    cd - || exit
+  )
+
   git add .sops.yaml "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system"
-  git commit -m "Add SOPS configuration"
+  git commit -m "[${CLUSTER_NAME}] Add SOPS configuration"
   git push
   flux reconcile source git flux-system
 fi
@@ -120,31 +297,26 @@ declare -A HELMREPOSITORIES=(
   ["secrets-store-csi-driver"]="https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
 )
 
-cat > helmrepositories/kustomization.yaml << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-EOF
-
 for HELMREPOSITORY in "${!HELMREPOSITORIES[@]}"; do
-  echo "${HELMREPOSITORY} : ${HELMREPOSITORIES[${HELMREPOSITORY}]}";
-  mkdir -vp "helmrepositories/${HELMREPOSITORY}"
-  yq e ".resources += [\"${HELMREPOSITORY}/${HELMREPOSITORY}.yaml\"]" -i helmrepositories/kustomization.yaml
-  flux create source helm "${HELMREPOSITORY}" --url="${HELMREPOSITORIES[${HELMREPOSITORY}]}" --interval=1h --export > "helmrepositories/${HELMREPOSITORY}/${HELMREPOSITORY}.yaml"
+  flux create source helm "${HELMREPOSITORY}" \
+    --url="${HELMREPOSITORIES[${HELMREPOSITORY}]}" \
+    --interval=1h \
+    --export > "infrastructure/sources/${HELMREPOSITORY}-helmrepository.yaml"
 done
+
+# Due to this issue: https://github.com/kubernetes-sigs/kustomize/issues/2803
+# you need to CD to the directory first and then go back
+[[ -f infrastructure/sources/kustomization.yaml ]] && rm infrastructure/sources/kustomization.yaml
+cd infrastructure/sources && kustomize create --autodetect && cd - || exit
 ```
 
 ## Clusters
 
+Create `cluster-apps`, `sources` and initial `kustomization.yaml` under
+cluster directory `clusters/${ENVIRONMENT}/${CLUSTER_FQDN}`:
+
 ```bash
-mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"/{apps,helmrepositories}
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/kustomization.yaml" << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - apps.yaml
-  - flux-system
-  - helmrepositories.yaml
-EOF
+mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"/{cluster-apps,sources}
 ```
 
 It is necessary to split `HelmRepository` and `HelmRelease`, otherwise there
@@ -152,307 +324,100 @@ are many errors in flux logs. `HelmRepository` should be always installed
 before `HelmRelease` using `dependsOn`.
 
 ```bash
-flux create kustomization helmrepositories \
-  --interval="10m" \
-  --path="./clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories" \
+flux create kustomization sources \
+  --interval="5m" \
+  --path="clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories.yaml"
+  --wait \
+  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources.yaml"
 
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml" << EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/kustomization.yaml" ]] && \
+  (
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/" && \
+    kustomize create --resources "../../../../infrastructure/sources" && \
+    cd - || exit
+  )
+```
+
+Use `cluster-apps` "flux kustomization" definition to use `dependsOn` to wait
+for "HelmRepositories".
+
+```bash
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps.yaml" << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
-  name: apps
+  name: cluster-apps
   namespace: flux-system
 spec:
   dependsOn:
-    - name: helmrepositories
+    - name: sources
   interval: 5m
-  path: "./clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps"
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  validation: client
-  postBuild:
-    substitute:
-      AWS_ACCOUNT_ID: "\"${AWS_ACCOUNT_ID:=AWS_ACCOUNT_ID}\""
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:=AWS_DEFAULT_REGION}
-      AWS_KMS_KEY_ARN: ${AWS_KMS_KEY_ARN:=AWS_KMS_KEY_ARN}
-      CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
-      CLUSTER_NAME: ${CLUSTER_NAME:=CLUSTER_NAME}
-      COOKIE_SECRET: ${COOKIE_SECRET:=COOKIE_SECRET}
-      ENVIRONMENT: ${ENVIRONMENT:=ENVIRONMENT}
-      LETSENCRYPT_ENVIRONMENT: ${LETSENCRYPT_ENVIRONMENT:=LETSENCRYPT_ENVIRONMENT}
-      MY_EMAIL: ${MY_EMAIL:=MY_EMAIL}
-      MY_GITHUB_ORG_NAME: ${MY_GITHUB_ORG_NAME:=MY_GITHUB_ORG_NAME}
-      MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:=MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
-      MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:=MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
-      MY_GITHUB_WEBHOOK_TOKEN_BASE64: $(echo -n "${MY_GITHUB_WEBHOOK_TOKEN}" | base64 --wrap=0)
-      MY_PASSWORD: ${MY_PASSWORD:=MY_PASSWORD}
-      OKTA_CLIENT_ID: ${OKTA_CLIENT_ID:=OKTA_CLIENT_ID}
-      OKTA_CLIENT_SECRET: ${OKTA_CLIENT_ID:=OKTA_CLIENT_ID}
-      OKTA_ISSUER: ${OKTA_ISSUER:=OKTA_ISSUER}
-      SLACK_CHANNEL: ${SLACK_CHANNEL:=SLACK_CHANNEL}
-      SLACK_INCOMING_WEBHOOK_URL_BASE64: $(echo -n "${SLACK_INCOMING_WEBHOOK_URL}" | base64 --wrap=0)
-      SLACK_INCOMING_WEBHOOK_URL: ${SLACK_INCOMING_WEBHOOK_URL:=SLACK_INCOMING_WEBHOOK_URL}
-      TAGS_INGRESS_NGINX: ${TAGS// /,}
-  patchesJson6902:
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: kube-prometheus-stack
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: 18.0.11
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: aws-ebs-csi-driver
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: 2.2.0
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: metrics-server
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: 5.10.0
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: oauth2-proxy
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: 4.2.0
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: external-dns
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: 5.4.6
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: cert-manager
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: v1.5.2
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: crossplane
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge
-          value:
-            - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-              kind: HelmRelease
-              metadata:
-                name: crossplane
-                namespace: crossplane-system
-              spec:
-                chart:
-                  spec:
-                    version: 1.4.0
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: policy-reporter
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: 1.9.2
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: dex
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: 0.6.2
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: kyverno-crds
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge
-          value:
-            - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-              kind: HelmRelease
-              metadata:
-                name: kyverno-crds
-                namespace: kyverno
-              spec:
-                chart:
-                  spec:
-                    version: v2.0.3
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: kyverno
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: v2.0.3
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: ingress-nginx
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/chart
-          value:
-            spec:
-              version: 3.35.0
-EOF
-
-sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml"
-```
-
-```bash
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories/kustomization.yaml" << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../groups/dev/helmrepositories
-  - podinfo/podinfo.yaml
-EOF
-
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/kustomization.yaml" << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../groups/dev/apps
-  - podinfo
-EOF
-```
-
-```bash
-mkdir -pv clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories/podinfo
-flux create source helm "podinfo" --url="https://stefanprodan.github.io/podinfo" --interval=1h --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/helmrepositories/podinfo/podinfo.yaml"
-
-mkdir -pv clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/podinfo-helmrelease
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/kustomization.yaml" << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - podinfo-namespace.yaml
-  - podinfo.yaml
-EOF
-
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/podinfo-namespace.yaml" << \EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: podinfo
-EOF
-
-cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/podinfo.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: podinfo
-  namespace: flux-system
-spec:
-  dependsOn:
-  - name: kube-prometheus-stack
-  healthChecks:
-  - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-    kind: HelmRelease
-    name: podinfo
-    namespace: podinfo
-  interval: 10m0s
-  path: ./clusters/dev/${CLUSTER_FQDN}/apps/podinfo/podinfo-helmrelease
+  path: ./clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  validation: client
+  wait: true
+  timeout: 15m
   postBuild:
-    substitute:
-      CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
 
-cat << \EOF |
-ingress:
-  annotations:
-    nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
-    nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
-  enabled: true
-  hosts:
-  - host: podinfo.${CLUSTER_FQDN}
-    paths:
-    - path: /
-      pathType: ImplementationSpecific
-  tls:
-  - hosts:
-    - podinfo.${CLUSTER_FQDN}
-serviceMonitor:
-  enabled: true
-EOF
-flux create helmrelease podinfo \
-  --namespace="podinfo" \
-  --interval="1h" \
-  --source="HelmRepository/podinfo.flux-system" \
-  --chart="podinfo" \
-  --chart-version="6.0.0" \
-  --values="/dev/stdin" \
-  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps/podinfo/podinfo-helmrelease/podinfo.yaml"
+[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" ]] && \
+  (
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/" && \
+    kustomize create --resources "../../../../infrastructure/${ENVIRONMENT}" && \
+    cd - || exit
+  )
+
+if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-secret.yaml" ]] ; then
+  kubectl create secret generic cluster-apps-substitutefrom-secret -n flux-system --dry-run=client -o yaml \
+    --from-literal="AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}" \
+    --from-literal="AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}" \
+    --from-literal="AWS_KMS_KEY_ARN=${AWS_KMS_KEY_ARN}" \
+    --from-literal="CLUSTER_FQDN=${CLUSTER_FQDN}" \
+    --from-literal="CLUSTER_NAME=${CLUSTER_NAME}" \
+    --from-literal="ENVIRONMENT=dev" \
+    --from-literal="LETSENCRYPT_ENVIRONMENT=staging" \
+    --from-literal="MY_COOKIE_SECRET=${MY_COOKIE_SECRET}" \
+    --from-literal="MY_EMAIL=${MY_EMAIL}" \
+    --from-literal="MY_GITHUB_ORG_NAME=${MY_GITHUB_ORG_NAME}" \
+    --from-literal="MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}" \
+    --from-literal="MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}" \
+    --from-literal="MY_GITHUB_WEBHOOK_TOKEN_BASE64=$(echo -n "${MY_GITHUB_WEBHOOK_TOKEN}" | base64 --wrap=0)" \
+    --from-literal="MY_PASSWORD=${MY_PASSWORD}" \
+    --from-literal="OKTA_CLIENT_ID=${OKTA_CLIENT_ID}" \
+    --from-literal="OKTA_CLIENT_SECRET=${OKTA_CLIENT_SECRET}" \
+    --from-literal="OKTA_ISSUER=${OKTA_ISSUER}" \
+    --from-literal="SLACK_CHANNEL=${SLACK_CHANNEL}" \
+    --from-literal="SLACK_INCOMING_WEBHOOK_URL_BASE64=$(echo -n "${SLACK_INCOMING_WEBHOOK_URL}" | base64 --wrap=0)" \
+    --from-literal="SLACK_INCOMING_WEBHOOK_URL=${SLACK_INCOMING_WEBHOOK_URL}" \
+    --from-literal="TAGS_INGRESS_NGINX=${TAGS// /,}" \
+    > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-secret.yaml"
+  sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-secret.yaml"
+fi
+
+[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/kustomization.yaml" ]] && \
+  (
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}" && \
+    kustomize create --resources "flux-system,sources.yaml,cluster-apps-substitutefrom-secret.yaml,cluster-apps.yaml" && \
+    cd - || exit
+  )
 ```
 
 ## Create initial Apps dev group definitions
 
-Create `groups/${ENVIRONMENT}/apps/kustomization.yaml` which will contain base
-applications:
+Create initial `kustomization.yaml` where all the group application will
+have their record:
 
 ```bash
-cat > "groups/${ENVIRONMENT}/apps/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-EOF
-```
-
-Create application group called `dev` which will contain all the
-`HelmRepository` and `HelmRelease` used by this group.
-
-```bash
-cat > "groups/${ENVIRONMENT}/helmrepositories/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../helmrepositories
-EOF
+[[ ! -s "infrastructure/${ENVIRONMENT}/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize create --resources "../sources" && cd - || exit )
 ```
 
 ## Base Applications definitions
@@ -464,98 +429,113 @@ EOF
 * [aws-ebs-csi-driver](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/charts/aws-ebs-csi-driver)
 * [default values.yaml](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/charts/aws-ebs-csi-driver/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease
-cat > apps/aws-ebs-csi-driver/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - aws-ebs-csi-driver.yaml
-EOF
+mkdir -vp infrastructure/base/aws-ebs-csi-driver
+
+flux create helmrelease aws-ebs-csi-driver \
+  --namespace="aws-ebs-csi-driver" \
+  --interval="5m" \
+  --source="HelmRepository/aws-ebs-csi-driver.flux-system" \
+  --chart="aws-ebs-csi-driver" \
+  --chart-version="2.4.0" \
+  --values-from="ConfigMap/aws-ebs-csi-driver-values" \
+  --export > infrastructure/base/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/aws-ebs-csi-driver/kustomization.yaml" ]] && \
+( cd "infrastructure/base/aws-ebs-csi-driver" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization"
 
 flux create kustomization aws-ebs-csi-driver \
-  --interval="1h" \
-  --path="./apps/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease" \
+  --interval="5m" \
+  --path="./infrastructure/\${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/aws-ebs-csi-driver.aws-ebs-csi-driver" \
-  --export > apps/aws-ebs-csi-driver/aws-ebs-csi-driver.yaml
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization.yaml"
 
-cat << \EOF |
+cat > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: aws-ebs-csi-driver
+resources:
+  - ../../../base/aws-ebs-csi-driver
+configMapGenerator:
+  - name: aws-ebs-csi-driver-values
+    files:
+      - values.yaml=aws-ebs-csi-driver-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization/aws-ebs-csi-driver-values.yaml" << \EOF
 controller:
   serviceAccount:
     create: false
     name: ebs-csi-controller-sa
-EOF
-flux create helmrelease aws-ebs-csi-driver \
-  --namespace="aws-ebs-csi-driver" \
-  --interval="10m" \
-  --source="HelmRepository/aws-ebs-csi-driver.flux-system" \
-  --chart="aws-ebs-csi-driver" \
-  --chart-version="2.2.1" \
-  --values="/dev/stdin" \
-  --export > apps/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease/aws-ebs-csi-driver.yaml
-
-mkdir -vp "groups/${ENVIRONMENT}/apps/aws-ebs-csi-driver"
-yq e '.resources += ["aws-ebs-csi-driver"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
-
-cat > "groups/${ENVIRONMENT}/apps/aws-ebs-csi-driver/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../apps/aws-ebs-csi-driver
-patchesStrategicMerge:
-  - aws-ebs-csi-driver-patch.yaml
+storageClasses:
+- name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+  parameters:
+    encrypted: "true"
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/aws-ebs-csi-driver/aws-ebs-csi-driver-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: aws-ebs-csi-driver
-  namespace: flux-system
-spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: aws-ebs-csi-driver
-        namespace: aws-ebs-csi-driver
-      spec:
-        values:
-          controller:
-            k8sTagClusterId: ${CLUSTER_FQDN}
-            serviceAccount:
-              create: false
-              name: ebs-csi-controller-sa
-          storageClasses:
-          - name: gp3
-            annotations:
-              storageclass.kubernetes.io/is-default-class: "true"
-            parameters:
-              encrypted: "true"
-EOF
+[[ ! -s "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- aws-ebs-csi-driver$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource aws-ebs-csi-driver && cd - || exit )
 ```
 
-Change the tags on the Cluster level, because they will be different on every
-cluster and it needs to be "set" form TAGS bash variable:
+Change the "aws-ebs-csi-driver tags" on the Cluster level, because they will be
+different for every cluster and it needs to be "set" form `TAGS` bash variable:
 
 ```bash
-yq eval-all 'select(fileIndex == 0) *+ select(fileIndex == 1)' -i "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/apps.yaml" - << EOF
-spec:
-  patchesJson6902:
-    - target:
-        group: kustomize.toolkit.fluxcd.io
-        kind: Kustomization
-        name: aws-ebs-csi-driver
-      patch:
-        - op: add
-          path: /spec/patchesStrategicMerge/0/spec/values/controller/extraVolumeTags
-          value:
-            Name: ${GITHUB_USER}-${CLUSTER_NAME}
-            Cluster: ${CLUSTER_FQDN}
-            $(echo "${TAGS}" | sed "s/ /\\n            /g; s/=/: /g")
+! grep -q 'name: aws-ebs-csi-driver$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" && \
+cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" << EOF
+patchesStrategicMerge:
+- |-
+  apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+  kind: Kustomization
+  metadata:
+    name: aws-ebs-csi-driver
+    namespace: flux-system
+  spec:
+    patches:
+      - target:
+          kind: HelmRelease
+          name: aws-ebs-csi-driver
+          namespace: aws-ebs-csi-driver
+        patch: |-
+          apiVersion: helm.toolkit.fluxcd.io/v2beta1
+          kind: HelmRelease
+          metadata:
+            name: not-used
+          spec:
+            values:
+              controller:
+                k8sTagClusterId: ${CLUSTER_FQDN}
+                extraVolumeTags:
+                  Name: ${GITHUB_USER}-\${CLUSTER_NAME}
+                  Cluster: \${CLUSTER_FQDN}
+                  $(echo "${TAGS}" | sed "s/ /\\n                  /g; s/=/: /g")
 EOF
 ```
 
@@ -566,54 +546,48 @@ EOF
 * [crossplane](https://github.com/crossplane/crossplane)
 * [default values.yaml](https://github.com/crossplane/crossplane/blob/master/cluster/charts/crossplane/values.yaml.tmpl):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/crossplane/crossplane-helmrelease
-cat > apps/crossplane/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - crossplane-namespace.yaml
-  - crossplane.yaml
-EOF
+mkdir -vp infrastructure/base/crossplane
 
-cat > apps/crossplane/crossplane-namespace.yaml << \EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: crossplane-system
-EOF
-
-flux create kustomization crossplane \
-  --interval="10m" \
-  --path="./apps/crossplane/crossplane-helmrelease" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/crossplane.crossplane-system" \
-  --export > apps/crossplane/crossplane.yaml
+kubectl create namespace crossplane-system --dry-run=client -o yaml > infrastructure/base/crossplane/crossplane-namespace.yaml
 
 flux create helmrelease crossplane \
   --namespace="crossplane-system" \
-  --interval="1h" \
+  --interval="5m" \
   --source="HelmRepository/crossplane-stable.flux-system" \
   --chart="crossplane" \
-  --chart-version="1.4.1" \
-  --export > apps/crossplane/crossplane-helmrelease/crossplane.yaml
+  --chart-version="1.5.0" \
+  --export > infrastructure/base/crossplane/crossplane-helmrelease.yaml
 
-mkdir -pv "groups/${ENVIRONMENT}/apps/crossplane"/crossplane-{provider,providerconfig}
-yq e '.resources += ["crossplane"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
+[[ ! -s "infrastructure/base/crossplane/kustomization.yaml" ]] && \
+( cd "infrastructure/base/crossplane" && kustomize create --autodetect && cd - || exit )
+```
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../apps/crossplane
-  - crossplane-provider.yaml
-  - crossplane-providerconfig.yaml
-EOF
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/crossplane`:
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/crossplane-provider.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+```bash
+mkdir -pv "infrastructure/${ENVIRONMENT}/crossplane"/crossplane-{kustomization,provider,providerconfig}
+
+flux create kustomization crossplane \
+  --interval="5m" \
+  --path="./infrastructure/\${ENVIRONMENT}/crossplane/crossplane-kustomization" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization.yaml"
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization/kustomization.yaml" ]] && \
+  (
+    cd "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization" && \
+    kustomize create --resources ../../../base/crossplane && \
+    cd - || exit
+  )
+
+cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-provider.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: crossplane-provider
@@ -621,25 +595,33 @@ metadata:
 spec:
   dependsOn:
     - name: crossplane
-  healthChecks:
-    - apiVersion: pkg.crossplane.io/v1
-      kind: Provider
-      name: provider-aws
-  interval: 5m0s
-  path: "./groups/${ENVIRONMENT}/apps/crossplane/crossplane-provider"
+  interval: 5m
+  path: "./infrastructure/${ENVIRONMENT}/crossplane/crossplane-provider"
   prune: true
+  wait: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  validation: client
   postBuild:
-    substitute:
-      AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:=AWS_ACCOUNT_ID}
-      CLUSTER_NAME: ${CLUSTER_NAME:=CLUSTER_NAME}
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/crossplane-provider/crossplane-provider-aws.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-provider/crossplane-provider-aws.yaml" << \EOF
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws
+  namespace: crossplane-system
+spec:
+  package: crossplane/provider-aws:v0.21.1
+  controllerConfigRef:
+    name: aws-config
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-provider/crossplane-controllerconfig-aws.yaml" << \EOF
 apiVersion: pkg.crossplane.io/v1alpha1
 kind: ControllerConfig
 metadata:
@@ -650,42 +632,18 @@ metadata:
 spec:
   podSecurityContext:
     fsGroup: 2000
----
-apiVersion: pkg.crossplane.io/v1
-kind: Provider
-metadata:
-  name: provider-aws
-  namespace: crossplane-system
-spec:
-  package: crossplane/provider-aws:master
-  controllerConfigRef:
-    name: aws-config
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/crossplane-providerconfig.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: crossplane-providerconfig
-  namespace: flux-system
-spec:
-  dependsOn:
-    - name: crossplane-provider
-  healthChecks:
-    - apiVersion: aws.crossplane.io/v1beta1
-      kind: ProviderConfig
-      name: aws-provider
-  interval: 5m0s
-  path: "./groups/${ENVIRONMENT}/apps/crossplane/crossplane-providerconfig"
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  validation: client
-EOF
+flux create kustomization crossplane-providerconfig \
+  --interval="5m" \
+  --depends-on="crossplane-provider" \
+  --path="./infrastructure/\${ENVIRONMENT}/crossplane/crossplane-providerconfig" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-providerconfig.yaml"
 
-cat > "groups/${ENVIRONMENT}/apps/crossplane/crossplane-providerconfig/crossplane-providerconfig-aws.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-providerconfig/crossplane-providerconfig-aws.yaml" << \EOF
 apiVersion: aws.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
@@ -695,6 +653,12 @@ spec:
   credentials:
     source: InjectedIdentity
 EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/crossplane/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/crossplane" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- crossplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource crossplane && cd - || exit )
 ```
 
 ### CSI Snapshotter
@@ -702,25 +666,12 @@ EOF
 Details about EKS and `external-snapshotter` can be found here:
 [Using EBS Snapshots for persistent storage with your EKS cluster](https://aws.amazon.com/blogs/containers/using-ebs-snapshots-for-persistent-storage-with-your-eks-cluster)
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/external-snapshotter/external-snapshotter-manifests
-cat > apps/external-snapshotter/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - external-snapshotter.yaml
-EOF
+mkdir -vp infrastructure/base/external-snapshotter
 
-flux create kustomization external-snapshotter \
-  --interval="10m" \
-  --path="./apps/external-snapshotter/external-snapshotter-manifests" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="Deployment/snapshot-controller.kube-system" \
-  --export > apps/external-snapshotter/external-snapshotter.yaml
-
-cat > apps/external-snapshotter/external-snapshotter-manifests/kustomization.yaml << \EOF
+cat > infrastructure/base/external-snapshotter/kustomization.yaml << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -732,6 +683,34 @@ resources:
 EOF
 ```
 
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/external-snapshotter`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization"
+
+flux create kustomization external-snapshotter \
+  --interval="5m" \
+  --path="./infrastructure/\${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter.yaml"
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization/kustomization.yaml" ]] && \
+  (
+    cd "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization" && \
+    kustomize create --resources "../../../base/external-snapshotter" && \
+    cd - || exit
+  )
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/external-snapshotter/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/external-snapshotter" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- external-snapshotter$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource external-snapshotter && cd - || exit )
+```
+
 ### Kubernetes Metrics Server
 
 [Kubernetes Metrics Server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/)
@@ -739,70 +718,62 @@ EOF
 * [metrics-server](https://artifacthub.io/packages/helm/bitnami/metrics-server)
 * [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/metrics-server/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/metrics-server/metrics-server-helmrelease
-cat > apps/metrics-server/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - metrics-server-namespace.yaml
-  - metrics-server.yaml
-EOF
+mkdir -vp infrastructure/base/metrics-server
 
-cat > apps/metrics-server/metrics-server-namespace.yaml << \EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: metrics-server
-EOF
-
-flux create kustomization metrics-server \
-  --interval="10m" \
-  --path="./apps/metrics-server/metrics-server-helmrelease" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/metrics-server.metrics-server" \
-  --export > apps/metrics-server/metrics-server.yaml
+kubectl create namespace metrics-server --dry-run=client -o yaml > infrastructure/base/metrics-server/metrics-server-namespace.yaml
 
 flux create helmrelease metrics-server \
   --namespace="metrics-server" \
-  --interval="1h" \
+  --interval="5m" \
   --source="HelmRepository/bitnami.flux-system" \
   --chart="metrics-server" \
-  --chart-version="5.10.1" \
-  --export > apps/metrics-server/metrics-server-helmrelease/metrics-server.yaml
+  --chart-version="5.10.10" \
+  --values-from="ConfigMap/metrics-server-values" \
+  --export > infrastructure/base/metrics-server/metrics-server-helmrelease.yaml
 
-mkdir -vp groups/${ENVIRONMENT}/apps/metrics-server/
-yq e '.resources += ["metrics-server"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
+[[ ! -s "infrastructure/base/metrics-server/kustomization.yaml" ]] && \
+( cd "infrastructure/base/metrics-server" && kustomize create --autodetect && cd - || exit )
+```
 
-cat > "groups/${ENVIRONMENT}/apps/metrics-server/kustomization.yaml" << \EOF
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/metrics-server`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/metrics-server"
+
+cat > "infrastructure/${ENVIRONMENT}/metrics-server/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/metrics-server/kustomization.yaml" << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: metrics-server
 resources:
-  - ../../../../apps/metrics-server
-patchesStrategicMerge:
-  - metrics-server-patch.yaml
+  - ../../base/metrics-server
+configMapGenerator:
+  - name: metrics-server-values
+    files:
+      - values.yaml=metrics-server-values.yaml
+configurations:
+  - kustomizeconfig.yaml
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/metrics-server/metrics-server-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: metrics-server
-  namespace: flux-system
-spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: metrics-server
-        namespace: metrics-server
-      spec:
-        values:
-          apiService:
-            create: true
+cat > "infrastructure/${ENVIRONMENT}/metrics-server/metrics-server-values.yaml" << \EOF
+apiService:
+  create: true
 EOF
+
+! grep -q '\- metrics-server$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource metrics-server && cd - || exit )
 ```
 
 ### kube-prometheus-stack
@@ -812,325 +783,338 @@ EOF
 * [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
 * [default values.yaml](https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/kube-prometheus-stack/kube-prometheus-stack-helmrelease
-cat > apps/kube-prometheus-stack/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - kube-prometheus-stack-namespace.yaml
-  - kube-prometheus-stack.yaml
-EOF
+mkdir -vp infrastructure/base/kube-prometheus-stack
 
-cat > apps/kube-prometheus-stack/kube-prometheus-stack-namespace.yaml << EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kube-prometheus-stack
-EOF
-
-flux create kustomization kube-prometheus-stack \
-  --interval="10m" \
-  --depends-on="aws-ebs-csi-driver" \
-  --path="./apps/kube-prometheus-stack/kube-prometheus-stack-helmrelease" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/kube-prometheus-stack.kube-prometheus-stack" \
-  --export > apps/kube-prometheus-stack/kube-prometheus-stack.yaml
+kubectl create namespace kube-prometheus-stack --dry-run=client -o yaml > infrastructure/base/kube-prometheus-stack/kube-prometheus-stack-namespace.yaml
 
 flux create helmrelease kube-prometheus-stack \
   --namespace="kube-prometheus-stack" \
-  --interval="1h" \
+  --interval="5m" \
   --source="HelmRepository/prometheus-community.flux-system" \
   --chart="kube-prometheus-stack" \
-  --chart-version="18.0.12" \
-  --export > apps/kube-prometheus-stack/kube-prometheus-stack-helmrelease/kube-prometheus-stack.yaml
+  --chart-version="20.0.1" \
+  --crds="CreateReplace" \
+  --values-from="ConfigMap/kube-prometheus-stack-values" \
+  --export > infrastructure/base/kube-prometheus-stack/kube-prometheus-stack-helmrelease.yaml
 
-# Disable --crds for now due to bug:
-# https://github.com/fluxcd/flux2/issues/1845
-# --crds="CreateReplace" \
+[[ ! -s "infrastructure/base/kube-prometheus-stack/kustomization.yaml" ]] && \
+( cd "infrastructure/base/kube-prometheus-stack" && kustomize create --autodetect && cd - || exit )
+```
 
-mkdir -vp groups/${ENVIRONMENT}/apps/kube-prometheus-stack
-yq e '.resources += ["kube-prometheus-stack"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/kube-prometheus-stack`:
 
-cat > "groups/${ENVIRONMENT}/apps/kube-prometheus-stack/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../apps/kube-prometheus-stack
-patchesStrategicMerge:
-  - kube-prometheus-stack-patch.yaml
-EOF
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization"
 
-cat > "groups/${ENVIRONMENT}/apps/kube-prometheus-stack/kube-prometheus-stack-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: kube-prometheus-stack
   namespace: flux-system
 spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: kube-prometheus-stack
-        namespace: kube-prometheus-stack
-      spec:
-        values:
-          defaultRules:
-            rules:
-              etcd: false
-              kubernetesSystem: false
-              kubeScheduler: false
-          additionalPrometheusRulesMap:
-            # Flux rule: https://toolkit.fluxcd.io/guides/monitoring/
-            rule-name:
-              groups:
-              - name: GitOpsToolkit
-                rules:
-                - alert: ReconciliationFailure
-                  expr: max(gotk_reconcile_condition{status="False",type="Ready"}) by (namespace, name, kind) + on(namespace, name, kind) (max(gotk_reconcile_condition{status="Deleted"}) by (namespace, name, kind)) * 2 == 1
-                  for: 10m
-                  labels:
-                    severity: page
-                  annotations:
-                    summary: '{{ $labels.kind }} {{ $labels.namespace }}/{{ $labels.name }} reconciliation has been failing for more than ten minutes.'
-          alertmanager:
-            config:
-              global:
-                slack_api_url: ${SLACK_INCOMING_WEBHOOK_URL}
-                smtp_smarthost: "mailhog.mailhog.svc.cluster.local:1025"
-                smtp_from: "alertmanager@${CLUSTER_FQDN}"
-              route:
-                group_by: ["alertname", "job"]
-                receiver: slack-notifications
-                routes:
-                  - match:
-                      severity: warning
-                    continue: true
-                    receiver: slack-notifications
-                  - match:
-                      severity: warning
-                    receiver: email-notifications
-              receivers:
-                - name: "email-notifications"
-                  email_configs:
-                  - to: "notification@${CLUSTER_FQDN}"
-                    require_tls: false
-                - name: "slack-notifications"
-                  slack_configs:
-                    - channel: "#${SLACK_CHANNEL}"
-                      send_resolved: True
-                      icon_url: "https://avatars3.githubusercontent.com/u/3380462"
-                      title: '{{ template "slack.cp.title" . }}'
-                      text: '{{ template "slack.cp.text" . }}'
-                      footer: "https://${CLUSTER_FQDN}"
-                      actions:
-                        - type: button
-                          text: 'Runbook :blue_book:'
-                          url: '{{ (index .Alerts 0).Annotations.runbook_url }}'
-                        - type: button
-                          text: 'Query :mag:'
-                          url: '{{ (index .Alerts 0).GeneratorURL }}'
-                        - type: button
-                          text: 'Silence :no_bell:'
-                          url: '{{ template "__alert_silence_link" . }}'
-              templates:
-                - "/etc/alertmanager/config/cp-slack-templates.tmpl"
-            templateFiles:
-              cp-slack-templates.tmpl: |-
-                {{ define "slack.cp.title" -}}
-                  [{{ .Status | toUpper -}}
-                  {{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{- end -}}
-                  ] {{ template "__alert_severity_prefix_title" . }} {{ .CommonLabels.alertname }}
-                {{- end }}
-                {{/* The test to display in the alert */}}
-                {{ define "slack.cp.text" -}}
-                  {{ range .Alerts }}
-                      *Alert:* {{ .Annotations.message}}
-                      *Details:*
-                      {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
-                      {{ end }}
-                      *-----*
-                    {{ end }}
-                {{- end }}
-                {{ define "__alert_silence_link" -}}
-                  {{ .ExternalURL }}/#/silences/new?filter=%7B
-                  {{- range .CommonLabels.SortedPairs -}}
-                    {{- if ne .Name "alertname" -}}
-                      {{- .Name }}%3D"{{- .Value -}}"%2C%20
-                    {{- end -}}
-                  {{- end -}}
-                    alertname%3D"{{ .CommonLabels.alertname }}"%7D
-                {{- end }}
-                {{ define "__alert_severity_prefix" -}}
-                    {{ if ne .Status "firing" -}}
-                    :white_check_mark:
-                    {{- else if eq .Labels.severity "critical" -}}
-                    :fire:
-                    {{- else if eq .Labels.severity "warning" -}}
-                    :warning:
-                    {{- else -}}
-                    :question:
-                    {{- end }}
-                {{- end }}
-                {{ define "__alert_severity_prefix_title" -}}
-                    {{ if ne .Status "firing" -}}
-                    :white_check_mark:
-                    {{- else if eq .CommonLabels.severity "critical" -}}
-                    :fire:
-                    {{- else if eq .CommonLabels.severity "warning" -}}
-                    :warning:
-                    {{- else if eq .CommonLabels.severity "info" -}}
-                    :information_source:
-                    {{- else if eq .CommonLabels.status_icon "information" -}}
-                    :information_source:
-                    {{- else -}}
-                    :question:
-                    {{- end }}
-                {{- end }}
-            ingress:
-              enabled: true
-              annotations:
-                nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
-                nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
-              hosts:
-                - alertmanager.${CLUSTER_FQDN}
-              paths: ["/"]
-              pathType: ImplementationSpecific
-              tls:
-                - hosts:
-                  - alertmanager.${CLUSTER_FQDN}
-          # https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
-          grafana:
-            ingress:
-              enabled: true
-              annotations:
-                nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
-                nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
-              hosts:
-                - grafana.${CLUSTER_FQDN}
-              paths: ["/"]
-              pathType: ImplementationSpecific
-              tls:
-                - hosts:
-                  - grafana.${CLUSTER_FQDN}
-            dashboardProviders:
-              dashboardproviders.yaml:
-                apiVersion: 1
-                providers:
-                  - name: "default"
-                    orgId: 1
-                    folder: ""
-                    type: file
-                    disableDeletion: false
-                    editable: true
-                    options:
-                      path: /var/lib/grafana/dashboards/default
-            dashboards:
-              default:
-                k8s-cluster-summary:
-                  gnetId: 8685
-                  revision: 1
-                  datasource: Prometheus
-                node-exporter-full:
-                  gnetId: 1860
-                  revision: 21
-                  datasource: Prometheus
-                prometheus-2-0-overview:
-                  gnetId: 3662
-                  revision: 2
-                  datasource: Prometheus
-                stians-disk-graphs:
-                  gnetId: 9852
-                  revision: 1
-                  datasource: Prometheus
-                kubernetes-apiserver:
-                  gnetId: 12006
-                  revision: 1
-                  datasource: Prometheus
-                ingress-nginx:
-                  gnetId: 9614
-                  revision: 1
-                  datasource: Prometheus
-                ingress-nginx2:
-                  gnetId: 11875
-                  revision: 1
-                  datasource: Prometheus
-                # https://github.com/fluxcd/flux2/blob/main/manifests/monitoring/grafana/dashboards/cluster.json
-                gitops-toolkit-control-plane:
-                  url: https://raw.githubusercontent.com/fluxcd/flux2/c98cd106218b0fdead155bd9a0b0a5666e5c3e15/manifests/monitoring/grafana/dashboards/control-plane.json
-                  datasource: Prometheus
-                gitops-toolkit-cluster:
-                  url: https://raw.githubusercontent.com/fluxcd/flux2/3b91e14f6dff0fad024ae44a58b40f76e677bd1c/manifests/monitoring/grafana/dashboards/cluster.json
-                  datasource: Prometheus
-                kyverno-cluster-policy-report:
-                  gnetId: 13996
-                  revision: 3
-                  datasource: Prometheus
-                kyverno-policy-report:
-                  gnetId: 13995
-                  revision: 3
-                  datasource: Prometheus
-                kyverno-policy-reports:
-                  gnetId: 13968
-                  revision: 1
-                  datasource: Prometheus
-            grafana.ini:
-              server:
-                root_url: https://grafana.${CLUSTER_FQDN}
-              # Using oauth2-proxy instead of default Grafana Oauth
-              auth.anonymous:
-                enabled: true
-                org_role: Admin
-            smtp:
-              enabled: true
-              host: "mailhog.mailhog.svc.cluster.local:1025"
-              from_address: grafana@${CLUSTER_FQDN}
-          kubeControllerManager:
-            enabled: false
-          kubeEtcd:
-            enabled: false
-          kubeScheduler:
-            enabled: false
-          kubeProxy:
-            enabled: false
-          prometheusOperator:
-            tls:
-              enabled: false
-            admissionWebhooks:
-              enabled: false
-          prometheus:
-            ingress:
-              enabled: true
-              annotations:
-                nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
-                nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
-              paths: ["/"]
-              pathType: ImplementationSpecific
-              hosts:
-                - prometheus.${CLUSTER_FQDN}
-              tls:
-                - hosts:
-                  - prometheus.${CLUSTER_FQDN}
-            prometheusSpec:
-              externalUrl: https://prometheus.${CLUSTER_FQDN}
-              ruleSelectorNilUsesHelmValues: false
-              serviceMonitorSelectorNilUsesHelmValues: false
-              podMonitorSelectorNilUsesHelmValues: false
-              retention: 7d
-              retentionSize: 1GB
-              walCompression: true
-              storageSpec:
-                volumeClaimTemplate:
-                  spec:
-                    storageClassName: gp3
-                    accessModes: ["ReadWriteOnce"]
-                    resources:
-                      requests:
-                        storage: 1Gi
+  dependsOn:
+    - name: aws-ebs-csi-driver
+  interval: 5m0s
+  path: ./infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
+
+cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kube-prometheus-stack
+resources:
+  - ../../../base/kube-prometheus-stack
+configMapGenerator:
+  - name: kube-prometheus-stack-values
+    files:
+      - values.yaml=kube-prometheus-stack-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kube-prometheus-stack-values.yaml" << \EOF
+defaultRules:
+  rules:
+    etcd: false
+    kubernetesSystem: false
+    kubeScheduler: false
+additionalPrometheusRulesMap:
+  # Flux rule: https://toolkit.fluxcd.io/guides/monitoring/
+  rule-name:
+    groups:
+    - name: GitOpsToolkit
+      rules:
+      - alert: ReconciliationFailure
+        expr: max(gotk_reconcile_condition{status="False",type="Ready"}) by (namespace, name, kind) + on(namespace, name, kind) (max(gotk_reconcile_condition{status="Deleted"}) by (namespace, name, kind)) * 2 == 1
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.kind }} {{ $labels.namespace }}/{{ $labels.name }} reconciliation has been failing for more than ten minutes.'
+alertmanager:
+  config:
+    global:
+      slack_api_url: ${SLACK_INCOMING_WEBHOOK_URL}
+      smtp_smarthost: "mailhog.mailhog.svc.cluster.local:1025"
+      smtp_from: "alertmanager@${CLUSTER_FQDN}"
+    route:
+      group_by: ["alertname", "job"]
+      receiver: slack-notifications
+      routes:
+        - match:
+            severity: warning
+          continue: true
+          receiver: slack-notifications
+        - match:
+            severity: warning
+          receiver: email-notifications
+    receivers:
+      - name: "email-notifications"
+        email_configs:
+        - to: "notification@${CLUSTER_FQDN}"
+          require_tls: false
+      - name: "slack-notifications"
+        slack_configs:
+          - channel: "#${SLACK_CHANNEL}"
+            send_resolved: True
+            icon_url: "https://avatars3.githubusercontent.com/u/3380462"
+            title: '{{ template "slack.cp.title" . }}'
+            text: '{{ template "slack.cp.text" . }}'
+            footer: "https://${CLUSTER_FQDN}"
+            actions:
+              - type: button
+                text: 'Runbook :blue_book:'
+                url: '{{ (index .Alerts 0).Annotations.runbook_url }}'
+              - type: button
+                text: 'Query :mag:'
+                url: '{{ (index .Alerts 0).GeneratorURL }}'
+              - type: button
+                text: 'Silence :no_bell:'
+                url: '{{ template "__alert_silence_link" . }}'
+    templates:
+      - "/etc/alertmanager/config/cp-slack-templates.tmpl"
+  templateFiles:
+    cp-slack-templates.tmpl: |-
+      {{ define "slack.cp.title" -}}
+        [{{ .Status | toUpper -}}
+        {{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{- end -}}
+        ] {{ template "__alert_severity_prefix_title" . }} {{ .CommonLabels.alertname }}
+      {{- end }}
+      {{/* The test to display in the alert */}}
+      {{ define "slack.cp.text" -}}
+        {{ range .Alerts }}
+            *Alert:* {{ .Annotations.message}}
+            *Details:*
+            {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
+            {{ end }}
+            *-----*
+          {{ end }}
+      {{- end }}
+      {{ define "__alert_silence_link" -}}
+        {{ .ExternalURL }}/#/silences/new?filter=%7B
+        {{- range .CommonLabels.SortedPairs -}}
+          {{- if ne .Name "alertname" -}}
+            {{- .Name }}%3D"{{- .Value -}}"%2C%20
+          {{- end -}}
+        {{- end -}}
+          alertname%3D"{{ .CommonLabels.alertname }}"%7D
+      {{- end }}
+      {{ define "__alert_severity_prefix" -}}
+          {{ if ne .Status "firing" -}}
+          :white_check_mark:
+          {{- else if eq .Labels.severity "critical" -}}
+          :fire:
+          {{- else if eq .Labels.severity "warning" -}}
+          :warning:
+          {{- else -}}
+          :question:
+          {{- end }}
+      {{- end }}
+      {{ define "__alert_severity_prefix_title" -}}
+          {{ if ne .Status "firing" -}}
+          :white_check_mark:
+          {{- else if eq .CommonLabels.severity "critical" -}}
+          :fire:
+          {{- else if eq .CommonLabels.severity "warning" -}}
+          :warning:
+          {{- else if eq .CommonLabels.severity "info" -}}
+          :information_source:
+          {{- else if eq .CommonLabels.status_icon "information" -}}
+          :information_source:
+          {{- else -}}
+          :question:
+          {{- end }}
+      {{- end }}
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
+    hosts:
+      - alertmanager.${CLUSTER_FQDN}
+    paths: ["/"]
+    pathType: ImplementationSpecific
+    tls:
+      - hosts:
+        - alertmanager.${CLUSTER_FQDN}
+# https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+grafana:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
+    hosts:
+      - grafana.${CLUSTER_FQDN}
+    paths: ["/"]
+    pathType: ImplementationSpecific
+    tls:
+      - hosts:
+        - grafana.${CLUSTER_FQDN}
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      k8s-cluster-summary:
+        gnetId: 8685
+        revision: 1
+        datasource: Prometheus
+      node-exporter-full:
+        gnetId: 1860
+        revision: 21
+        datasource: Prometheus
+      prometheus-2-0-overview:
+        gnetId: 3662
+        revision: 2
+        datasource: Prometheus
+      stians-disk-graphs:
+        gnetId: 9852
+        revision: 1
+        datasource: Prometheus
+      kubernetes-apiserver:
+        gnetId: 12006
+        revision: 1
+        datasource: Prometheus
+      ingress-nginx:
+        gnetId: 9614
+        revision: 1
+        datasource: Prometheus
+      ingress-nginx2:
+        gnetId: 11875
+        revision: 1
+        datasource: Prometheus
+      # https://github.com/fluxcd/flux2/blob/main/manifests/monitoring/grafana/dashboards/cluster.json
+      gitops-toolkit-control-plane:
+        url: https://raw.githubusercontent.com/fluxcd/flux2/c98cd106218b0fdead155bd9a0b0a5666e5c3e15/manifests/monitoring/grafana/dashboards/control-plane.json
+        datasource: Prometheus
+      gitops-toolkit-cluster:
+        url: https://raw.githubusercontent.com/fluxcd/flux2/3b91e14f6dff0fad024ae44a58b40f76e677bd1c/manifests/monitoring/grafana/dashboards/cluster.json
+        datasource: Prometheus
+      kyverno-policy-report:
+        gnetId: 13995
+        revision: 4
+        datasource: Prometheus
+      kyverno-policy-reports:
+        gnetId: 13968
+        revision: 2
+        datasource: Prometheus
+  grafana.ini:
+    server:
+      root_url: https://grafana.${CLUSTER_FQDN}
+    # Using oauth2-proxy instead of default Grafana Oauth
+    auth.anonymous:
+      enabled: true
+      org_role: Admin
+  smtp:
+    enabled: true
+    host: "mailhog.mailhog.svc.cluster.local:1025"
+    from_address: grafana@${CLUSTER_FQDN}
+kubeControllerManager:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+prometheusOperator:
+  tls:
+    enabled: false
+  admissionWebhooks:
+    enabled: false
+prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
+    paths: ["/"]
+    pathType: ImplementationSpecific
+    hosts:
+      - prometheus.${CLUSTER_FQDN}
+    tls:
+      - hosts:
+        - prometheus.${CLUSTER_FQDN}
+  prometheusSpec:
+    externalUrl: https://prometheus.${CLUSTER_FQDN}
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 7d
+    retentionSize: 1GB
+    walCompression: true
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/kube-prometheus-stack" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- kube-prometheus-stack$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kube-prometheus-stack && cd - || exit )
 ```
 
 ### cert-manager
@@ -1140,82 +1124,77 @@ EOF
 * [cert-manager](https://artifacthub.io/packages/helm/jetstack/cert-manager)
 * [default values.yaml](https://github.com/jetstack/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/cert-manager/cert-manager-helmrelease
-cat > apps/cert-manager/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - cert-manager.yaml
-EOF
+mkdir -vp infrastructure/base/cert-manager
+
+flux create helmrelease cert-manager \
+  --namespace="cert-manager" \
+  --interval="5m" \
+  --source="HelmRepository/jetstack.flux-system" \
+  --chart="cert-manager" \
+  --chart-version="v1.6.1" \
+  --values-from="ConfigMap/cert-manager-values" \
+  --export > infrastructure/base/cert-manager/cert-manager-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/cert-manager/kustomization.yaml" ]] && \
+( cd "infrastructure/base/cert-manager" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/cert-manager`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/cert-manager"/cert-manager-{kustomization,clusterissuer,certificate}
 
 flux create kustomization cert-manager \
-  --interval="10m" \
+  --interval="5m" \
   --depends-on="kube-prometheus-stack" \
-  --path="./apps/cert-manager/cert-manager-helmrelease" \
+  --path="./infrastructure/\${ENVIRONMENT}/cert-manager/cert-manager-kustomization" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/cert-manager.cert-manager" \
-  --export > apps/cert-manager/cert-manager.yaml
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization.yaml"
 
-cat << \EOF |
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cert-manager
+resources:
+  - ../../../base/cert-manager
+configMapGenerator:
+  - name: cert-manager-values
+    files:
+      - values.yaml=cert-manager-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization/cert-manager-values.yaml" << \EOF
 installCRDs: true
 serviceAccount:
   create: false
   name: cert-manager
-EOF
-flux create helmrelease cert-manager \
-  --namespace="cert-manager" \
-  --interval="1h" \
-  --source="HelmRepository/jetstack.flux-system" \
-  --chart="cert-manager" \
-  --chart-version="v1.5.3" \
-  --values="/dev/stdin" \
-  --export > apps/cert-manager/cert-manager-helmrelease/cert-manager.yaml
-
-mkdir -pv "groups/${ENVIRONMENT}/apps/cert-manager"/cert-manager-{clusterissuer,certificate}
-yq e '.resources += ["cert-manager"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
-
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../apps/cert-manager
-  - cert-manager-clusterissuer.yaml
-  - cert-manager-certificate.yaml
-patchesStrategicMerge:
-  - cert-manager-patch.yaml
+extraArgs:
+  - --cluster-resource-namespace=cert-manager
+  - --enable-certificate-owner-ref=true
+prometheus:
+  servicemonitor:
+    enabled: true
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: cert-manager
-  namespace: flux-system
-spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: cert-manager
-        namespace: cert-manager
-      spec:
-        values:
-          installCRDs: true
-          serviceAccount:
-            create: false
-            name: cert-manager
-          extraArgs:
-            - --enable-certificate-owner-ref=true
-          prometheus:
-            servicemonitor:
-              enabled: true
-EOF
-
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-clusterissuer.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: cert-manager-clusterissuer
@@ -1223,29 +1202,21 @@ metadata:
 spec:
   dependsOn:
     - name: cert-manager
-  healthChecks:
-    - apiVersion: cert-manager.io/v1
-      kind: ClusterIssuer
-      name: letsencrypt-staging-dns
-    - apiVersion: cert-manager.io/v1
-      kind: ClusterIssuer
-      name: letsencrypt-production-dns
   interval: 5m
-  path: "./groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer"
+  path: "./infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-clusterissuer"
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  validation: client
+  wait: true
   postBuild:
-    substitute:
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:=AWS_DEFAULT_REGION}
-      CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
-      MY_EMAIL: ${MY_EMAIL:=MY_EMAIL}
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer/cert-manager-clusterissuer-letsencrypt-staging-dns.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-clusterissuer/cert-manager-clusterissuer-letsencrypt-staging-dns.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1266,7 +1237,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-clusterissuer/cert-manager-clusterissuer-letsencrypt-production-dns.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-clusterissuer/cert-manager-clusterissuer-letsencrypt-production-dns.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1287,8 +1258,8 @@ spec:
             region: ${AWS_DEFAULT_REGION}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-certificate.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-certificate.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: cert-manager-certificate
@@ -1296,26 +1267,22 @@ metadata:
 spec:
   dependsOn:
     - name: cert-manager-clusterissuer
-  healthChecks:
-    - apiVersion: cert-manager.io/v1
-      kind: Certificate
-      name: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
-      namespace: cert-manager
   interval: 5m
-  path: "./groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-certificate"
+  path: "./infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-certificate"
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  validation: client
+  wait: true
+  timeout: 10m
   postBuild:
-    substitute:
-      LETSENCRYPT_ENVIRONMENT: ${LETSENCRYPT_ENVIRONMENT:=LETSENCRYPT_ENVIRONMENT}
-      CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/cert-manager/cert-manager-certificate/cert-manager-certificate.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-certificate/cert-manager-certificate.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -1334,6 +1301,12 @@ spec:
     - "*.${CLUSTER_FQDN}"
     - "${CLUSTER_FQDN}"
 EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/cert-manager/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/cert-manager" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- cert-manager$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource cert-manager && cd - || exit )
 ```
 
 ### Dex
@@ -1343,131 +1316,111 @@ EOF
 * [dex](https://artifacthub.io/packages/helm/dex/dex)
 * [default values.yaml](https://github.com/dexidp/helm-charts/blob/master/charts/dex/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/dex/dex-helmrelease
-cat > apps/dex/kustomization.yaml << \EOF
+mkdir -vp infrastructure/base/dex
+
+kubectl create namespace dex --dry-run=client -o yaml > infrastructure/base/dex/dex-namespace.yaml
+
+flux create helmrelease dex \
+  --namespace="dex" \
+  --interval="5m" \
+  --source="HelmRepository/dex.flux-system" \
+  --chart="dex" \
+  --chart-version="0.6.3" \
+  --values-from="ConfigMap/dex-values" \
+  --export > infrastructure/base/dex/dex-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/dex/kustomization.yaml" ]] && \
+( cd "infrastructure/base/dex" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/dex`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/dex"
+
+cat > "infrastructure/${ENVIRONMENT}/dex/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/dex/kustomization.yaml" << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: dex
 resources:
-  - dex-namespace.yaml
-  - dex.yaml
+  - ../../base/dex
+configMapGenerator:
+  - name: dex-values
+    files:
+      - values.yaml=dex-values.yaml
+configurations:
+  - kustomizeconfig.yaml
 EOF
 
-cat > apps/dex/dex-namespace.yaml << \EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: dex
-EOF
-
-flux create kustomization dex \
-  --interval="10m" \
-  --path="./apps/dex/dex-helmrelease" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/dex.dex" \
-  --export > apps/dex/dex.yaml
-
-cat << \EOF |
+cat > "infrastructure/${ENVIRONMENT}/dex/dex-values.yaml" << \EOF
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: dex.${CLUSTER_FQDN}
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - hosts:
+      - dex.${CLUSTER_FQDN}
 config:
-  issuer: https://dex.${CLUSTER_FQDN:=CLUSTER_FQDN}.com
+  issuer: https://dex.${CLUSTER_FQDN}
   storage:
     type: kubernetes
     config:
       inCluster: true
+  oauth2:
+    skipApprovalScreen: true
   connectors:
     - type: github
       id: github
       name: GitHub
+      config:
+        clientID: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
+        clientSecret: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
+        redirectURI: https://dex.${CLUSTER_FQDN}/callback
+        orgs:
+          - name: ${MY_GITHUB_ORG_NAME}
+    - type: oidc
+      id: okta
+      name: Okta
+      config:
+        issuer: ${OKTA_ISSUER}
+        clientID: ${OKTA_CLIENT_ID}
+        clientSecret: ${OKTA_CLIENT_SECRET}
+        redirectURI: https://dex.${CLUSTER_FQDN}/callback
+        scopes:
+          - openid
+          - profile
+          - email
+        getUserInfo: true
+  staticClients:
+    - id: oauth2-proxy.${CLUSTER_FQDN}
+      redirectURIs:
+        - https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/callback
+      name: OAuth2 Proxy
+      secret: ${MY_PASSWORD}
+  enablePasswordDB: false
 EOF
-flux create helmrelease dex \
-  --namespace="dex" \
-  --interval="1h" \
-  --source="HelmRepository/dex.flux-system" \
-  --chart="dex" \
-  --chart-version="0.6.3" \
-  --values="/dev/stdin" \
-  --export > apps/dex/dex-helmrelease/dex.yaml
 
-mkdir -vp "groups/${ENVIRONMENT}/apps/dex"
-yq e '.resources += ["dex"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
-
-cat > "groups/${ENVIRONMENT}/apps/dex/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../apps/dex
-patchesStrategicMerge:
-  - dex-patch.yaml
-EOF
-
-cat > "groups/${ENVIRONMENT}/apps/dex/dex-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: dex
-  namespace: flux-system
-spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: dex
-        namespace: dex
-      spec:
-        values:
-          ingress:
-            enabled: true
-            annotations:
-              nginx.ingress.kubernetes.io/ssl-redirect: "false"
-            hosts:
-              - host: dex.${CLUSTER_FQDN}
-                paths:
-                  - path: /
-                    pathType: ImplementationSpecific
-            tls:
-              - hosts:
-                - dex.${CLUSTER_FQDN}
-          config:
-            issuer: https://dex.${CLUSTER_FQDN}
-            storage:
-              type: kubernetes
-              config:
-                inCluster: true
-            oauth2:
-              skipApprovalScreen: true
-            connectors:
-              - type: github
-                id: github
-                name: GitHub
-                config:
-                  clientID: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID}
-                  clientSecret: ${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}
-                  redirectURI: https://dex.${CLUSTER_FQDN}/callback
-                  orgs:
-                    - name: ${MY_GITHUB_ORG_NAME}
-              - type: oidc
-                id: okta
-                name: Okta
-                config:
-                  issuer: ${OKTA_ISSUER}
-                  clientID: ${OKTA_CLIENT_ID}
-                  clientSecret: ${OKTA_CLIENT_SECRET}
-                  redirectURI: https://dex.${CLUSTER_FQDN}/callback
-                  scopes:
-                    - openid
-                    - profile
-                    - email
-                  getUserInfo: true
-            staticClients:
-              - id: oauth2-proxy.${CLUSTER_FQDN}
-                redirectURIs:
-                  - https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/callback
-                name: OAuth2 Proxy
-                secret: ${MY_PASSWORD}
-            enablePasswordDB: false
-EOF
+! grep -q '\- dex$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource dex && cd - || exit )
 ```
 
 ### ExternalDNS
@@ -1477,80 +1430,98 @@ EOF
 * [external-dns](https://artifacthub.io/packages/helm/bitnami/external-dns)
 * [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/external-dns/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/external-dns/external-dns-helmrelease
-cat > apps/external-dns/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - external-dns.yaml
-EOF
+mkdir -vp infrastructure/base/external-dns
 
-flux create kustomization external-dns \
-  --interval="10m" \
-  --depends-on="ingress-nginx" \
-  --path="./apps/external-dns/external-dns-helmrelease" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/external-dns.external-dns" \
-  --export > apps/external-dns/external-dns.yaml
-
-cat << \EOF |
-serviceAccount:
-  create: false
-  name: external-dns
-EOF
 flux create helmrelease external-dns \
   --namespace="external-dns" \
-  --interval="1h" \
+  --interval="5m" \
   --source="HelmRepository/bitnami.flux-system" \
   --chart="external-dns" \
-  --chart-version="5.4.7" \
-  --values="/dev/stdin" \
-  --export > apps/external-dns/external-dns-helmrelease/external-dns.yaml
+  --chart-version="5.5.0" \
+  --values-from="ConfigMap/external-dns-values" \
+  --export > infrastructure/base/external-dns/external-dns-helmrelease.yaml
 
-mkdir -vp groups/${ENVIRONMENT}/apps/external-dns/
-yq e '.resources += ["external-dns"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
+[[ ! -s "infrastructure/base/external-dns/kustomization.yaml" ]] && \
+( cd "infrastructure/base/external-dns" && kustomize create --autodetect && cd - || exit )
+```
 
-cat > "groups/${ENVIRONMENT}/apps/external-dns/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../apps/external-dns
-patchesStrategicMerge:
-  - external-dns-patch.yaml
-EOF
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/external-dns`:
 
-cat > "groups/${ENVIRONMENT}/apps/external-dns/external-dns-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: external-dns
   namespace: flux-system
 spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: external-dns
-        namespace: external-dns
-      spec:
-        values:
-          aws:
-            region: ${AWS_DEFAULT_REGION}
-          domainFilters:
-            - ${CLUSTER_FQDN}
-          interval: 20s
-          policy: sync
-          serviceAccount:
-            create: false
-            name: external-dns
-          metrics:
-            enabled: true
-            serviceMonitor:
-              enabled: true
+  dependsOn:
+    - name: ingress-nginx
+    - name: kube-prometheus-stack
+  interval: 5m0s
+  path: ./infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
+
+cat > "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: external-dns
+resources:
+  - ../../../base/external-dns
+configMapGenerator:
+  - name: external-dns-values
+    files:
+      - values.yaml=external-dns-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization/external-dns-values.yaml" << \EOF
+aws:
+  region: ${AWS_DEFAULT_REGION}
+domainFilters:
+  - ${CLUSTER_FQDN}
+interval: 20s
+policy: sync
+serviceAccount:
+  create: false
+  name: external-dns
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/external-dns/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/external-dns" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- external-dns$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource external-dns && cd - || exit )
 ```
 
 ### Flux provides, alerts, receivers and monitoring
@@ -1558,50 +1529,35 @@ EOF
 [flux](https://fluxcd.io/)
 
 ```bash
-mkdir -vp "groups/${ENVIRONMENT}/apps/flux"/flux-{provider,alert,receiver,podmonitor}
-yq e '.resources += ["flux"]' -i groups/${ENVIRONMENT}/apps/kustomization.yaml
-cat > "groups/${ENVIRONMENT}/apps/flux/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - flux-provider.yaml
-  - flux-alert.yaml
-  - flux-receiver.yaml
-  - flux-podmonitor.yaml
-EOF
+mkdir -vp "infrastructure/${ENVIRONMENT}/flux"/flux-{provider,alert,receiver,podmonitor}
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-provider.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-provider.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: flux-provider
   namespace: flux-system
 spec:
-  healthChecks:
-    - apiVersion: notification.toolkit.fluxcd.io/v1beta1
-      kind: Provider
-      name: slack
-      namespace: flux-system
   interval: 5m
-  path: ./groups/${ENVIRONMENT}/apps/flux/flux-provider/
+  path: ./infrastructure/${ENVIRONMENT}/flux/flux-provider
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  validation: client
+  wait: true
   postBuild:
-    substitute:
-      SLACK_CHANNEL: ${SLACK_CHANNEL:=SLACK_CHANNEL}
-      SLACK_INCOMING_WEBHOOK_URL_BASE64: ${SLACK_INCOMING_WEBHOOK_URL_BASE64}
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
 
 flux create alert-provider slack \
   --type=slack \
   --channel="\${SLACK_CHANNEL}" \
   --secret-ref=slack-url \
-  --export > "groups/${ENVIRONMENT}/apps/flux/flux-provider/flux-provider-slack.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-provider/flux-provider-slack.yaml"
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-provider/flux-provider-slack-url-secret.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-provider/flux-provider-slack-url-secret.yaml" << \EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1611,59 +1567,31 @@ data:
   address: ${SLACK_INCOMING_WEBHOOK_URL_BASE64}
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-alert.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: flux-alert
-  namespace: flux-system
-spec:
-  dependsOn:
-    - name: flux-provider
-  healthChecks:
-    - apiVersion: notification.toolkit.fluxcd.io/v1beta1
-      kind: Alert
-      name: alert-slack
-      namespace: flux-system
-  interval: 5m
-  path: ./groups/${ENVIRONMENT}/apps/flux/flux-alert/
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  validation: client
-EOF
+flux create kustomization flux-alert \
+  --interval="5m" \
+  --depends-on="flux-provider" \
+  --path="./infrastructure/${ENVIRONMENT}/flux/flux-alert" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-alert.yaml"
 
 flux create alert alert-slack \
   --event-severity=error \
   --event-source="GitRepository/*,Kustomization/*,HelmRepository/*,HelmChart/*,HelmRelease/*" \
   --provider-ref=slack \
-  --export > "groups/${ENVIRONMENT}/apps/flux/flux-alert/flux-alert-slack.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-alert/flux-alert-slack.yaml"
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-podmonitor.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: flux-podmonitor
-  namespace: flux-system
-spec:
-  dependsOn:
-    - name: kube-prometheus-stack
-  healthChecks:
-    - apiVersion: monitoring.coreos.com/v1
-      kind: PodMonitor
-      name: flux-system
-      namespace: flux-system
-  interval: 5m
-  path: ./groups/${ENVIRONMENT}/apps/flux/flux-podmonitor/
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  validation: client
-EOF
+flux create kustomization flux-podmonitor \
+  --interval="5m" \
+  --depends-on="kube-prometheus-stack" \
+  --path="./infrastructure/${ENVIRONMENT}/flux/flux-podmonitor" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-podmonitor.yaml"
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-podmonitor/flux-podmonitor.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-podmonitor/flux-podmonitor.yaml" << \EOF
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -1690,32 +1618,27 @@ spec:
     - port: http-prom
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-receiver.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-receiver.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: flux-receiver
   namespace: flux-system
 spec:
-  healthChecks:
-    - apiVersion: notification.toolkit.fluxcd.io/v1beta1
-      kind: Receiver
-      name: github-receiver
-      namespace: flux-system
   interval: 5m
-  path: ./groups/${ENVIRONMENT}/apps/flux/flux-receiver/
+  path: ./infrastructure/${ENVIRONMENT}/flux/flux-receiver
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  validation: client
+  wait: true
   postBuild:
-    substitute:
-      MY_GITHUB_WEBHOOK_TOKEN_BASE64: ${MY_GITHUB_WEBHOOK_TOKEN_BASE64}
-      CLUSTER_FQDN: ${CLUSTER_FQDN:=CLUSTER_FQDN}
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-receiver/flux-receiver-github-webhook-token-secret.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-receiver/flux-receiver-github-webhook-token-secret.yaml" << \EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1731,30 +1654,17 @@ flux create receiver github-receiver \
   --event=push \
   --secret-ref=github-webhook-token \
   --resource="GitRepository/flux-system" \
-  --export > "groups/${ENVIRONMENT}/apps/flux/flux-receiver/flux-receiver-github.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-receiver/flux-receiver-github.yaml"
 
-cat > "groups/${ENVIRONMENT}/apps/flux/flux-receiver/flux-receiver-github-ingress.yaml" << \EOF
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: flux-github-receiver
-  namespace: flux-system
-spec:
-  rules:
-  - host: flux-receiver.${CLUSTER_FQDN}
-    http:
-      paths:
-      - path: /
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: webhook-receiver
-            port:
-              name: http
-  tls:
-  - hosts:
-    - flux-receiver.${CLUSTER_FQDN}
-EOF
+kubectl create ingress --namespace flux-system flux-github-receiver \
+  --class=nginx --rule="flux-receiver.${CLUSTER_FQDN}/*=webhook-receiver:http,tls" \
+  -o yaml --dry-run=client > "infrastructure/${ENVIRONMENT}/flux/flux-receiver/flux-receiver-github-ingress.yaml"
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/flux/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/flux" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- flux$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource flux && cd - || exit )
 ```
 
 ### ingress-nginx
@@ -1764,116 +1674,136 @@ EOF
 * [ingress-nginx](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx)
 * [default values.yaml](https://github.com/kubernetes/ingress-nginx/blob/master/charts/ingress-nginx/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/ingress-nginx/ingress-nginx-helmrelease
-cat > apps/ingress-nginx/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ingress-nginx-namespace.yaml
-  - ingress-nginx.yaml
-EOF
+mkdir -vp infrastructure/base/ingress-nginx
 
-cat > apps/ingress-nginx/ingress-nginx-namespace.yaml << \EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ingress-nginx
-EOF
-
-flux create kustomization ingress-nginx \
-  --interval="10m" \
-  --depends-on="kube-prometheus-stack,cert-manager-certificate" \
-  --path="./apps/ingress-nginx/ingress-nginx-helmrelease" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/ingress-nginx.ingress-nginx" \
-  --export > apps/ingress-nginx/ingress-nginx.yaml
+kubectl create namespace ingress-nginx --dry-run=client -o yaml > infrastructure/base/ingress-nginx/ingress-nginx-namespace.yaml
 
 flux create helmrelease ingress-nginx \
   --namespace="ingress-nginx" \
-  --interval="1h" \
+  --interval="5m" \
   --source="HelmRepository/ingress-nginx.flux-system" \
   --chart="ingress-nginx" \
-  --chart-version="4.0.1" \
-  --export > apps/ingress-nginx/ingress-nginx-helmrelease/ingress-nginx.yaml
+  --chart-version="4.0.9" \
+  --values-from="ConfigMap/ingress-nginx-values" \
+  --export > infrastructure/base/ingress-nginx/ingress-nginx-helmrelease.yaml
 
-mkdir -vp groups/${ENVIRONMENT}/apps/ingress-nginx/
-yq e '.resources += ["ingress-nginx"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
+[[ ! -s "infrastructure/base/ingress-nginx/kustomization.yaml" ]] && \
+( cd "infrastructure/base/ingress-nginx" && kustomize create --autodetect && cd - || exit )
+```
 
-cat > "groups/${ENVIRONMENT}/apps/ingress-nginx/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../apps/ingress-nginx
-patchesStrategicMerge:
-  - ingress-nginx-patch.yaml
-EOF
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/ingress-nginx`:
 
-cat > "groups/${ENVIRONMENT}/apps/ingress-nginx/ingress-nginx-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: ingress-nginx
   namespace: flux-system
 spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: ingress-nginx
-        namespace: ingress-nginx
-      spec:
-        values:
-          controller:
-            extraArgs:
-              default-ssl-certificate: "cert-manager/ingress-cert-${LETSENCRYPT_ENVIRONMENT}"
-            service:
-              annotations:
-                service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
-                service.beta.kubernetes.io/aws-load-balancer-type: nlb
-                service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "${TAGS_INGRESS_NGINX}"
-            metrics:
-              enabled: true
-              serviceMonitor:
-                enabled: true
-              prometheusRule:
-                enabled: true
-                rules:
-                  - alert: NGINXConfigFailed
-                    expr: count(nginx_ingress_controller_config_last_reload_successful == 0) > 0
-                    for: 1s
-                    labels:
-                      severity: critical
-                    annotations:
-                      description: bad ingress config - nginx config test failed
-                      summary: uninstall the latest ingress changes to allow config reloads to resume
-                  - alert: NGINXCertificateExpiry
-                    expr: (avg(nginx_ingress_controller_ssl_expire_time_seconds) by (host) - time()) < 604800
-                    for: 1s
-                    labels:
-                      severity: critical
-                    annotations:
-                      description: ssl certificate(s) will expire in less then a week
-                      summary: renew expiring certificates to avoid downtime
-                  - alert: NGINXTooMany500s
-                    expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"5.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
-                    for: 1m
-                    labels:
-                      severity: warning
-                    annotations:
-                      description: Too many 5XXs
-                      summary: More than 5% of all requests returned 5XX, this requires your attention
-                  - alert: NGINXTooMany400s
-                    expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"4.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
-                    for: 1m
-                    labels:
-                      severity: warning
-                    annotations:
-                      description: Too many 4XXs
-                      summary: More than 5% of all requests returned 4XX, this requires your attention
+  dependsOn:
+    - name: kube-prometheus-stack
+    - name: cert-manager-certificate
+  interval: 5m0s
+  path: ./infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
+
+cat > "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ingress-nginx
+resources:
+  - ../../../base/ingress-nginx
+configMapGenerator:
+  - name: ingress-nginx-values
+    files:
+      - values.yaml=ingress-nginx-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization/ingress-nginx-values.yaml" << \EOF
+controller:
+  ingressClassResource:
+    default: true
+  extraArgs:
+    default-ssl-certificate: "cert-manager/ingress-cert-${LETSENCRYPT_ENVIRONMENT}"
+  service:
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "${TAGS_INGRESS_NGINX}"
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+    prometheusRule:
+      enabled: true
+      rules:
+        - alert: NGINXConfigFailed
+          expr: count(nginx_ingress_controller_config_last_reload_successful == 0) > 0
+          for: 1s
+          labels:
+            severity: critical
+          annotations:
+            description: bad ingress config - nginx config test failed
+            summary: uninstall the latest ingress changes to allow config reloads to resume
+        - alert: NGINXCertificateExpiry
+          expr: (avg(nginx_ingress_controller_ssl_expire_time_seconds) by (host) - time()) < 604800
+          for: 1s
+          labels:
+            severity: critical
+          annotations:
+            description: ssl certificate(s) will expire in less then a week
+            summary: renew expiring certificates to avoid downtime
+        - alert: NGINXTooMany500s
+          expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"5.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            description: Too many 5XXs
+            summary: More than 5% of all requests returned 5XX, this requires your attention
+        - alert: NGINXTooMany400s
+          expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"4.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            description: Too many 4XXs
+            summary: More than 5% of all requests returned 4XX, this requires your attention
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/ingress-nginx/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/ingress-nginx" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- ingress-nginx$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource ingress-nginx && cd - || exit )
 ```
 
 ### MailHog
@@ -1883,79 +1813,74 @@ EOF
 * [mailhog](https://artifacthub.io/packages/helm/codecentric/mailhog)
 * [default values.yaml](https://github.com/codecentric/helm-charts/blob/master/charts/mailhog/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/mailhog/mailhog-helmrelease
-cat > apps/mailhog/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - mailhog-namespace.yaml
-  - mailhog.yaml
-EOF
+mkdir -vp infrastructure/base/mailhog
 
-cat > apps/mailhog/mailhog-namespace.yaml << \EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: mailhog
-EOF
-
-flux create kustomization mailhog \
-  --interval="10m" \
-  --path="./apps/mailhog/mailhog-helmrelease" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/mailhog.mailhog" \
-  --export > apps/mailhog/mailhog.yaml
+kubectl create namespace mailhog --dry-run=client -o yaml > infrastructure/base/mailhog/mailhog-namespace.yaml
 
 flux create helmrelease mailhog \
   --namespace="mailhog" \
-  --interval="1h" \
+  --interval="5m" \
   --source="HelmRepository/codecentric.flux-system" \
   --chart="mailhog" \
-  --chart-version="4.1.0" \
-  --export > apps/mailhog/mailhog-helmrelease/mailhog.yaml
+  --chart-version="5.0.1" \
+  --values-from="ConfigMap/mailhog-values" \
+  --export > infrastructure/base/mailhog/mailhog-helmrelease.yaml
 
-mkdir -vp groups/${ENVIRONMENT}/apps/mailhog/
-yq e '.resources += ["mailhog"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
+[[ ! -s "infrastructure/base/mailhog/kustomization.yaml" ]] && \
+( cd "infrastructure/base/mailhog" && kustomize create --autodetect && cd - || exit )
+```
 
-cat > "groups/${ENVIRONMENT}/apps/mailhog/kustomization.yaml" << \EOF
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/mailhog`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/mailhog"
+
+cat > "infrastructure/${ENVIRONMENT}/mailhog/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/mailhog/kustomization.yaml" << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: mailhog
 resources:
-  - ../../../../apps/mailhog
-patchesStrategicMerge:
-  - mailhog-patch.yaml
+  - ../../base/mailhog
+configMapGenerator:
+  - name: mailhog-values
+    files:
+      - values.yaml=mailhog-values.yaml
+configurations:
+  - kustomizeconfig.yaml
 EOF
 
-cat > "groups/${ENVIRONMENT}/apps/mailhog/mailhog-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
-kind: Kustomization
-metadata:
-  name: mailhog
-  namespace: flux-system
-spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: mailhog
-        namespace: mailhog
-      spec:
-        values:
-          ingress:
-            enabled: true
-            annotations:
-              nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
-              nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
-            hosts:
-              - host: mailhog.${CLUSTER_FQDN}
-                paths: ["/"]
-            tls:
-              - hosts:
-                - mailhog.${CLUSTER_FQDN}
+cat > "infrastructure/${ENVIRONMENT}/mailhog/mailhog-values.yaml" << \EOF
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
+  hosts:
+    - host: mailhog.${CLUSTER_FQDN}
+      paths:
+        - path: "/"
+          pathType: Prefix
+  tls:
+    - hosts:
+      - mailhog.${CLUSTER_FQDN}
 EOF
+
+! grep -q '\- mailhog$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource mailhog && cd - || exit )
 ```
 
 ### OAuth2 Proxy
@@ -1965,96 +1890,114 @@ EOF
 * [oauth2-proxy](https://artifacthub.io/packages/helm/oauth2-proxy/oauth2-proxy)
 * [default values.yaml](https://github.com/oauth2-proxy/manifests/blob/main/helm/oauth2-proxy/values.yaml):
 
+Define "base level" application definition in `infrastructure`:
+
 ```bash
-mkdir -vp apps/oauth2-proxy/oauth2-proxy-helmrelease
-cat > apps/oauth2-proxy/kustomization.yaml << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - oauth2-proxy-namespace.yaml
-  - oauth2-proxy.yaml
-EOF
+mkdir -vp infrastructure/base/oauth2-proxy
 
-cat > apps/oauth2-proxy/oauth2-proxy-namespace.yaml << \EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: oauth2-proxy
-EOF
-
-flux create kustomization oauth2-proxy \
-  --interval="10m" \
-  --depends-on="kube-prometheus-stack" \
-  --path="./apps/oauth2-proxy/oauth2-proxy-helmrelease" \
-  --prune="true" \
-  --source="GitRepository/flux-system.flux-system" \
-  --validation="client" \
-  --health-check="HelmRelease/oauth2-proxy.oauth2-proxy" \
-  --export > apps/oauth2-proxy/oauth2-proxy.yaml
+kubectl create namespace oauth2-proxy --dry-run=client -o yaml > infrastructure/base/oauth2-proxy/oauth2-proxy-namespace.yaml
 
 flux create helmrelease oauth2-proxy \
   --namespace="oauth2-proxy" \
-  --interval="1h" \
+  --interval="5m" \
   --source="HelmRepository/oauth2-proxy.flux-system" \
   --chart="oauth2-proxy" \
-  --chart-version="4.2.1" \
-  --export > apps/oauth2-proxy/oauth2-proxy-helmrelease/oauth2-proxy.yaml
+  --chart-version="5.0.5" \
+  --values-from="ConfigMap/oauth2-proxy-values" \
+  --export > infrastructure/base/oauth2-proxy/oauth2-proxy-helmrelease.yaml
 
-mkdir -vp groups/${ENVIRONMENT}/apps/oauth2-proxy/
-yq e '.resources += ["oauth2-proxy"]' -i "groups/${ENVIRONMENT}/apps/kustomization.yaml"
+[[ ! -s "infrastructure/base/oauth2-proxy/kustomization.yaml" ]] && \
+( cd "infrastructure/base/oauth2-proxy" && kustomize create --autodetect && cd - || exit )
+```
 
-cat > "groups/${ENVIRONMENT}/apps/oauth2-proxy/kustomization.yaml" << \EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - ../../../../apps/oauth2-proxy
-patchesStrategicMerge:
-  - oauth2-proxy-patch.yaml
-EOF
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/oauth2-proxy`:
 
-cat > "groups/${ENVIRONMENT}/apps/oauth2-proxy/oauth2-proxy-patch.yaml" << \EOF
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: oauth2-proxy
   namespace: flux-system
 spec:
-  patchesStrategicMerge:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      metadata:
-        name: oauth2-proxy
-        namespace: oauth2-proxy
-      spec:
-        values:
-          config:
-            clientID: oauth2-proxy.${CLUSTER_FQDN}
-            clientSecret: ${MY_PASSWORD}
-            cookieSecret: ${COOKIE_SECRET}
-            configFile: |-
-              email_domains = [ "*" ]
-              upstreams = [ "file:///dev/null" ]
-              whitelist_domains = ".${CLUSTER_FQDN}"
-              cookie_domains = ".${CLUSTER_FQDN}"
-              provider = "oidc"
-              oidc_issuer_url = "https://dex.${CLUSTER_FQDN}"
-              ssl_insecure_skip_verify = "true"
-              insecure_oidc_skip_issuer_verification = "true"
-              skip_oidc_discovery = "true"
-              login_url = "https://dex.${CLUSTER_FQDN}/auth"
-              redeem_url = "https://dex.${CLUSTER_FQDN}/token"
-              oidc_jwks_url = "https://dex.${CLUSTER_FQDN}/keys"
-          ingress:
-            enabled: true
-            hosts:
-              - oauth2-proxy.${CLUSTER_FQDN}
-            tls:
-              - hosts:
-                - oauth2-proxy.${CLUSTER_FQDN}
-          metrics:
-            servicemonitor:
-              enabled: true
+  dependsOn:
+  - name: kube-prometheus-stack
+  interval: 5m0s
+  path: ./infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
 EOF
+
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization/kustomizeconfig.yaml" << EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization/kustomization.yaml" << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: oauth2-proxy
+resources:
+  - ../../../base/oauth2-proxy
+configMapGenerator:
+  - name: oauth2-proxy-values
+    files:
+      - values.yaml=oauth2-proxy-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization/oauth2-proxy-values.yaml" << \EOF
+config:
+  clientID: oauth2-proxy.${CLUSTER_FQDN}
+  clientSecret: ${MY_PASSWORD}
+  cookieSecret: ${MY_COOKIE_SECRET}
+  configFile: |-
+    email_domains = [ "*" ]
+    upstreams = [ "file:///dev/null" ]
+    whitelist_domains = ".${CLUSTER_FQDN}"
+    cookie_domains = ".${CLUSTER_FQDN}"
+    provider = "oidc"
+    oidc_issuer_url = "https://dex.${CLUSTER_FQDN}"
+    ssl_insecure_skip_verify = "true"
+    insecure_oidc_skip_issuer_verification = "true"
+    skip_oidc_discovery = "true"
+    login_url = "https://dex.${CLUSTER_FQDN}/auth"
+    redeem_url = "https://dex.${CLUSTER_FQDN}/token"
+    oidc_jwks_url = "https://dex.${CLUSTER_FQDN}/keys"
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - oauth2-proxy.${CLUSTER_FQDN}
+  tls:
+    - hosts:
+      - oauth2-proxy.${CLUSTER_FQDN}
+metrics:
+  servicemonitor:
+    enabled: true
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/oauth2-proxy/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/oauth2-proxy" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- oauth2-proxy$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource oauth2-proxy && cd - || exit )
 ```
 
 ## Flux
@@ -2063,13 +2006,14 @@ Commit changes to git repository and "refresh" flux. Wait for receiver and then
 configure the GitHub repository to send Webhooks to Flux:
 
 ```bash
-if [[ $(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq -r) = '[]' ]]; then
+GITHUB_WEBHOOKS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq ".[].config.url")
+if [[ ! "${GITHUB_WEBHOOKS}" =~ ${CLUSTER_FQDN} ]]; then
   git add .
-  git commit -m "Initial core applications commit" || true
+  git commit -m "[${CLUSTER_NAME}] Initial core applications commit" || true
   git push
   flux reconcile source git flux-system
-  sleep 100
-  kubectl wait --timeout=10m --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io/external-dns -n flux-system
+  sleep 60
+  kubectl wait --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system flux-receiver
   FLUX_RECEIVER_URL=$(kubectl -n flux-system get receiver github-receiver -o jsonpath="{.status.url}")
   curl -s -H "Authorization: token $GITHUB_TOKEN" -X POST -d "{\"active\": true, \"events\": [\"push\"], \"config\": {\"url\": \"https://flux-receiver.${CLUSTER_FQDN}${FLUX_RECEIVER_URL}\", \"content_type\": \"json\", \"secret\": \"${MY_GITHUB_WEBHOOK_TOKEN}\", \"insecure_ssl\": \"1\"}}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq
 fi
@@ -2081,8 +2025,9 @@ details about `ServiceAccount` created by Crossplane and use eksctl to create
 IRSA:
 
 ```bash
-if [[ $( eksctl get iamserviceaccount  --cluster "${CLUSTER_NAME}" --namespace crossplane-system -o yaml | yq e ) == "null" ]] ; then
-  kubectl wait --timeout=10m --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io/crossplane-providerconfig -n flux-system
+if [[ "$( eksctl get iamserviceaccount --cluster="${CLUSTER_NAME}" --namespace crossplane-system -o yaml )" == "null" ]] ; then
+  kubectl wait --timeout=10m --for=condition=ready kustomizations crossplane-provider -n flux-system
+  kubectl wait --timeout=10m --for=condition=Healthy provider.pkg.crossplane.io provider-aws
   CROSSPLANE_PROVIDER_AWS_SERVICE_ACCOUNT_NAME=$(kubectl get serviceaccounts -n crossplane-system -o=custom-columns=NAME:.metadata.name | grep provider-aws)
   eksctl create iamserviceaccount --cluster="${CLUSTER_NAME}" --name="${CROSSPLANE_PROVIDER_AWS_SERVICE_ACCOUNT_NAME}" --namespace="crossplane-system" --role-name="crossplane-provider-aws-${CLUSTER_NAME}" --role-only --attach-policy-arn="arn:aws:iam::aws:policy/AdministratorAccess" --tags="${TAGS// /,}" --approve
 fi
