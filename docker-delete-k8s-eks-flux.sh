@@ -14,6 +14,6 @@ docker run -it --rm \
   -v "${PWD}:/mnt" \
   -w /mnt \
   ubuntu \
-  bash -eu -c " \
+  bash -euo pipefail -c " \
     ./delete-k8s-eks-flux.sh \;
   "
