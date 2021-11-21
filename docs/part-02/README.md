@@ -180,7 +180,7 @@ gitops:
       repository: "${GITHUB_FLUX_REPOSITORY}"
       personal: "true"
       private: "false"
-      branch: "master"
+      branch: "main"
       path: "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}"
 EOF
 

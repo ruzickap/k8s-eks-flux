@@ -38,7 +38,7 @@ concurrency: test-k8s-eks-flux
 jobs:
   create-k8s-eks-flux:
     runs-on: ubuntu-latest
-    if: ${{ contains(github.event.inputs.version, 'create') || ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) }}
+    if: ${{ contains(github.event.inputs.version, 'create') || ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) }}
     steps:
       - uses: actions/checkout@v2
 
@@ -88,7 +88,7 @@ jobs:
   delete-k8s-eks-flux:
     runs-on: ubuntu-latest
     needs: create-k8s-eks-flux
-    if: ${{ contains(github.event.inputs.version, 'delete') || ( github.event_name == 'push' && github.ref == 'refs/heads/master' && always() ) }}
+    if: ${{ contains(github.event.inputs.version, 'delete') || ( github.event_name == 'push' && github.ref == 'refs/heads/main' && always() ) }}
     steps:
       - uses: actions/checkout@v2
 

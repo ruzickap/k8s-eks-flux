@@ -7,7 +7,7 @@ module.exports = {
     logo: 'https://raw.githubusercontent.com/cncf/artwork/04763c0f5f72b23d6a20bfc9c68c88cee805dbcc/projects/kubernetes/horizontal/all-blue-color/kubernetes-horizontal-all-blue-color.svg',
     repo: 'ruzickap/k8s-eks-flux',
     contributors: false,
-    docsBranch: 'master',
+    docsBranch: 'main',
     docsDir: 'docs',
     navbar: [
       { text: 'Home', link: '/' },
