@@ -13,7 +13,7 @@ which supports ReadWriteMany PVC. Details can be found here:
 [Amazon EFS CSI Driver](https://github.com/kubernetes-sigs/aws-efs-csi-driver)
 
 * [aws-efs-csi-driver](https://github.com/kubernetes-sigs/aws-efs-csi-driver/tree/master/charts/aws-efs-csi-driver)
-* [default values.yaml](https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/charts/aws-efs-csi-driver/values.yaml):
+* [default values.yaml](https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/charts/aws-efs-csi-driver/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -47,7 +47,7 @@ flux create kustomization aws-efs-csi-driver \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/aws-efs-csi-driver/aws-efs-csi-driver-kustomization.yaml"
 
-cat > "infrastructure/${ENVIRONMENT}/aws-efs-csi-driver/aws-efs-csi-driver-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/aws-efs-csi-driver/aws-efs-csi-driver-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -56,7 +56,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/aws-efs-csi-driver/aws-efs-csi-driver-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/aws-efs-csi-driver/aws-efs-csi-driver-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: aws-efs-csi-driver
@@ -419,7 +419,7 @@ kubectl create ingress \
 [kubed](https://appscode.com/products/kubed/)
 
 * [kubed](https://artifacthub.io/packages/helm/appscode/kubed)
-* [default values.yaml](https://github.com/appscode/kubed/blob/master/charts/kubed/values.yaml):
+* [default values.yaml](https://github.com/appscode/kubed/blob/master/charts/kubed/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -468,12 +468,130 @@ flux create kustomization kubed \
 ( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kubed && cd - || exit )
 ```
 
+### kubernetes-dashboard
+
+[kubernetes-dashboard](https://github.com/kubernetes/dashboard)
+
+* [kubernetes-dashboard](https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard)
+* [default values.yaml](https://github.com/kubernetes/dashboard/blob/master/aio/deploy/helm-chart/kubernetes-dashboard/values.yaml)
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/kubernetes-dashboard
+
+kubectl create namespace kubernetes-dashboard --dry-run=client -o yaml > infrastructure/base/kubernetes-dashboard/kubernetes-dashboard-namespace.yaml
+
+flux create helmrelease kubernetes-dashboard \
+  --namespace="kubernetes-dashboard" \
+  --interval="5m" \
+  --source="HelmRepository/kubernetes-dashboard.flux-system" \
+  --chart="kubernetes-dashboard" \
+  --chart-version="5.0.4" \
+  --values-from="ConfigMap/kubernetes-dashboard-values" \
+  --export > infrastructure/base/kubernetes-dashboard/kubernetes-dashboard-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/kubernetes-dashboard/kustomization.yaml" ]] && \
+( cd "infrastructure/base/kubernetes-dashboard" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/kubernetes-dashboard`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kubernetes-dashboard-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kubernetes-dashboard-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: kubernetes-dashboard
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+  interval: 5m
+  path: "./infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kubernetes-dashboard-kustomization"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kubernetes-dashboard-kustomization/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kubernetes-dashboard-kustomization/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubernetes-dashboard
+resources:
+  - kubernetes-dashboard-clusterrolebinding.yaml
+  - ../../../base/kubernetes-dashboard
+configMapGenerator:
+  - name: kubernetes-dashboard-values
+    files:
+      - values.yaml=kubernetes-dashboard-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kubernetes-dashboard-kustomization/kubernetes-dashboard-values.yaml" << \EOF
+extraArgs:
+  - --enable-skip-login
+  - --enable-insecure-login
+  - --disable-settings-authorizer
+protocolHttp: true
+ingress:
+  enabled: true
+  annotations:
+     nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+     nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
+  className: "nginx"
+  hosts:
+    - kubernetes-dashboard.${CLUSTER_FQDN}
+  tls:
+    - hosts:
+      - kubernetes-dashboard.${CLUSTER_FQDN}
+settings:
+  clusterName: ${CLUSTER_FQDN}
+  itemsPerPage: 50
+metricsScraper:
+  enabled: true
+serviceAccount:
+  name: kubernetes-dashboard-admin
+EOF
+
+kubectl create clusterrolebinding kubernetes-dashboard-admin \
+  --clusterrole=cluster-admin \
+  --serviceaccount=kubernetes-dashboard:kubernetes-dashboard-admin \
+  -o yaml --dry-run=client > "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kubernetes-dashboard-kustomization/kubernetes-dashboard-clusterrolebinding.yaml"
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/kubernetes-dashboard" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- kubernetes-dashboard$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kubernetes-dashboard && cd - || exit )
+```
+
 ### Kyverno
 
 [Kyverno](https://kyverno.io/)
 
 * [kyverno](https://artifacthub.io/packages/helm/kyverno/kyverno)
-* [default values.yaml](https://github.com/kyverno/kyverno/blob/main/charts/kyverno/values.yaml):
+* [default values.yaml](https://github.com/kyverno/kyverno/blob/main/charts/kyverno/values.yaml)
 
 * [kyverno-policies](https://artifacthub.io/packages/helm/kyverno/kyverno-policies)
 * [default values.yaml](https://github.com/kyverno/kyverno/blob/main/charts/kyverno-policies/values.yaml)
@@ -527,7 +645,7 @@ flux create kustomization kyverno \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/kyverno/kyverno-kustomization.yaml"
 
-cat > "infrastructure/${ENVIRONMENT}/kyverno/kyverno-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/kyverno/kyverno-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -536,7 +654,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/kyverno/kyverno-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/kyverno/kyverno-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: kyverno
@@ -593,7 +711,7 @@ Add Polaris to the single K8s cluster.
 [Polaris](https://www.fairwinds.com/polaris)
 
 * [polaris](https://artifacthub.io/packages/helm/fairwinds-stable/polaris)
-* [default values.yaml](https://github.com/FairwindsOps/charts/blob/master/stable/polaris/values.yaml):
+* [default values.yaml](https://github.com/FairwindsOps/charts/blob/master/stable/polaris/values.yaml)
 
 Add `HelmRepository` for polaris to "cluster level":
 
@@ -652,7 +770,7 @@ flux create helmrelease polaris \
 [Policy Reporter](https://github.com/kyverno/policy-reporter/wiki)
 
 * [policy-reporter](https://github.com/kyverno/policy-reporter/tree/main/charts/policy-reporter)
-* [default values.yaml](https://github.com/kyverno/policy-reporter/blob/main/charts/policy-reporter/values.yaml):
+* [default values.yaml](https://github.com/kyverno/policy-reporter/blob/main/charts/policy-reporter/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -680,7 +798,7 @@ Define "infrastructure level" application definition in
 ```bash
 mkdir -vp "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization"
 
-cat > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -704,7 +822,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -713,7 +831,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: policy-reporter
@@ -764,21 +882,12 @@ kubectl create ingress \
 [Rancher](https://rancher.com/)
 
 * [rancher](https://github.com/rancher/rancher/tree/master/chart)
-* [default values.yaml](https://github.com/rancher/rancher/blob/master/chart/values.yaml):
+* [default values.yaml](https://github.com/rancher/rancher/blob/master/chart/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
 ```bash
 mkdir -vp infrastructure/base/rancher
-
-cat > infrastructure/base/rancher/rancher-namespace.yaml << EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: cattle-system
-  labels:
-    cert-manager-cert-${LETSENCRYPT_ENVIRONMENT}: copy
-EOF
 
 flux create helmrelease rancher \
   --namespace="cattle-system" \
@@ -823,7 +932,16 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/rancher/rancher-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/rancher/rancher-kustomization/rancher-namespace.yaml" << \EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cattle-system
+  labels:
+    cert-manager-cert-${LETSENCRYPT_ENVIRONMENT}: copy
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/rancher/rancher-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -832,11 +950,12 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/rancher/rancher-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/rancher/rancher-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: rancher
+namespace: cattle-system
 resources:
+  - rancher-namespace.yaml
   - ../../../base/rancher
 configMapGenerator:
   - name: rancher-values
@@ -871,7 +990,7 @@ EOF
 [secrets-store-csi-driver](https://secrets-store-csi-driver.sigs.k8s.io/)
 
 * [secrets-store-csi-driver](https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/master/charts/secrets-store-csi-driver)
-* [default values.yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/charts/secrets-store-csi-driver/values.yaml):
+* [default values.yaml](https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/charts/secrets-store-csi-driver/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -897,7 +1016,7 @@ Define "infrastructure level" application definition in
 `infrastructure/${ENVIRONMENT}/crossplane`:
 
 ```bash
-mkdir -pv "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver"/secrets-store-csi-driver-{kustomization,provider-aws}
+mkdir -pv "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver"/secrets-store-csi-driver-{kustomization,kustomization-provider-aws}
 
 flux create kustomization secrets-store-csi-driver \
   --interval="5m" \
@@ -917,13 +1036,13 @@ flux create kustomization secrets-store-csi-driver \
 flux create kustomization secrets-store-csi-driver-provider-aws \
   --interval="5m" \
   --depends-on="secrets-store-csi-driver" \
-  --path="./infrastructure/\${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-provider-aws" \
+  --path="./infrastructure/\${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-kustomization-provider-aws" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --wait \
-  --export > "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-provider-aws.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-kustomization-provider-aws.yaml"
 
-cat > "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-provider-aws/kustomization.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-kustomization-provider-aws/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: secrets-store-csi-driver
@@ -957,6 +1076,7 @@ cd - || exit
 Check Flux errors:
 
 ```bash
+kubectl wait --timeout=30m --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system cluster-apps
 flux logs --level=error --all-namespaces
 ```
 

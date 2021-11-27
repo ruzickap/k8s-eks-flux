@@ -31,6 +31,7 @@ aws-efs-csi-driver
 aws-load-balancer-controller
 awscli
 bitnami
+cluster-autoscaler
 codecentric
 crossplane
 crossplane-stable
@@ -47,6 +48,7 @@ kube-prometheus-stack
 kubeconfig
 kubectl
 kubed
+kubernetes-dashboard
 kustomization
 kustomize
 kyverno

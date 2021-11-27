@@ -44,7 +44,7 @@ Resources:
       ResourceRecords: !GetAtt HostedZone.NameServers
 EOF
 
-if ! aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-route53" ; then
+if [[ $(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE --query "StackSummaries[?starts_with(StackName, \`${CLUSTER_NAME}-route53\`) == \`true\`].StackName" --output text) == "" ]]; then
   # shellcheck disable=SC2001
   eval aws cloudformation "create-stack" \
     --parameters "ParameterKey=BaseDomain,ParameterValue=${BASE_DOMAIN} ParameterKey=ClusterFQDN,ParameterValue=${CLUSTER_FQDN}" \
@@ -89,6 +89,11 @@ iam:
         namespace: cert-manager
       wellKnownPolicies:
         certManager: true
+    - metadata:
+        name: cluster-autoscaler
+        namespace: cluster-autoscaler
+      wellKnownPolicies:
+        autoScaler: true
     - metadata:
         name: external-dns
         namespace: external-dns

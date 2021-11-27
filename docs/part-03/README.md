@@ -140,13 +140,13 @@ infrastructure
 │       └── secrets-store-csi-driver-namespace.yaml
 ├── dev
 │   ├── cert-manager
-│   │   ├── cert-manager-certificate
+│   │   ├── cert-manager-kustomization-certificate
 │   │   │   └── cert-manager-certificate.yaml
-│   │   ├── cert-manager-certificate.yaml
-│   │   ├── cert-manager-clusterissuer
+│   │   ├── cert-manager-kustomization-certificate.yaml
+│   │   ├── cert-manager-kustomization-clusterissuer
 │   │   │   ├── cert-manager-clusterissuer-letsencrypt-production-dns.yaml
 │   │   │   └── cert-manager-clusterissuer-letsencrypt-staging-dns.yaml
-│   │   ├── cert-manager-clusterissuer.yaml
+│   │   ├── cert-manager-kustomization-clusterissuer.yaml
 │   │   ├── cert-manager-kustomization
 │   │   │   ├── cert-manager-values.yaml
 │   │   │   ├── kustomization.yaml
@@ -157,13 +157,13 @@ infrastructure
 │   │   ├── crossplane-kustomization
 │   │   │   └── kustomization.yaml
 │   │   ├── crossplane-kustomization.yaml
-│   │   ├── crossplane-provider
+│   │   ├── crossplane-kustomization-provider
 │   │   │   ├── crossplane-controllerconfig-aws.yaml
 │   │   │   └── crossplane-provider-aws.yaml
-│   │   ├── crossplane-provider.yaml
-│   │   ├── crossplane-providerconfig
+│   │   ├── crossplane-kustomization-provider.yaml
+│   │   ├── crossplane-kustomization-providerconfig
 │   │   │   └── crossplane-providerconfig-aws.yaml
-│   │   ├── crossplane-providerconfig.yaml
+│   │   ├── crossplane-kustomization-providerconfig.yaml
 │   │   └── kustomization.yaml
 │   ├── dex
 │   │   ├── dex-values.yaml
@@ -179,7 +179,7 @@ infrastructure
 │   ├── external-snapshotter
 │   │   ├── external-snapshotter-kustomization
 │   │   │   └── kustomization.yaml
-│   │   ├── external-snapshotter.yaml
+│   │   ├── external-snapshotter-kustomization.yaml
 │   │   └── kustomization.yaml
 │   ├── kustomization.yaml
 │   └── secrets-store-csi-driver
@@ -219,7 +219,7 @@ Create initial git repository structure:
 mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/infrastructure/{base,dev,sources}
 ```
 
-Set `user.name` and `user.email` for git (if not already configured):
+Set `user.name` and `user.email` for git (if not already configured)
 
 ```bash
 git config user.name  || git config --global user.name  "${GITHUB_USER}"
@@ -281,6 +281,7 @@ Create `HelmRepository` definitions...
 ```bash
 declare -A HELMREPOSITORIES=(
   ["appscode"]="https://charts.appscode.com/stable/"
+  ["autoscaler"]="https://kubernetes.github.io/autoscaler"
   ["aws-ebs-csi-driver"]="https://kubernetes-sigs.github.io/aws-ebs-csi-driver/"
   ["aws-efs-csi-driver"]="https://kubernetes-sigs.github.io/aws-efs-csi-driver/"
   ["bitnami"]="https://charts.bitnami.com/bitnami"
@@ -289,6 +290,7 @@ declare -A HELMREPOSITORIES=(
   ["dex"]="https://charts.dexidp.io"
   ["ingress-nginx"]="https://kubernetes.github.io/ingress-nginx"
   ["jetstack"]="https://charts.jetstack.io"
+  ["kubernetes-dashboard"]="https://kubernetes.github.io/dashboard/"
   ["kyverno"]="https://kyverno.github.io/kyverno/"
   ["oauth2-proxy"]="https://oauth2-proxy.github.io/manifests"
   ["policy-reporter"]="https://kyverno.github.io/policy-reporter"
@@ -427,7 +429,7 @@ have their record:
 [Amazon Elastic Block Store (EBS) CSI driver](https://github.com/kubernetes-sigs/aws-ebs-csi-driver)
 
 * [aws-ebs-csi-driver](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/charts/aws-ebs-csi-driver)
-* [default values.yaml](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/charts/aws-ebs-csi-driver/values.yaml):
+* [default values.yaml](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/charts/aws-ebs-csi-driver/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -461,7 +463,7 @@ flux create kustomization aws-ebs-csi-driver \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization.yaml"
 
-cat > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -470,7 +472,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: aws-ebs-csi-driver
@@ -544,7 +546,7 @@ EOF
 [Crossplane](https://crossplane.io/)
 
 * [crossplane](https://github.com/crossplane/crossplane)
-* [default values.yaml](https://github.com/crossplane/crossplane/blob/master/cluster/charts/crossplane/values.yaml.tmpl):
+* [default values.yaml](https://github.com/crossplane/crossplane/blob/master/cluster/charts/crossplane/values.yaml.tmpl)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -558,7 +560,7 @@ flux create helmrelease crossplane \
   --interval="5m" \
   --source="HelmRepository/crossplane-stable.flux-system" \
   --chart="crossplane" \
-  --chart-version="1.5.0" \
+  --chart-version="1.5.1" \
   --export > infrastructure/base/crossplane/crossplane-helmrelease.yaml
 
 [[ ! -s "infrastructure/base/crossplane/kustomization.yaml" ]] && \
@@ -569,7 +571,7 @@ Define "infrastructure level" application definition in
 `infrastructure/${ENVIRONMENT}/crossplane`:
 
 ```bash
-mkdir -pv "infrastructure/${ENVIRONMENT}/crossplane"/crossplane-{kustomization,provider,providerconfig}
+mkdir -pv "infrastructure/${ENVIRONMENT}/crossplane"/crossplane-{kustomization,kustomization-provider,kustomization-providerconfig}
 
 flux create kustomization crossplane \
   --interval="5m" \
@@ -586,7 +588,7 @@ flux create kustomization crossplane \
     cd - || exit
   )
 
-cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-provider.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization-provider.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -596,7 +598,7 @@ spec:
   dependsOn:
     - name: crossplane
   interval: 5m
-  path: "./infrastructure/${ENVIRONMENT}/crossplane/crossplane-provider"
+  path: "./infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization-provider"
   prune: true
   wait: true
   sourceRef:
@@ -609,7 +611,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-provider/crossplane-provider-aws.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization-provider/crossplane-provider-aws.yaml" << \EOF
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -621,7 +623,7 @@ spec:
     name: aws-config
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-provider/crossplane-controllerconfig-aws.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization-provider/crossplane-controllerconfig-aws.yaml" << \EOF
 apiVersion: pkg.crossplane.io/v1alpha1
 kind: ControllerConfig
 metadata:
@@ -637,13 +639,13 @@ EOF
 flux create kustomization crossplane-providerconfig \
   --interval="5m" \
   --depends-on="crossplane-provider" \
-  --path="./infrastructure/\${ENVIRONMENT}/crossplane/crossplane-providerconfig" \
+  --path="./infrastructure/\${ENVIRONMENT}/crossplane/crossplane-kustomization-providerconfig" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --wait \
-  --export > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-providerconfig.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization-providerconfig.yaml"
 
-cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-providerconfig/crossplane-providerconfig-aws.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization-providerconfig/crossplane-providerconfig-aws.yaml" << \EOF
 apiVersion: aws.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
@@ -695,7 +697,7 @@ flux create kustomization external-snapshotter \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --wait \
-  --export > "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization.yaml"
 
 [[ ! -s "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization/kustomization.yaml" ]] && \
   (
@@ -716,7 +718,7 @@ flux create kustomization external-snapshotter \
 [Kubernetes Metrics Server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/)
 
 * [metrics-server](https://artifacthub.io/packages/helm/bitnami/metrics-server)
-* [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/metrics-server/values.yaml):
+* [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/metrics-server/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -744,7 +746,7 @@ Define "infrastructure level" application definition in
 ```bash
 mkdir -vp "infrastructure/${ENVIRONMENT}/metrics-server"
 
-cat > "infrastructure/${ENVIRONMENT}/metrics-server/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/metrics-server/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -753,7 +755,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/metrics-server/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/metrics-server/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: metrics-server
@@ -781,7 +783,7 @@ EOF
 [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
 
 * [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
-* [default values.yaml](https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml):
+* [default values.yaml](https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -795,7 +797,7 @@ flux create helmrelease kube-prometheus-stack \
   --interval="5m" \
   --source="HelmRepository/prometheus-community.flux-system" \
   --chart="kube-prometheus-stack" \
-  --chart-version="20.0.1" \
+  --chart-version="21.0.0" \
   --crds="CreateReplace" \
   --values-from="ConfigMap/kube-prometheus-stack-values" \
   --export > infrastructure/base/kube-prometheus-stack/kube-prometheus-stack-helmrelease.yaml
@@ -833,7 +835,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -842,7 +844,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: kube-prometheus-stack
@@ -1122,7 +1124,7 @@ EOF
 [cert-manager](https://cert-manager.io/)
 
 * [cert-manager](https://artifacthub.io/packages/helm/jetstack/cert-manager)
-* [default values.yaml](https://github.com/jetstack/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml):
+* [default values.yaml](https://github.com/jetstack/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -1146,7 +1148,7 @@ Define "infrastructure level" application definition in
 `infrastructure/${ENVIRONMENT}/cert-manager`:
 
 ```bash
-mkdir -vp "infrastructure/${ENVIRONMENT}/cert-manager"/cert-manager-{kustomization,clusterissuer,certificate}
+mkdir -vp "infrastructure/${ENVIRONMENT}/cert-manager"/cert-manager-{kustomization,kustomization-clusterissuer,kustomization-certificate}
 
 flux create kustomization cert-manager \
   --interval="5m" \
@@ -1157,7 +1159,7 @@ flux create kustomization cert-manager \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization.yaml"
 
-cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -1166,7 +1168,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: cert-manager
@@ -1193,7 +1195,7 @@ prometheus:
     enabled: true
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-clusterissuer.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization-clusterissuer.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -1203,7 +1205,7 @@ spec:
   dependsOn:
     - name: cert-manager
   interval: 5m
-  path: "./infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-clusterissuer"
+  path: "./infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization-clusterissuer"
   prune: true
   sourceRef:
     kind: GitRepository
@@ -1216,7 +1218,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-clusterissuer/cert-manager-clusterissuer-letsencrypt-staging-dns.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization-clusterissuer/cert-manager-clusterissuer-letsencrypt-staging-dns.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1237,7 +1239,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-clusterissuer/cert-manager-clusterissuer-letsencrypt-production-dns.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization-clusterissuer/cert-manager-clusterissuer-letsencrypt-production-dns.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1258,7 +1260,7 @@ spec:
             region: ${AWS_DEFAULT_REGION}
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-certificate.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization-certificate.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -1268,7 +1270,7 @@ spec:
   dependsOn:
     - name: cert-manager-clusterissuer
   interval: 5m
-  path: "./infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-certificate"
+  path: "./infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization-certificate"
   prune: true
   sourceRef:
     kind: GitRepository
@@ -1282,7 +1284,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-certificate/cert-manager-certificate.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/cert-manager/cert-manager-kustomization-certificate/cert-manager-certificate.yaml" << \EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -1309,12 +1311,115 @@ EOF
 ( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource cert-manager && cd - || exit )
 ```
 
+### cluster-autoscaler
+
+[cluster-autoscaler](https://github.com/kubernetes/autoscaler)
+
+* [cluster-autoscaler](https://artifacthub.io/packages/helm/cluster-autoscaler/cluster-autoscaler)
+* [default values.yaml](https://github.com/kubernetes/autoscaler/blob/master/charts/cluster-autoscaler/values.yaml)
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/cluster-autoscaler
+
+flux create helmrelease cluster-autoscaler \
+  --namespace="cluster-autoscaler" \
+  --interval="5m" \
+  --source="HelmRepository/autoscaler.flux-system" \
+  --chart="cluster-autoscaler" \
+  --chart-version="9.10.8" \
+  --values-from="ConfigMap/cluster-autoscaler-values" \
+  --export > infrastructure/base/cluster-autoscaler/cluster-autoscaler-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/cluster-autoscaler/kustomization.yaml" ]] && \
+( cd "infrastructure/base/cluster-autoscaler" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/cluster-autoscaler`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/cluster-autoscaler/cluster-autoscaler-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/cluster-autoscaler/cluster-autoscaler-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: cluster-autoscaler
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+  interval: 5m0s
+  path: ./infrastructure/${ENVIRONMENT}/cluster-autoscaler/cluster-autoscaler-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/cluster-autoscaler/cluster-autoscaler-kustomization/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/cluster-autoscaler/cluster-autoscaler-kustomization/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cluster-autoscaler
+resources:
+  - ../../../base/cluster-autoscaler
+configMapGenerator:
+  - name: cluster-autoscaler-values
+    files:
+      - values.yaml=cluster-autoscaler-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/cluster-autoscaler/cluster-autoscaler-kustomization/cluster-autoscaler-values.yaml" << \EOF
+autoDiscovery:
+  clusterName: ${CLUSTER_NAME}
+awsRegion: ${AWS_DEFAULT_REGION}
+# Required to fix IMDSv2 issue: https://github.com/kubernetes/autoscaler/issues/3592
+extraArgs:
+  aws-use-static-instance-list: true
+rbac:
+  serviceAccount:
+    create: false
+    name: cluster-autoscaler
+serviceMonitor:
+  enabled: true
+  namespace: kube-prometheus-stack
+prometheusRule:
+  enabled: true
+  namespace: kube-prometheus-stack
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/cluster-autoscaler/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/cluster-autoscaler" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- cluster-autoscaler$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource cluster-autoscaler && cd - || exit )
+```
+
 ### Dex
 
 [Dex](https://dexidp.io/)
 
 * [dex](https://artifacthub.io/packages/helm/dex/dex)
-* [default values.yaml](https://github.com/dexidp/helm-charts/blob/master/charts/dex/values.yaml):
+* [default values.yaml](https://github.com/dexidp/helm-charts/blob/master/charts/dex/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -1342,7 +1447,7 @@ Define "infrastructure level" application definition in
 ```bash
 mkdir -vp "infrastructure/${ENVIRONMENT}/dex"
 
-cat > "infrastructure/${ENVIRONMENT}/dex/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/dex/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -1351,7 +1456,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/dex/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/dex/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: dex
@@ -1428,7 +1533,7 @@ EOF
 [ExternalDNS](https://github.com/kubernetes-sigs/external-dns)
 
 * [external-dns](https://artifacthub.io/packages/helm/bitnami/external-dns)
-* [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/external-dns/values.yaml):
+* [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/external-dns/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -1478,7 +1583,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -1487,7 +1592,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: external-dns
@@ -1529,9 +1634,9 @@ EOF
 [flux](https://fluxcd.io/)
 
 ```bash
-mkdir -vp "infrastructure/${ENVIRONMENT}/flux"/flux-{provider,alert,receiver,podmonitor}
+mkdir -vp "infrastructure/${ENVIRONMENT}/flux"/flux-{kustomization-provider,kustomization-alert,kustomization-receiver,kustomization-podmonitor}
 
-cat > "infrastructure/${ENVIRONMENT}/flux/flux-provider.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-provider.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -1539,7 +1644,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 5m
-  path: ./infrastructure/${ENVIRONMENT}/flux/flux-provider
+  path: ./infrastructure/${ENVIRONMENT}/flux/flux-kustomization-provider
   prune: true
   sourceRef:
     kind: GitRepository
@@ -1555,9 +1660,9 @@ flux create alert-provider slack \
   --type=slack \
   --channel="\${SLACK_CHANNEL}" \
   --secret-ref=slack-url \
-  --export > "infrastructure/${ENVIRONMENT}/flux/flux-provider/flux-provider-slack.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-provider/flux-provider-slack.yaml"
 
-cat > "infrastructure/${ENVIRONMENT}/flux/flux-provider/flux-provider-slack-url-secret.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-provider/flux-provider-slack-url-secret.yaml" << \EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1570,28 +1675,28 @@ EOF
 flux create kustomization flux-alert \
   --interval="5m" \
   --depends-on="flux-provider" \
-  --path="./infrastructure/${ENVIRONMENT}/flux/flux-alert" \
+  --path="./infrastructure/${ENVIRONMENT}/flux/flux-kustomization-alert" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --wait \
-  --export > "infrastructure/${ENVIRONMENT}/flux/flux-alert.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-alert.yaml"
 
 flux create alert alert-slack \
   --event-severity=error \
   --event-source="GitRepository/*,Kustomization/*,HelmRepository/*,HelmChart/*,HelmRelease/*" \
   --provider-ref=slack \
-  --export > "infrastructure/${ENVIRONMENT}/flux/flux-alert/flux-alert-slack.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-alert/flux-alert-slack.yaml"
 
 flux create kustomization flux-podmonitor \
   --interval="5m" \
   --depends-on="kube-prometheus-stack" \
-  --path="./infrastructure/${ENVIRONMENT}/flux/flux-podmonitor" \
+  --path="./infrastructure/${ENVIRONMENT}/flux/flux-kustomization-podmonitor" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
   --wait \
-  --export > "infrastructure/${ENVIRONMENT}/flux/flux-podmonitor.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-podmonitor.yaml"
 
-cat > "infrastructure/${ENVIRONMENT}/flux/flux-podmonitor/flux-podmonitor.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-podmonitor/flux-podmonitor.yaml" << \EOF
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -1618,7 +1723,7 @@ spec:
     - port: http-prom
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/flux/flux-receiver.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-receiver.yaml" << \EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
@@ -1626,7 +1731,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 5m
-  path: ./infrastructure/${ENVIRONMENT}/flux/flux-receiver
+  path: ./infrastructure/${ENVIRONMENT}/flux/flux-kustomization-receiver
   prune: true
   sourceRef:
     kind: GitRepository
@@ -1638,7 +1743,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/flux/flux-receiver/flux-receiver-github-webhook-token-secret.yaml" << \EOF
+cat > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-receiver/flux-receiver-github-webhook-token-secret.yaml" << \EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1654,11 +1759,11 @@ flux create receiver github-receiver \
   --event=push \
   --secret-ref=github-webhook-token \
   --resource="GitRepository/flux-system" \
-  --export > "infrastructure/${ENVIRONMENT}/flux/flux-receiver/flux-receiver-github.yaml"
+  --export > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-receiver/flux-receiver-github.yaml"
 
 kubectl create ingress --namespace flux-system flux-github-receiver \
   --class=nginx --rule="flux-receiver.${CLUSTER_FQDN}/*=webhook-receiver:http,tls" \
-  -o yaml --dry-run=client > "infrastructure/${ENVIRONMENT}/flux/flux-receiver/flux-receiver-github-ingress.yaml"
+  -o yaml --dry-run=client > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-receiver/flux-receiver-github-ingress.yaml"
 
 [[ ! -s "infrastructure/${ENVIRONMENT}/flux/kustomization.yaml" ]] && \
 ( cd "infrastructure/${ENVIRONMENT}/flux" && kustomize create --autodetect && cd - || exit )
@@ -1672,7 +1777,7 @@ kubectl create ingress --namespace flux-system flux-github-receiver \
 [ingress-nginx](https://kubernetes.github.io/ingress-nginx/)
 
 * [ingress-nginx](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx)
-* [default values.yaml](https://github.com/kubernetes/ingress-nginx/blob/master/charts/ingress-nginx/values.yaml):
+* [default values.yaml](https://github.com/kubernetes/ingress-nginx/blob/master/charts/ingress-nginx/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -1686,7 +1791,7 @@ flux create helmrelease ingress-nginx \
   --interval="5m" \
   --source="HelmRepository/ingress-nginx.flux-system" \
   --chart="ingress-nginx" \
-  --chart-version="4.0.9" \
+  --chart-version="4.0.11" \
   --values-from="ConfigMap/ingress-nginx-values" \
   --export > infrastructure/base/ingress-nginx/ingress-nginx-helmrelease.yaml
 
@@ -1724,7 +1829,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -1733,7 +1838,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: ingress-nginx
@@ -1811,7 +1916,7 @@ EOF
 [mailhog](https://github.com/mailhog/MailHog)
 
 * [mailhog](https://artifacthub.io/packages/helm/codecentric/mailhog)
-* [default values.yaml](https://github.com/codecentric/helm-charts/blob/master/charts/mailhog/values.yaml):
+* [default values.yaml](https://github.com/codecentric/helm-charts/blob/master/charts/mailhog/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -1839,7 +1944,7 @@ Define "infrastructure level" application definition in
 ```bash
 mkdir -vp "infrastructure/${ENVIRONMENT}/mailhog"
 
-cat > "infrastructure/${ENVIRONMENT}/mailhog/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/mailhog/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -1848,7 +1953,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/mailhog/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/mailhog/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: mailhog
@@ -1888,7 +1993,7 @@ EOF
 [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/)
 
 * [oauth2-proxy](https://artifacthub.io/packages/helm/oauth2-proxy/oauth2-proxy)
-* [default values.yaml](https://github.com/oauth2-proxy/manifests/blob/main/helm/oauth2-proxy/values.yaml):
+* [default values.yaml](https://github.com/oauth2-proxy/manifests/blob/main/helm/oauth2-proxy/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
@@ -1939,7 +2044,7 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization/kustomizeconfig.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
   version: v1
@@ -1948,7 +2053,7 @@ nameReference:
     kind: HelmRelease
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization/kustomization.yaml" << EOF
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization/kustomization.yaml" << \EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: oauth2-proxy
@@ -2012,7 +2117,7 @@ if [[ ! "${GITHUB_WEBHOOKS}" =~ ${CLUSTER_FQDN} ]]; then
   git commit -m "[${CLUSTER_NAME}] Initial core applications commit" || true
   git push
   flux reconcile source git flux-system
-  sleep 60
+  sleep 100
   kubectl wait --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system flux-receiver
   FLUX_RECEIVER_URL=$(kubectl -n flux-system get receiver github-receiver -o jsonpath="{.status.url}")
   curl -s -H "Authorization: token $GITHUB_TOKEN" -X POST -d "{\"active\": true, \"events\": [\"push\"], \"config\": {\"url\": \"https://flux-receiver.${CLUSTER_FQDN}${FLUX_RECEIVER_URL}\", \"content_type\": \"json\", \"secret\": \"${MY_GITHUB_WEBHOOK_TOKEN}\", \"insecure_ssl\": \"1\"}}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq
