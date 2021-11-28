@@ -289,7 +289,9 @@ declare -A HELMREPOSITORIES=(
   ["crossplane-stable"]="https://charts.crossplane.io/stable"
   ["dex"]="https://charts.dexidp.io"
   ["ingress-nginx"]="https://kubernetes.github.io/ingress-nginx"
+  ["jaegertracing"]="https://jaegertracing.github.io/helm-charts"
   ["jetstack"]="https://charts.jetstack.io"
+  ["kiali"]="https://kiali.org/helm-charts"
   ["kubernetes-dashboard"]="https://kubernetes.github.io/dashboard/"
   ["kyverno"]="https://kyverno.github.io/kyverno/"
   ["oauth2-proxy"]="https://oauth2-proxy.github.io/manifests"
@@ -393,13 +395,14 @@ if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-
     --from-literal="MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET}" \
     --from-literal="MY_GITHUB_WEBHOOK_TOKEN_BASE64=$(echo -n "${MY_GITHUB_WEBHOOK_TOKEN}" | base64 --wrap=0)" \
     --from-literal="MY_PASSWORD=${MY_PASSWORD}" \
+    --from-literal="MY_PASSWORD_BASE64=$(echo -n "${MY_PASSWORD}" | base64 --wrap=0)" \
     --from-literal="OKTA_CLIENT_ID=${OKTA_CLIENT_ID}" \
     --from-literal="OKTA_CLIENT_SECRET=${OKTA_CLIENT_SECRET}" \
     --from-literal="OKTA_ISSUER=${OKTA_ISSUER}" \
     --from-literal="SLACK_CHANNEL=${SLACK_CHANNEL}" \
     --from-literal="SLACK_INCOMING_WEBHOOK_URL_BASE64=$(echo -n "${SLACK_INCOMING_WEBHOOK_URL}" | base64 --wrap=0)" \
     --from-literal="SLACK_INCOMING_WEBHOOK_URL=${SLACK_INCOMING_WEBHOOK_URL}" \
-    --from-literal="TAGS_INGRESS_NGINX=${TAGS// /,}" \
+    --from-literal="TAGS_INLINE=${TAGS// /,}" \
     > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-secret.yaml"
   sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-secret.yaml"
 fi
@@ -1019,7 +1022,7 @@ grafana:
         datasource: Prometheus
       node-exporter-full:
         gnetId: 1860
-        revision: 21
+        revision: 23
         datasource: Prometheus
       prometheus-2-0-overview:
         gnetId: 3662
@@ -1041,12 +1044,36 @@ grafana:
         gnetId: 11875
         revision: 1
         datasource: Prometheus
+      istio-mesh:
+        gnetId: 7639
+        revision: 98
+        datasource: Prometheus
+      istio-performance:
+        gnetId: 11829
+        revision: 98
+        datasource: Prometheus
+      istio-service:
+        gnetId: 7636
+        revision: 98
+        datasource: Prometheus
+      istio-workload:
+        gnetId: 7630
+        revision: 98
+        datasource: Prometheus
+      istio-control-plane:
+        gnetId: 7645
+        revision: 98
+        datasource: Prometheus
+      jaeger:
+        gnetId: 10001
+        revision: 2
+        datasource: Prometheus
       # https://github.com/fluxcd/flux2/blob/main/manifests/monitoring/grafana/dashboards/cluster.json
       gitops-toolkit-control-plane:
         url: https://raw.githubusercontent.com/fluxcd/flux2/c98cd106218b0fdead155bd9a0b0a5666e5c3e15/manifests/monitoring/grafana/dashboards/control-plane.json
         datasource: Prometheus
       gitops-toolkit-cluster:
-        url: https://raw.githubusercontent.com/fluxcd/flux2/3b91e14f6dff0fad024ae44a58b40f76e677bd1c/manifests/monitoring/grafana/dashboards/cluster.json
+        url: https://raw.githubusercontent.com/fluxcd/flux2/80cf5fa7291242f87458a426fccb57abfd8c66ee/manifests/monitoring/grafana/dashboards/cluster.json
         datasource: Prometheus
       kyverno-policy-report:
         gnetId: 13995
@@ -1516,6 +1543,11 @@ config:
           - email
         getUserInfo: true
   staticClients:
+    - id: kiali.${CLUSTER_FQDN}
+      redirectURIs:
+        - https://kiali.${CLUSTER_FQDN}
+      name: Kiali
+      secret: ${MY_PASSWORD}
     - id: oauth2-proxy.${CLUSTER_FQDN}
       redirectURIs:
         - https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/callback
@@ -1862,7 +1894,7 @@ controller:
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
       service.beta.kubernetes.io/aws-load-balancer-type: nlb
-      service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "${TAGS_INGRESS_NGINX}"
+      service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "${TAGS_INLINE}"
   metrics:
     enabled: true
     serviceMonitor:

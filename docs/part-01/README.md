@@ -151,7 +151,7 @@ Install [kubectl](https://github.com/kubernetes/kubectl) binary:
 ```bash
 if ! command -v kubectl &> /dev/null; then
   # https://github.com/kubernetes/kubectl/releases
-  sudo curl -s -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.21.5/bin/$(uname | sed "s/./\L&/g" )/amd64/kubectl"
+  sudo curl -s -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.21.7/bin/$(uname | sed "s/./\L&/g" )/amd64/kubectl"
   sudo chmod a+x /usr/local/bin/kubectl
 fi
 ```
@@ -161,7 +161,7 @@ Install [eksctl](https://eksctl.io/):
 ```bash
 if ! command -v eksctl &> /dev/null; then
   # https://github.com/weaveworks/eksctl/releases
-  curl -s -L "https://github.com/weaveworks/eksctl/releases/download/v0.73.0/eksctl_$(uname)_amd64.tar.gz" | sudo tar xz -C /usr/local/bin/
+  curl -s -L "https://github.com/weaveworks/eksctl/releases/download/v0.75.0/eksctl_$(uname)_amd64.tar.gz" | sudo tar xz -C /usr/local/bin/
 fi
 ```
 
@@ -169,7 +169,8 @@ Install [flux](https://toolkit.fluxcd.io/):
 
 ```bash
 if ! command -v flux &> /dev/null; then
-  export FLUX_VERSION=0.23.0
+  # https://github.com/fluxcd/flux2/releases
+  export FLUX_VERSION=0.24.0
   curl -s https://fluxcd.io/install.sh | sudo -E bash
 fi
 ```
@@ -187,6 +188,7 @@ Install [Mozilla SOPS](https://github.com/mozilla/sops):
 
 ```bash
 if ! command -v sops &> /dev/null; then
+  # https://github.com/mozilla/sops/releases
   curl -sL "https://github.com/mozilla/sops/releases/download/v3.7.1/sops_3.7.1_amd64.deb" -o /tmp/sops_amd64.deb
   apt install -y /tmp/sops_amd64.deb > /dev/null
 fi
@@ -196,7 +198,8 @@ Install [kustomize](https://kustomize.io/):
 
 ```bash
 if ! command -v kustomize &> /dev/null; then
-  curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | sudo bash -s 4.4.0 /usr/local/bin/
+  # https://github.com/kubernetes-sigs/kustomize/releases
+  curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | sudo bash -s 4.4.1 /usr/local/bin/
 fi
 ```
 
