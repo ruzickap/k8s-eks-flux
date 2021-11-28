@@ -135,10 +135,10 @@ aws secretsmanager delete-secret --secret-id "cp-aws-asm-secret-eks-${CLUSTER_NA
 Remove orphan ELBs (if exists):
 
 ```bash
-for ELB in $(aws elb describe-load-balancers --query "LoadBalancerDescriptions[].LoadBalancerName" --output=text) ; do
-  if [[ -n "$(aws elb describe-tags --load-balancer-names "${ELB}" --query "TagDescriptions[].Tags[?Key == \`kubernetes.io/cluster/${CLUSTER_NAME}\`]" --output text)" ]]; then
-    echo "Deleting ELB: ${ELB}"
-    aws elb delete-load-balancer --load-balancer-name "${ELB}"
+for ELB_ARN in $(aws elbv2 describe-load-balancers --query "LoadBalancers[].LoadBalancerArn" --output=text) ; do
+  if [[ -n "$(aws elbv2 describe-tags --resource-arns "${ELB_ARN}" --query "TagDescriptions[].Tags[?Key == \`kubernetes.io/cluster/${CLUSTER_NAME}\`]" --output text)" ]]; then
+    echo "Deleting ELB: ${ELB_ARN}"
+    aws elbv2 delete-load-balancer --load-balancer-arn "${ELB_ARN}"
   fi
 done
 ```
@@ -146,12 +146,7 @@ done
 Delete CloudFormation stack which created VPC, Subnets, Route53, EKS, ...:
 
 ```bash
-AWS_STACK_STATUS="x"
-while [[ "${AWS_STACK_STATUS}" != '' && "${AWS_STACK_STATUS}" != "DELETE_IN_PROGRESS" ]] ; do
-  AWS_STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms" --query 'Stacks[0].StackStatus' --output text || true)
-  aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
-  sleep 5
-done;
+aws cloudformation delete-stack --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
 aws cloudformation wait stack-delete-complete --stack-name "${CLUSTER_NAME}-amazon-eks-vpc-private-subnets-kms"
 aws cloudformation wait stack-delete-complete --stack-name "eksctl-${CLUSTER_NAME}-cluster"
 ```

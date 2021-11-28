@@ -266,6 +266,527 @@ EOF
   )
 ```
 
+### Istio
+
+[Istio](https://istio.io/)
+
+#### Jaeger
+
+[Jaeger](https://www.jaegertracing.io/)
+
+* [jaeger-operator](https://artifacthub.io/packages/helm/jaegertracing/jaeger-operator)
+* [default values.yaml](https://github.com/jaegertracing/helm-charts/blob/main/charts/jaeger-operator/values.yaml)
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/jaeger-operator
+
+kubectl create namespace jaeger-operator --dry-run=client -o yaml > infrastructure/base/jaeger-operator/jaeger-operator-namespace.yaml
+
+flux create helmrelease jaeger-operator \
+  --namespace="jaeger-operator" \
+  --interval="5m" \
+  --source="HelmRepository/jaegertracing.flux-system" \
+  --chart="jaeger-operator" \
+  --chart-version="2.27.0" \
+  --crds="CreateReplace" \
+  --values-from="ConfigMap/jaeger-operator-values" \
+  --export > infrastructure/base/jaeger-operator/jaeger-operator-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/jaeger-operator/kustomization.yaml" ]] && \
+( cd "infrastructure/base/jaeger-operator" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/jaeger-operator`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/jaeger-operator/jaeger-operator-kustomization"
+
+flux create kustomization jaeger-operator \
+  --interval="5m" \
+  --path="./infrastructure/\${ENVIRONMENT}/jaeger-operator/jaeger-operator-kustomization" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/jaeger-operator/jaeger-operator-kustomization.yaml"
+
+cat > "infrastructure/${ENVIRONMENT}/jaeger-operator/jaeger-operator-kustomization/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/jaeger-operator/jaeger-operator-kustomization/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: jaeger-operator
+resources:
+  - ../../../base/jaeger-operator
+configMapGenerator:
+  - name: jaeger-operator-values
+    files:
+      - values.yaml=jaeger-operator-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/jaeger-operator/jaeger-operator-kustomization/jaeger-operator-values.yaml" << \EOF
+rbac:
+  clusterRole: true
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/jaeger-operator/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/jaeger-operator" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- jaeger-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource jaeger-operator && cd - || exit )
+```
+
+#### Deploy Jaeger using operator
+
+[Jaeger](https://www.jaegertracing.io/)
+
+* [Jaeger Operator](https://www.jaegertracing.io/docs/latest/operator/)
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/jaeger-controlplane/jaeger-controlplane-kustomization"
+
+kubectl create namespace jaeger-system --dry-run=client -o yaml > "infrastructure/${ENVIRONMENT}/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-namespace.yaml"
+
+cat > "infrastructure/${ENVIRONMENT}/jaeger-controlplane/jaeger-controlplane-kustomization.yaml" << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: jaeger-controlplane
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: jaeger-operator
+  interval: 5m
+  path: ./infrastructure/${ENVIRONMENT}/jaeger-controlplane/jaeger-controlplane-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-jaeger.yaml" << \EOF
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: jaeger-controlplane
+  namespace: jaeger-system
+spec:
+  strategy: AllInOne
+  allInOne:
+    image: jaegertracing/all-in-one:1.28
+    options:
+      log-level: debug
+  storage:
+    type: memory
+    options:
+      memory:
+        max-traces: 100000
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=\$scheme://\$host\$request_uri
+    hosts:
+      - jaeger.${CLUSTER_FQDN}
+    tls:
+      - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
+        hosts:
+          - jaeger.${CLUSTER_FQDN}
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-rolebinding.yaml" << EOF
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jaeger-controlplane-in-jaeger-system
+  namespace: jaeger-system
+subjects:
+  - kind: ServiceAccount
+    name: jaeger-operator
+    namespace: jaeger-operator
+roleRef:
+  kind: Role
+  name: jaeger-operator
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-podmonitor.yaml" << EOF
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: tracing
+  namespace: jaeger-system
+spec:
+  podMetricsEndpoints:
+  - interval: 5s
+    port: "admin-http"
+  selector:
+    matchLabels:
+      app: jaeger
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/jaeger-controlplane/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/jaeger-controlplane" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- jaeger-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource jaeger-controlplane && cd - || exit )
+```
+
+#### istio-operator
+
+[Istio Operator](https://istio.io/latest/docs/setup/install/operator/)
+
+* [istio-operator](https://github.com/istio/istio/tree/master/manifests/charts/istio-operator)
+* [default values.yaml](https://github.com/istio/istio/blob/master/manifests/charts/istio-operator/values.yaml)
+
+Set Istio version:
+
+```bash
+export ISTIO_VERSION="1.12.0"
+```
+
+Add HelmRepository file to `infrastructure/sources`:
+
+```bash
+flux create source git istio-operator \
+  --url="https://github.com/istio/istio" \
+  --tag="${ISTIO_VERSION}" \
+  --export > "infrastructure/sources/istio-operator-git.yaml"
+
+[[ -f infrastructure/sources/kustomization.yaml ]] && rm infrastructure/sources/kustomization.yaml
+cd infrastructure/sources && kustomize create --autodetect && cd - || exit
+```
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/istio-operator
+
+kubectl create namespace istio-operator --dry-run=client -o yaml > infrastructure/base/istio-operator/istio-operator-namespace.yaml
+
+flux create helmrelease istio-operator \
+  --namespace="istio-operator" \
+  --interval="5m" \
+  --source="GitRepository/istio-operator.flux-system" \
+  --chart="manifests/charts/istio-operator" \
+  --crds="CreateReplace" \
+  --values-from="ConfigMap/istio-operator-values" \
+  --export > infrastructure/base/istio-operator/istio-operator-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/istio-operator/kustomization.yaml" ]] && \
+( cd "infrastructure/base/istio-operator" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/istio-operator`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/istio-operator/istio-operator-kustomization"
+
+flux create kustomization istio-operator \
+  --interval="5m" \
+  --path="./infrastructure/\${ENVIRONMENT}/istio-operator/istio-operator-kustomization" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/istio-operator/istio-operator-kustomization.yaml"
+
+cat > "infrastructure/${ENVIRONMENT}/istio-operator/istio-operator-kustomization/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/istio-operator/istio-operator-kustomization/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: istio-operator
+resources:
+  - ../../../base/istio-operator
+configMapGenerator:
+  - name: istio-operator-values
+    files:
+      - values.yaml=istio-operator-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/istio-operator/istio-operator-kustomization/istio-operator-values.yaml" << EOF
+hub: docker.io/istio
+tag: ${ISTIO_VERSION}
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/istio-operator/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/istio-operator" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- istio-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource istio-operator && cd - || exit )
+```
+
+#### Deploy Istio using operator
+
+[Istio](https://istio.io)
+
+* [Istio CRD](https://istio.io/latest/docs/reference/config/istio.operator.v1alpha1/)
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization"
+
+kubectl create namespace istio-system --dry-run=client -o yaml > "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-namespace.yaml"
+
+curl "https://raw.githubusercontent.com/istio/istio/${ISTIO_VERSION}/samples/addons/extras/prometheus-operator.yaml" > "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-prometheus.yaml"
+
+cat > "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization.yaml" << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: istio-controlplane
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: jaeger-controlplane
+  - name: istio-operator
+  interval: 5m
+  path: ./infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-istiooperator.yaml" << \EOF
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: istio-controlplane
+spec:
+  profile: default
+  meshConfig:
+    enableTracing: true
+    enableAutoMtls: true
+    defaultConfig:
+      tracing:
+        zipkin:
+          address: "jaeger-controlplane-collector-headless.jaeger-system.svc.cluster.local:9411"
+        sampling: 100
+      sds:
+        enabled: true
+  components:
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: true
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          serviceAnnotations:
+            service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+            service.beta.kubernetes.io/aws-load-balancer-type: nlb
+            service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "${TAGS_INLINE}"
+    pilot:
+      k8s:
+        # Reduce resource requirements for local testing. This is NOT recommended for the real use cases
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/istio-controlplane/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/istio-controlplane" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- istio-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource istio-controlplane && cd - || exit )
+```
+
+#### Kiali
+
+[Kiali Operator](https://github.com/kiali/kiali-operator)
+
+* [kiali-operator](https://github.com/kiali/helm-charts/tree/master/kiali-operator)
+* [default values.yaml](https://github.com/kiali/helm-charts/blob/master/kiali-operator/values.yaml)
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/kiali-operator
+
+kubectl create namespace kiali-operator --dry-run=client -o yaml > "infrastructure/base/kiali-operator/kiali-operator-namespace.yaml"
+
+flux create helmrelease kiali-operator \
+  --namespace="kiali-operator" \
+  --interval="5m" \
+  --source="HelmRepository/kiali.flux-system" \
+  --chart="kiali-operator" \
+  --crds="CreateReplace" \
+  --export > infrastructure/base/kiali-operator/kiali-operator-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/kiali-operator/kustomization.yaml" ]] && \
+( cd "infrastructure/base/kiali-operator" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/kiali-operator`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization"
+
+flux create kustomization kiali-operator \
+  --interval="5m" \
+  --path="./infrastructure/\${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization" \
+  --prune="true" \
+  --source="GitRepository/flux-system.flux-system" \
+  --wait \
+  --export > "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization.yaml"
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization/kustomization.yaml" ]] && \
+  (
+    cd "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization" && \
+    kustomize create --resources ../../../base/kiali-operator && \
+    cd - || exit
+  )
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-operator/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/kiali-operator" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- kiali-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kiali-operator && cd - || exit )
+```
+
+#### Deploy Kiali using operator
+
+[Kiali](https://kiali.io/)
+
+* [Kiali CRD](https://github.com/kiali/kiali-operator/blob/master/deploy/kiali/kiali_cr.yaml)
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/kiali-controlplane/kiali-controlplane-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/kiali-controlplane/kiali-controlplane-kustomization/kiali-controlplane-secret.yaml" << \EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kiali
+  namespace: istio-system
+data:
+  oidc-secret: ${MY_PASSWORD_BASE64}
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/kiali-controlplane/kiali-controlplane-kustomization.yaml" << EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: kiali-controlplane
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: istio-operator
+  interval: 5m
+  path: ./infrastructure/${ENVIRONMENT}/kiali-controlplane/kiali-controlplane-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/kiali-controlplane/kiali-controlplane-kustomization/kiali-controlplane-kiali.yaml" << \EOF
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  namespace: istio-system
+  name: kiali-controlplane
+spec:
+  istio_namespace: istio-system
+  auth:
+    strategy: openid
+    openid:
+      client_id: kiali.${CLUSTER_FQDN}
+      disable_rbac: true
+      insecure_skip_verify_tls: true
+      issuer_uri: "https://dex.${CLUSTER_FQDN}"
+      username_claim: email
+  deployment:
+    namespace: istio-system
+    ingress:
+      enabled: true
+      override_yaml:
+        spec:
+          ingressClassName: nginx
+          rules:
+          - host: kiali.${CLUSTER_FQDN}
+            http:
+              paths:
+              - path: /
+                pathType: ImplementationSpecific
+                backend:
+                  service:
+                    name: kiali
+                    port:
+                      number: 20001
+            tls:
+            - hosts:
+              - kiali.${CLUSTER_FQDN}
+  external_services:
+    grafana:
+      is_core_component: true
+      url: "https://grafana.${CLUSTER_FQDN}"
+      in_cluster_url: "http://kube-prometheus-stack-grafana.kube-prometheus-stack.svc.cluster.local:80"
+    prometheus:
+      is_core_component: true
+      url: http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090
+    tracing:
+      is_core_component: true
+      url: https://jaeger.${CLUSTER_FQDN}
+      in_cluster_url: http://jaeger-controlplane-query.jaeger-system.svc.cluster.local:16686
+  server:
+    web_fqdn: kiali.${CLUSTER_FQDN}
+    web_root: /
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-controlplane/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/kiali-controlplane" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- kiali-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kiali-controlplane && cd - || exit )
+```
+
 ### kuard
 
 ```bash

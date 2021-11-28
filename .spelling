@@ -12,7 +12,9 @@ HelmRelease
 HelmReleases
 HelmRepositories
 HelmRepository
+Istio
 K8s
+Kiali
 Kubernetes
 Kustomization
 Kyverno
@@ -42,7 +44,11 @@ external-dns
 external-snapshotter
 ingress-nginx
 ingress-nginx
+istio-operator
+jaeger-operator
 jetstack
+kiali
+kiali-operator
 kuard
 kube-prometheus-stack
 kubeconfig
