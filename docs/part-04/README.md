@@ -711,7 +711,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-  - name: istio-operator
+  - name: istio-controlplane
   interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/kiali-controlplane/kiali-controlplane-kustomization
   prune: true

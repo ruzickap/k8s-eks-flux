@@ -460,6 +460,7 @@ mkdir -vp "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-k
 
 flux create kustomization aws-ebs-csi-driver \
   --interval="5m" \
+  --depends-on="external-snapshotter" \
   --path="./infrastructure/\${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization" \
   --prune="true" \
   --source="GitRepository/flux-system.flux-system" \
