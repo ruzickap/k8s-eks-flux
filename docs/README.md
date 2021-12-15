@@ -20,3 +20,5 @@
 * [Part 02 - Create EKS cluster](part-02/README.md)
 * [Part 03 - Base Applications](part-03/README.md)
 * [Part 04 - Applications](part-04/README.md)
+* [Part Workloads 01](part-workloads-01/README.md)
+* [Part Clean-up](part-cleanup/README.md)

@@ -295,10 +295,12 @@ declare -A HELMREPOSITORIES=(
   ["kubernetes-dashboard"]="https://kubernetes.github.io/dashboard/"
   ["kyverno"]="https://kyverno.github.io/kyverno/"
   ["oauth2-proxy"]="https://oauth2-proxy.github.io/manifests"
+  ["podinfo"]="https://stefanprodan.github.io/podinfo"
   ["policy-reporter"]="https://kyverno.github.io/policy-reporter"
   ["prometheus-community"]="https://prometheus-community.github.io/helm-charts"
   ["rancher-latest"]="https://releases.rancher.com/server-charts/latest"
   ["secrets-store-csi-driver"]="https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
+  ["vmware-tanzu"]="https://vmware-tanzu.github.io/helm-charts"
 )
 
 for HELMREPOSITORY in "${!HELMREPOSITORIES[@]}"; do
@@ -444,7 +446,7 @@ flux create helmrelease aws-ebs-csi-driver \
   --interval="5m" \
   --source="HelmRepository/aws-ebs-csi-driver.flux-system" \
   --chart="aws-ebs-csi-driver" \
-  --chart-version="2.4.0" \
+  --chart-version="2.5.1" \
   --values-from="ConfigMap/aws-ebs-csi-driver-values" \
   --export > infrastructure/base/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease.yaml
 
@@ -481,6 +483,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: aws-ebs-csi-driver
 resources:
+  - gp2-non-default-class.yaml
   - ../../../base/aws-ebs-csi-driver
 configMapGenerator:
   - name: aws-ebs-csi-driver-values
@@ -501,6 +504,23 @@ storageClasses:
     storageclass.kubernetes.io/is-default-class: "true"
   parameters:
     encrypted: "true"
+    # TODO XXXX !!!! this is not working :-(
+    # kmskeyid: ${AWS_KMS_KEY_ARN}
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/aws-ebs-csi-driver-kustomization/gp2-non-default-class.yaml" << \EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+  name: gp2
+parameters:
+  fsType: ext4
+  type: gp2
+provisioner: kubernetes.io/aws-ebs
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
 EOF
 
 [[ ! -s "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/kustomization.yaml" ]] && \
@@ -622,7 +642,7 @@ metadata:
   name: provider-aws
   namespace: crossplane-system
 spec:
-  package: crossplane/provider-aws:v0.21.1
+  package: crossplane/provider-aws:v0.22.0
   controllerConfigRef:
     name: aws-config
 EOF
@@ -736,7 +756,7 @@ flux create helmrelease metrics-server \
   --interval="5m" \
   --source="HelmRepository/bitnami.flux-system" \
   --chart="metrics-server" \
-  --chart-version="5.10.10" \
+  --chart-version="5.10.11" \
   --values-from="ConfigMap/metrics-server-values" \
   --export > infrastructure/base/metrics-server/metrics-server-helmrelease.yaml
 
@@ -801,7 +821,7 @@ flux create helmrelease kube-prometheus-stack \
   --interval="5m" \
   --source="HelmRepository/prometheus-community.flux-system" \
   --chart="kube-prometheus-stack" \
-  --chart-version="21.0.0" \
+  --chart-version="23.3.2" \
   --crds="CreateReplace" \
   --values-from="ConfigMap/kube-prometheus-stack-values" \
   --export > infrastructure/base/kube-prometheus-stack/kube-prometheus-stack-helmrelease.yaml
@@ -825,7 +845,7 @@ metadata:
 spec:
   dependsOn:
     - name: aws-ebs-csi-driver
-  interval: 5m0s
+  interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization
   prune: true
   sourceRef:
@@ -1137,7 +1157,7 @@ prometheus:
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 1Gi
+              storage: 2Gi
 EOF
 
 [[ ! -s "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kustomization.yaml" ]] && \
@@ -1356,7 +1376,7 @@ flux create helmrelease cluster-autoscaler \
   --interval="5m" \
   --source="HelmRepository/autoscaler.flux-system" \
   --chart="cluster-autoscaler" \
-  --chart-version="9.10.8" \
+  --chart-version="9.10.9" \
   --values-from="ConfigMap/cluster-autoscaler-values" \
   --export > infrastructure/base/cluster-autoscaler/cluster-autoscaler-helmrelease.yaml
 
@@ -1379,7 +1399,7 @@ metadata:
 spec:
   dependsOn:
     - name: kube-prometheus-stack
-  interval: 5m0s
+  interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/cluster-autoscaler/cluster-autoscaler-kustomization
   prune: true
   sourceRef:
@@ -1578,7 +1598,7 @@ flux create helmrelease external-dns \
   --interval="5m" \
   --source="HelmRepository/bitnami.flux-system" \
   --chart="external-dns" \
-  --chart-version="5.5.0" \
+  --chart-version="6.0.2" \
   --values-from="ConfigMap/external-dns-values" \
   --export > infrastructure/base/external-dns/external-dns-helmrelease.yaml
 
@@ -1602,7 +1622,7 @@ spec:
   dependsOn:
     - name: ingress-nginx
     - name: kube-prometheus-stack
-  interval: 5m0s
+  interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/external-dns/external-dns-kustomization
   prune: true
   sourceRef:
@@ -1763,6 +1783,10 @@ metadata:
   name: flux-receiver
   namespace: flux-system
 spec:
+  # Dependency is required to prevent errors like:
+  # Ingress/flux-system/flux-github-receiver dry-run failed, reason: InternalError, error: Internal error occurred: failed calling webhook "validate.nginx.ingress.kubernetes.io": Post "https://ingress-nginx-controller-admission.ingress-nginx.svc:443/networking/v1/ingresses?timeout=10s": x509: certificate signed by unknown authority
+  dependsOn:
+    - name: ingress-nginx
   interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/flux/flux-kustomization-receiver
   prune: true
@@ -1788,8 +1812,7 @@ EOF
 
 flux create receiver github-receiver \
   --type=github \
-  --event=ping \
-  --event=push \
+  --event=ping --event=push \
   --secret-ref=github-webhook-token \
   --resource="GitRepository/flux-system" \
   --export > "infrastructure/${ENVIRONMENT}/flux/flux-kustomization-receiver/flux-receiver-github.yaml"
@@ -1824,7 +1847,7 @@ flux create helmrelease ingress-nginx \
   --interval="5m" \
   --source="HelmRepository/ingress-nginx.flux-system" \
   --chart="ingress-nginx" \
-  --chart-version="4.0.11" \
+  --chart-version="4.0.13" \
   --values-from="ConfigMap/ingress-nginx-values" \
   --export > infrastructure/base/ingress-nginx/ingress-nginx-helmrelease.yaml
 
@@ -1848,7 +1871,7 @@ spec:
   dependsOn:
     - name: kube-prometheus-stack
     - name: cert-manager-certificate
-  interval: 5m0s
+  interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/ingress-nginx/ingress-nginx-kustomization
   prune: true
   sourceRef:
@@ -1963,7 +1986,7 @@ flux create helmrelease mailhog \
   --interval="5m" \
   --source="HelmRepository/codecentric.flux-system" \
   --chart="mailhog" \
-  --chart-version="5.0.1" \
+  --chart-version="5.0.2" \
   --values-from="ConfigMap/mailhog-values" \
   --export > infrastructure/base/mailhog/mailhog-helmrelease.yaml
 
@@ -2040,7 +2063,7 @@ flux create helmrelease oauth2-proxy \
   --interval="5m" \
   --source="HelmRepository/oauth2-proxy.flux-system" \
   --chart="oauth2-proxy" \
-  --chart-version="5.0.5" \
+  --chart-version="5.0.6" \
   --values-from="ConfigMap/oauth2-proxy-values" \
   --export > infrastructure/base/oauth2-proxy/oauth2-proxy-helmrelease.yaml
 
@@ -2063,7 +2086,7 @@ metadata:
 spec:
   dependsOn:
   - name: kube-prometheus-stack
-  interval: 5m0s
+  interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/oauth2-proxy/oauth2-proxy-kustomization
   prune: true
   sourceRef:
@@ -2151,7 +2174,7 @@ if [[ ! "${GITHUB_WEBHOOKS}" =~ ${CLUSTER_FQDN} ]]; then
   git push
   flux reconcile source git flux-system
   sleep 100
-  kubectl wait --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system flux-receiver
+  kubectl wait --timeout=20m --for=condition=ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system flux-receiver
   FLUX_RECEIVER_URL=$(kubectl -n flux-system get receiver github-receiver -o jsonpath="{.status.url}")
   curl -s -H "Authorization: token $GITHUB_TOKEN" -X POST -d "{\"active\": true, \"events\": [\"push\"], \"config\": {\"url\": \"https://flux-receiver.${CLUSTER_FQDN}${FLUX_RECEIVER_URL}\", \"content_type\": \"json\", \"secret\": \"${MY_GITHUB_WEBHOOK_TOKEN}\", \"insecure_ssl\": \"1\"}}" "https://api.github.com/repos/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}/hooks" | jq
 fi

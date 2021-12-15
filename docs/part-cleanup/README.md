@@ -76,7 +76,10 @@ Remove EKS cluster and created components:
 if eksctl get cluster --name="${CLUSTER_NAME}" 2>/dev/null ; then
   eksctl utils write-kubeconfig --cluster="${CLUSTER_NAME}" --kubeconfig "${KUBECONFIG}"
   flux suspend source git -n flux-system --all || true
-  kubectl delete secrets.secretsmanager.aws.crossplane.io --timeout=1m -n crossplane-system --wait=true --all || true
+  # Remove secret from AWS Secret Manager
+  kubectl delete secrets.secretsmanager.aws.crossplane.io --timeout=1m -n crossplane-system --all || true
+  # Remove istio-controlplane ingress-nginx to cleanup ELBs and Target Groups
+  kubectl delete kustomization -n flux-system istio-controlplane ingress-nginx || true
   eksctl delete cluster --name="${CLUSTER_NAME}" --force
 fi
 ```
@@ -101,6 +104,14 @@ if [[ -n "${CLUSTER_FQDN_ZONE_ID}" ]]; then
       --change-batch '{"Changes":[{"Action":"DELETE","ResourceRecordSet": '"${RESOURCERECORDSET}"' }]}' \
       --output text --query 'ChangeInfo.Id'
   done
+fi
+```
+
+Remove all S3 data form the bucket:
+
+```bash
+if aws s3api head-bucket --bucket "${CLUSTER_FQDN}" 2>/dev/null; then
+  aws s3 rm "s3://${CLUSTER_FQDN}/" --recursive
 fi
 ```
 

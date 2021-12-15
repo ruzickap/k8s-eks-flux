@@ -42,6 +42,16 @@ Resources:
       Type: NS
       TTL: 60
       ResourceRecords: !GetAtt HostedZone.NameServers
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: !Sub "${ClusterFQDN}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
 EOF
 
 if [[ $(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE --query "StackSummaries[?starts_with(StackName, \`${CLUSTER_NAME}-route53\`) == \`true\`].StackName" --output text) == "" ]]; then
@@ -147,6 +157,26 @@ iam:
             StringLike:
               kms:ViaService:
                 - secretsmanager.*.amazonaws.com
+    - metadata:
+        name: velero
+        namespace: velero
+      attachPolicy:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:ListBucket
+          Resource:
+          - arn:aws:s3:::${CLUSTER_FQDN}
+        - Effect: Allow
+          Action:
+          - s3:PutObject
+          - s3:GetObject
+          - s3:DeleteObject
+          - s3:ListMultipartUploadParts
+          - s3:AbortMultipartUpload
+          Resource:
+          - arn:aws:s3:::${CLUSTER_FQDN}/*
 vpc:
   id: "${AWS_VPC_ID}"
   subnets:
@@ -164,11 +194,11 @@ managedNodeGroups:
   - name: managed-ng-1
     amiFamily: Bottlerocket
     instanceType: t3.large
-    instancePrefix: ${GITHUB_USER}
     desiredCapacity: 3
     minSize: 2
     maxSize: 5
     volumeSize: 30
+    volumeType: gp3
     tags:
       <<: *tags
       compliance:na:defender: bottlerocket
