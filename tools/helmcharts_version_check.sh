@@ -12,6 +12,9 @@ for HELMREPOSITORY in "${!HELMREPOSITORIES[@]}"; do
   fi
 done
 
+# Add fairwinds-stable manually, because it is only in "cluster level"
+helm repo add fairwinds-stable https://charts.fairwinds.com/stable
+
 helm repo update
 
 while IFS= read -r HELM_LINE ; do
@@ -32,7 +35,7 @@ while IFS= read -r HELM_LINE ; do
     echo "${HELM_CHART_VERSION}" >&2
     HELM_CHART_VERSIONS+=("${HELM_CHART_VERSION}")
   fi
-done < <(grep -R --no-filename -A7 '^flux create helmrelease' docs/part*)
+done < <( grep -R --no-filename -v 'istio-operator' docs/part* | grep -A7 '^flux create helmrelease' )
 
 echo "--------------------------------------------------------------------------------"
 
@@ -42,7 +45,7 @@ for i in "${!HELM_CHART_NAMES[@]}"; do
   LATEST_HELM_CHART_VERSION=$(jq -r ".[0].version" /tmp/latest_helm_chart)
   LATEST_HELM_CHART_APP_VERSION=$(jq -r ".[0].app_version" /tmp/latest_helm_chart)
   if [[ "${LATEST_HELM_CHART_VERSION}" != "${HELM_CHART_VERSIONS[i]}" ]]; then
-    echo "chart=\"${HELM_CHART_NAMES[i]}\" ; Current: ${HELM_CHART_VERSIONS[i]} ; Latest version: ${LATEST_HELM_CHART_VERSION} (${LATEST_HELM_CHART_APP_VERSION})"
+    echo "chart=\"${HELM_CHART_NAMES[i]}\" ; Current: ${HELM_CHART_VERSIONS[i]} ; Latest version: ${LATEST_HELM_CHART_VERSION} (App: ${LATEST_HELM_CHART_APP_VERSION})"
   fi
 done
 ) | column -s \; -t

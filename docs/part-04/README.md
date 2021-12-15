@@ -25,7 +25,7 @@ flux create helmrelease aws-efs-csi-driver \
   --interval="5m" \
   --source="HelmRepository/aws-efs-csi-driver.flux-system" \
   --chart="aws-efs-csi-driver" \
-  --chart-version="2.2.0" \
+  --chart-version="2.2.1" \
   --values-from="ConfigMap/aws-efs-csi-driver-values" \
   --export > infrastructure/base/aws-efs-csi-driver/aws-efs-csi-driver-helmrelease.yaml
 
@@ -114,7 +114,7 @@ cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml"
                   create: false
                   name: efs-csi-controller-sa
                 tags:
-                  Name: ${GITHUB_USER}-\${CLUSTER_NAME}
+                  Name: \${CLUSTER_NAME}
                   Cluster: \${CLUSTER_FQDN}
                   $(echo "${TAGS}" | sed "s/ /\\n                  /g; s/=/: /g")
 EOF
@@ -407,9 +407,8 @@ spec:
     hosts:
       - jaeger.${CLUSTER_FQDN}
     tls:
-      - secretName: ingress-cert-${LETSENCRYPT_ENVIRONMENT}
-        hosts:
-          - jaeger.${CLUSTER_FQDN}
+      - hosts:
+        - jaeger.${CLUSTER_FQDN}
 EOF
 
 cat > "infrastructure/${ENVIRONMENT}/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-rolebinding.yaml" << EOF
@@ -466,10 +465,19 @@ export ISTIO_VERSION="1.12.0"
 Add HelmRepository file to `infrastructure/sources`:
 
 ```bash
-flux create source git istio-operator \
-  --url="https://github.com/istio/istio" \
-  --tag="${ISTIO_VERSION}" \
-  --export > "infrastructure/sources/istio-operator-git.yaml"
+cat > infrastructure/sources/istio-operator-git.yaml << EOF
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: istio-operator
+  namespace: flux-system
+spec:
+  interval: 1h
+  timeout: 5m
+  ref:
+    tag: ${ISTIO_VERSION}
+  url: https://github.com/istio/istio
+EOF
 
 [[ -f infrastructure/sources/kustomization.yaml ]] && rm infrastructure/sources/kustomization.yaml
 cd infrastructure/sources && kustomize create --autodetect && cd - || exit
@@ -555,7 +563,7 @@ mkdir -vp "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-k
 
 kubectl create namespace istio-system --dry-run=client -o yaml > "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-namespace.yaml"
 
-curl "https://raw.githubusercontent.com/istio/istio/${ISTIO_VERSION}/samples/addons/extras/prometheus-operator.yaml" > "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-prometheus.yaml"
+curl -s "https://raw.githubusercontent.com/istio/istio/${ISTIO_VERSION}/samples/addons/extras/prometheus-operator.yaml" > "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-prometheus.yaml"
 
 cat > "infrastructure/${ENVIRONMENT}/istio-controlplane/istio-controlplane-kustomization.yaml" << EOF
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
@@ -630,6 +638,217 @@ EOF
 ( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource istio-controlplane && cd - || exit )
 ```
 
+#### Keycloak
+
+> I was not able to make Keycloak working with local Dex, because Dex is not
+> using valid certificates (Let's Encrypt staging).
+
+[Keycloak](https://www.keycloak.org/)
+
+* [Keycloak](https://artifacthub.io/packages/helm/bitnami/keycloak)
+* [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/keycloak/values.yaml)
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/keycloak
+
+kubectl create namespace keycloak --dry-run=client -o yaml > "infrastructure/base/keycloak/keycloak-namespace.yaml"
+
+flux create helmrelease keycloak \
+  --namespace="keycloak" \
+  --interval="5m" \
+  --source="HelmRepository/bitnami.flux-system" \
+  --chart="keycloak" \
+  --chart-version="5.2.3" \
+  --values-from="ConfigMap/keycloak-values" \
+  --export > infrastructure/base/keycloak/keycloak-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/keycloak/kustomization.yaml" ]] && \
+( cd "infrastructure/base/keycloak" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/keycloak`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/keycloak/keycloak-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/keycloak/keycloak-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: keycloak
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+  interval: 5m
+  path: ./infrastructure/${ENVIRONMENT}/keycloak/keycloak-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/keycloak/keycloak-kustomization/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/keycloak/keycloak-kustomization/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: keycloak
+resources:
+  - ../../../base/keycloak
+configMapGenerator:
+  - name: keycloak-values
+    files:
+      - values.yaml=keycloak-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/keycloak/keycloak-kustomization/keycloak-values.yaml" << \EOF
+global:
+  storageClass: "gp3"
+clusterDomain: ${CLUSTER_FQDN}
+auth:
+  adminUser: admin
+  adminPassword: ${MY_PASSWORD}
+  managementUser: manager
+  managementPassword: ${MY_PASSWORD}
+proxyAddressForwarding: true
+# https://stackoverflow.com/questions/51616770/keycloak-restricting-user-management-to-certain-groups-while-enabling-manage-us
+extraStartupArgs: "-Dkeycloak.profile.feature.admin_fine_grained_authz=enabled"
+keycloakConfigCli:
+  enabled: true
+  configuration:
+    myrealm.yaml: |
+      realm: myrealm
+      enabled: true
+      displayName: My Realm
+      rememberMe: true
+      userManagedAccessAllowed: true
+      smtpServer:
+        from: myrealm-keycloak@${CLUSTER_FQDN}
+        fromDisplayName: Keycloak
+        host: mailhog.mailhog.svc.cluster.local
+        port: 1025
+      clients:
+      # https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/oauth_provider/#keycloak-auth-provider
+      - clientId: oauth2-proxy-keycloak.${CLUSTER_FQDN}
+        name: oauth2-proxy-keycloak.${CLUSTER_FQDN}
+        description: "OAuth2 Proxy for Keycloak"
+        secret: ${MY_PASSWORD}
+        redirectUris:
+        - "https://oauth2-proxy-keycloak.${CLUSTER_FQDN}/oauth2/callback"
+        protocolMappers:
+        - name: groupMapper
+          protocol: openid-connect
+          protocolMapper: oidc-group-membership-mapper
+          config:
+            userinfo.token.claim: "true"
+            id.token.claim: "true"
+            access.token.claim: "true"
+            claim.name: groups
+            full.path: "true"
+      identityProviders:
+      # https://ultimatesecurity.pro/post/okta-oidc/
+      - alias: keycloak-oidc-okta
+        displayName: "Okta"
+        providerId: keycloak-oidc
+        trustEmail: true
+        config:
+          clientId: ${OKTA_CLIENT_ID}
+          clientSecret: ${OKTA_CLIENT_SECRET}
+          tokenUrl: "${OKTA_ISSUER}/oauth2/default/v1/token"
+          authorizationUrl: "${OKTA_ISSUER}/oauth2/default/v1/authorize"
+          defaultScope: "openid profile email"
+          syncMode: IMPORT
+      users:
+      - username: myuser1
+        email: myuser1@${CLUSTER_FQDN}
+        enabled: true
+        firstName: My Firstname 1
+        lastName: My Lastname 1
+        groups:
+          - group-admins
+        credentials:
+        - type: password
+          value: ${MY_PASSWORD}
+      - username: myuser2
+        email: myuser2@${CLUSTER_FQDN}
+        enabled: true
+        firstName: My Firstname 2
+        lastName: My Lastname 2
+        groups:
+          - group-admins
+        credentials:
+        - type: password
+          value: ${MY_PASSWORD}
+      - username: myuser3
+        email: myuser3@${CLUSTER_FQDN}
+        enabled: true
+        firstName: My Firstname 3
+        lastName: My Lastname 3
+        groups:
+          - group-users
+        credentials:
+        - type: password
+          value: ${MY_PASSWORD}
+      - username: myuser4
+        email: myuser4@${CLUSTER_FQDN}
+        enabled: true
+        firstName: My Firstname 4
+        lastName: My Lastname 4
+        groups:
+          - group-users
+          - group-test
+        credentials:
+        - type: password
+          value: ${MY_PASSWORD}
+      groups:
+      - name: group-users
+      - name: group-admins
+      - name: group-test
+service:
+  type: ClusterIP
+ingress:
+  enabled: true
+  hostname: keycloak.${CLUSTER_FQDN}
+  ingressClassName: nginx
+  extraTls:
+  - hosts:
+    - keycloak.${CLUSTER_FQDN}
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+postgresql:
+  persistence:
+    enabled: true
+    size: 1Gi
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/keycloak/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/keycloak" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- keycloak$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource keycloak && cd - || exit )
+```
+
 #### Kiali
 
 [Kiali Operator](https://github.com/kiali/kiali-operator)
@@ -649,6 +868,7 @@ flux create helmrelease kiali-operator \
   --interval="5m" \
   --source="HelmRepository/kiali.flux-system" \
   --chart="kiali-operator" \
+  --chart-version="1.44.0" \
   --crds="CreateReplace" \
   --export > infrastructure/base/kiali-operator/kiali-operator-helmrelease.yaml
 
@@ -1008,7 +1228,7 @@ flux create helmrelease kubernetes-dashboard \
   --interval="5m" \
   --source="HelmRepository/kubernetes-dashboard.flux-system" \
   --chart="kubernetes-dashboard" \
-  --chart-version="5.0.4" \
+  --chart-version="5.0.5" \
   --values-from="ConfigMap/kubernetes-dashboard-values" \
   --export > infrastructure/base/kubernetes-dashboard/kubernetes-dashboard-helmrelease.yaml
 
@@ -1225,6 +1445,228 @@ flux create kustomization kyverno-policies \
 ( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kyverno-policies && cd - || exit )
 ```
 
+### OAuth2 Proxy - Keycloak
+
+[oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/)
+
+* [oauth2-proxy](https://artifacthub.io/packages/helm/oauth2-proxy/oauth2-proxy)
+* [default values.yaml](https://github.com/oauth2-proxy/manifests/blob/main/helm/oauth2-proxy/values.yaml)
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/oauth2-proxy-keycloak
+
+kubectl create namespace oauth2-proxy-keycloak --dry-run=client -o yaml > infrastructure/base/oauth2-proxy-keycloak/oauth2-proxy-keycloak-namespace.yaml
+
+flux create helmrelease oauth2-proxy-keycloak \
+  --namespace="oauth2-proxy-keycloak" \
+  --interval="5m" \
+  --source="HelmRepository/oauth2-proxy.flux-system" \
+  --chart="oauth2-proxy" \
+  --chart-version="5.0.6" \
+  --values-from="ConfigMap/oauth2-proxy-keycloak-values" \
+  --export > infrastructure/base/oauth2-proxy-keycloak/oauth2-proxy-keycloak-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/oauth2-proxy-keycloak/kustomization.yaml" ]] && \
+( cd "infrastructure/base/oauth2-proxy-keycloak" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: oauth2-proxy-keycloak
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: kube-prometheus-stack
+  interval: 5m
+  path: ./infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: oauth2-proxy-keycloak
+resources:
+  - ../../../base/oauth2-proxy-keycloak
+configMapGenerator:
+  - name: oauth2-proxy-keycloak-values
+    files:
+      - values.yaml=oauth2-proxy-keycloak-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization/oauth2-proxy-keycloak-values.yaml" << \EOF
+config:
+  clientID: oauth2-proxy-keycloak.${CLUSTER_FQDN}
+  clientSecret: ${MY_PASSWORD}
+  cookieSecret: ${MY_COOKIE_SECRET}
+  configFile: |-
+    email_domains = [ "*" ]
+    upstreams = [ "file:///dev/null" ]
+    whitelist_domains = ".${CLUSTER_FQDN}"
+    cookie_domains = ".${CLUSTER_FQDN}"
+    provider = "keycloak"
+    login_url = "https://keycloak.${CLUSTER_FQDN}/auth/realms/myrealm/protocol/openid-connect/auth"
+    redeem_url = "https://keycloak.${CLUSTER_FQDN}/auth/realms/myrealm/protocol/openid-connect/token"
+    profile_url = "https://keycloak.${CLUSTER_FQDN}/auth/realms/myrealm/protocol/openid-connect/userinfo"
+    validate_url = "https://keycloak.${CLUSTER_FQDN}/auth/realms/myrealm/protocol/openid-connect/userinfo"
+    scope = "openid email profile"
+    ssl_insecure_skip_verify = "true"
+    insecure_oidc_skip_issuer_verification = "true"
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - oauth2-proxy-keycloak.${CLUSTER_FQDN}
+  tls:
+    - hosts:
+      - oauth2-proxy-keycloak.${CLUSTER_FQDN}
+metrics:
+  servicemonitor:
+    enabled: true
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- oauth2-proxy-keycloak$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource oauth2-proxy-keycloak && cd - || exit )
+```
+
+### podinfo
+
+[podinfo](https://github.com/stefanprodan/podinfo)
+
+* [podinfo](https://artifacthub.io/packages/helm/podinfo/podinfo)
+* [default values.yaml](https://github.com/stefanprodan/podinfo/blob/master/charts/podinfo/values.yaml)
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/podinfo
+
+kubectl create namespace podinfo --dry-run=client -o yaml > infrastructure/base/podinfo/podinfo-namespace.yaml
+
+flux create helmrelease podinfo \
+  --namespace="podinfo" \
+  --interval="5m" \
+  --source="HelmRepository/podinfo.flux-system" \
+  --chart="podinfo" \
+  --chart-version="6.0.3" \
+  --values-from="ConfigMap/podinfo-values" \
+  --export > infrastructure/base/podinfo/podinfo-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/podinfo/kustomization.yaml" ]] && \
+( cd "infrastructure/base/podinfo" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/podinfo`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/podinfo/podinfo-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/podinfo/podinfo-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+  interval: 5m
+  path: "./infrastructure/${ENVIRONMENT}/podinfo/podinfo-kustomization"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/podinfo/podinfo-kustomization/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/podinfo/podinfo-kustomization/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: podinfo
+resources:
+  - ../../../base/podinfo
+configMapGenerator:
+  - name: podinfo-values
+    files:
+      - values.yaml=podinfo-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/podinfo/podinfo-kustomization/podinfo-values.yaml" << \EOF
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy-keycloak.${CLUSTER_FQDN}/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy-keycloak.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
+  hosts:
+    - host: podinfo.${CLUSTER_FQDN}
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - hosts:
+      - podinfo.${CLUSTER_FQDN}
+serviceMonitor:
+  enabled: true
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/podinfo/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/podinfo" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- podinfo$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource podinfo && cd - || exit )
+```
+
 ### Polaris
 
 Add Polaris to the single K8s cluster.
@@ -1257,7 +1699,40 @@ mkdir -pv "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris"
 
 kubectl create namespace polaris --dry-run=client -o yaml > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/polaris-namespace.yaml"
 
-cat << \EOF |
+flux create helmrelease polaris \
+  --namespace="polaris" \
+  --interval="5m" \
+  --source="HelmRepository/fairwinds-stable.flux-system" \
+  --chart="polaris" \
+  --chart-version="4.2.1" \
+  --values-from="ConfigMap/polaris-values" \
+  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/polaris-helmrelease.yaml"
+
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: polaris
+resources:
+  - polaris-namespace.yaml
+  - polaris-helmrelease.yaml
+configMapGenerator:
+  - name: polaris-values
+    files:
+      - values.yaml=polaris-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/polaris-values.yaml" << \EOF
 dashboard:
   ingress:
     enabled: true
@@ -1270,17 +1745,6 @@ dashboard:
       - hosts:
         - polaris.${CLUSTER_FQDN}
 EOF
-flux create helmrelease polaris \
-  --namespace="polaris" \
-  --interval="5m" \
-  --source="HelmRepository/fairwinds-stable.flux-system" \
-  --chart="polaris" \
-  --chart-version="4.2.1" \
-  --values="/dev/stdin" \
-  --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/polaris-helmrelease.yaml"
-
-[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/kustomization.yaml" ]] && \
-( cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris" && kustomize create --autodetect && cd - || exit )
 
 ! grep -q '\- polaris$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" && \
 ( cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps" && kustomize edit add resource polaris && cd - || exit )
@@ -1305,7 +1769,7 @@ flux create helmrelease policy-reporter \
   --interval="5m" \
   --source="HelmRepository/policy-reporter.flux-system" \
   --chart="policy-reporter" \
-  --chart-version="1.12.6" \
+  --chart-version="2.0.0" \
   --values-from="ConfigMap/policy-reporter-values" \
   --export > infrastructure/base/policy-reporter/policy-reporter-helmrelease.yaml
 
@@ -1329,7 +1793,7 @@ spec:
   dependsOn:
   - name: kyverno
   - name: kube-prometheus-stack
-  interval: 5m0s
+  interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization
   prune: true
   sourceRef:
@@ -1413,6 +1877,7 @@ mkdir -vp infrastructure/base/rancher
 flux create helmrelease rancher \
   --namespace="cattle-system" \
   --interval="5m" \
+  --timeout="10m" \
   --source="HelmRepository/rancher-latest.flux-system" \
   --chart="rancher" \
   --chart-version="2.6.2" \
@@ -1439,7 +1904,7 @@ spec:
   dependsOn:
     - name: kubed
     - name: cert-manager-certificate
-  interval: 5m0s
+  interval: 5m
   path: ./infrastructure/${ENVIRONMENT}/rancher/rancher-kustomization
   prune: true
   sourceRef:
@@ -1576,6 +2041,149 @@ EOF
 
 ! grep -q '\- secrets-store-csi-driver$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
 ( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource secrets-store-csi-driver && cd - || exit )
+```
+
+### Velero
+
+[Velero](https://velero.io/)
+
+* [velero](https://artifacthub.io/packages/helm/vmware-tanzu/velero)
+* [default values.yaml](https://github.com/vmware-tanzu/helm-charts/blob/main/charts/velero/values.yaml)
+
+Define "base level" application definition in `infrastructure`:
+
+```bash
+mkdir -vp infrastructure/base/velero
+
+flux create helmrelease velero \
+  --namespace="velero" \
+  --interval="5m" \
+  --source="HelmRepository/vmware-tanzu.flux-system" \
+  --chart="velero" \
+  --chart-version="2.27.0" \
+  --crds="CreateReplace" \
+  --values-from="ConfigMap/velero-values" \
+  --export > infrastructure/base/velero/velero-helmrelease.yaml
+
+[[ ! -s "infrastructure/base/velero/kustomization.yaml" ]] && \
+( cd "infrastructure/base/velero" && kustomize create --autodetect && cd - || exit )
+```
+
+Define "infrastructure level" application definition in
+`infrastructure/${ENVIRONMENT}/velero`:
+
+```bash
+mkdir -vp "infrastructure/${ENVIRONMENT}/velero/velero-kustomization"
+
+cat > "infrastructure/${ENVIRONMENT}/velero/velero-kustomization.yaml" << \EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: velero
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+    - name: external-snapshotter
+  interval: 5m
+  path: ./infrastructure/${ENVIRONMENT}/velero/velero-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/velero/velero-kustomization/velero-volumesnapshotclass.yaml" << \EOF
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: velero-csi-ebs-snapclass
+  labels:
+    velero.io/csi-volumesnapshot-class: "true"
+driver: ebs.csi.aws.com
+deletionPolicy: Delete
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/velero/velero-kustomization/kustomizeconfig.yaml" << \EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/velero/velero-kustomization/kustomization.yaml" << \EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: velero
+resources:
+  - velero-volumesnapshotclass.yaml
+  - ../../../base/velero
+configMapGenerator:
+  - name: velero-values
+    files:
+      - values.yaml=velero-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+cat > "infrastructure/${ENVIRONMENT}/velero/velero-kustomization/velero-values.yaml" << \EOF
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.3.0
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+  - name: velero-plugin-for-csi
+    image: velero/velero-plugin-for-csi:v0.2.0
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+metrics:
+  serviceMonitor:
+    enabled: true
+configuration:
+  provider: aws
+  backupStorageLocation:
+    bucket: ${CLUSTER_FQDN}
+    prefix: velero
+    config:
+      region: ${AWS_DEFAULT_REGION}
+      # kmsKeyId: TODO !!!! xxxxx
+  volumeSnapshotLocation:
+    name: aws
+    config:
+      region: ${AWS_DEFAULT_REGION}
+  features: EnableCSI
+  defaultResticPruneFrequency: 71h
+serviceAccount:
+  server:
+    create: false
+    name: velero
+credentials:
+  useSecret: false
+schedules:
+  # https://doc.crds.dev/github.com/vmware-tanzu/velero/velero.io/Backup/v1@v1.5.1
+  my-backup-all:
+    disabled: false
+    schedule: "0 */8 * * *"
+    useOwnerReferencesInBackup: true
+    template:
+      ttl: 48h
+EOF
+
+[[ ! -s "infrastructure/${ENVIRONMENT}/velero/kustomization.yaml" ]] && \
+( cd "infrastructure/${ENVIRONMENT}/velero" && kustomize create --autodetect && cd - || exit )
+
+! grep -q '\- velero$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
+( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource velero && cd - || exit )
 ```
 
 ## Flux
