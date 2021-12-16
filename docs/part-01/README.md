@@ -170,7 +170,7 @@ Install [flux](https://toolkit.fluxcd.io/):
 ```bash
 if ! command -v flux &> /dev/null; then
   # https://github.com/fluxcd/flux2/releases
-  export FLUX_VERSION=0.24.0
+  export FLUX_VERSION=0.24.1
   curl -s https://fluxcd.io/install.sh | sudo -E bash
 fi
 ```
