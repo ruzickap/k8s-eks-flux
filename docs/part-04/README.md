@@ -2193,7 +2193,10 @@ Commit changes to git repository:
 ```bash
 git add .
 git commit -m "[${CLUSTER_NAME}] Add applications" || true
-git push
+if [[ ! "$(git push 2>&1)" =~ ^Everything\ up-to-date ]] ; then
+  flux reconcile source git flux-system
+  sleep 5
+fi
 ```
 
 Go back to the main directory:

@@ -10,6 +10,15 @@ kubectl get nodes -o=custom-columns=NODE:.metadata.name,ARCH:.status.nodeInfo.ar
 
 ## Backup Keycloak using CSI Volume Snapshotting
 
+Install [velero](https://velero.io/):
+
+```bash
+if ! command -v velero &> /dev/null; then
+  # https://github.com/vmware-tanzu/velero/releases/
+  curl -s -L "https://github.com/vmware-tanzu/velero/releases/download/v1.7.1/velero-v1.7.1-linux-amd64.tar.gz" | sudo tar xzf - -C /usr/local/bin --wildcards --strip-components 1 "velero-*-linux-amd64/velero"
+fi
+```
+
 Wait for velero and Keycloak to be fully ready:
 
 ```bash
