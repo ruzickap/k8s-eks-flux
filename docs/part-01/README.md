@@ -35,6 +35,7 @@ export MY_GITHUB_WEBHOOK_TOKEN
 MY_COOKIE_SECRET=${MY_COOKIE_SECRET:-$(head -c 32 /dev/urandom | base64)}
 export MY_COOKIE_SECRET
 export SLACK_CHANNEL="mylabs"
+export GRAFANA_CLOUD_PROMETHEUS_REMOTE_WRITE_ENDPOINT=${GRAFANA_CLOUD_PROMETHEUS_REMOTE_WRITE_ENDPOINT:-https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push}
 # AWS Region
 export AWS_DEFAULT_REGION="eu-central-1"
 # Disable pager for AWS CLI
@@ -63,6 +64,9 @@ export MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET="7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 export OKTA_ISSUER="https://exxxxxxx-xxxxx-xx.okta.com"
 export OKTA_CLIENT_ID="0xxxxxxxxxxxxxxxxxx7"
 export OKTA_CLIENT_SECRET="1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxH"
+# Grafana Cloud credentials
+export GRAFANA_CLOUD_API_KEY="xxx"
+export GRAFANA_CLOUD_PROMETHEUS_USERNAME="2xxx6"
 ```
 
 Verify if all the necessary variables were set:
@@ -93,6 +97,9 @@ esac
 : "${GITHUB_FLUX_REPOSITORY?}"
 : "${GITHUB_TOKEN?}"
 : "${GITHUB_USER?}"
+: "${GRAFANA_CLOUD_API_KEY?}"
+: "${GRAFANA_CLOUD_PROMETHEUS_USERNAME?}"
+: "${GRAFANA_CLOUD_PROMETHEUS_REMOTE_WRITE_ENDPOINT?}"
 : "${KUBECONFIG?}"
 : "${LETSENCRYPT_ENVIRONMENT?}"
 : "${MY_COOKIE_SECRET?}"

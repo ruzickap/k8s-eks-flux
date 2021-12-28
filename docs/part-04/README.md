@@ -25,7 +25,7 @@ flux create helmrelease aws-efs-csi-driver \
   --interval="5m" \
   --source="HelmRepository/aws-efs-csi-driver.flux-system" \
   --chart="aws-efs-csi-driver" \
-  --chart-version="2.2.1" \
+  --chart-version="2.2.2" \
   --values-from="ConfigMap/aws-efs-csi-driver-values" \
   --export > infrastructure/base/aws-efs-csi-driver/aws-efs-csi-driver-helmrelease.yaml
 
@@ -289,7 +289,7 @@ flux create helmrelease jaeger-operator \
   --interval="5m" \
   --source="HelmRepository/jaegertracing.flux-system" \
   --chart="jaeger-operator" \
-  --chart-version="2.27.0" \
+  --chart-version="2.27.1" \
   --crds="CreateReplace" \
   --values-from="ConfigMap/jaeger-operator-values" \
   --export > infrastructure/base/jaeger-operator/jaeger-operator-helmrelease.yaml
@@ -655,14 +655,27 @@ mkdir -vp infrastructure/base/keycloak
 
 kubectl create namespace keycloak --dry-run=client -o yaml > "infrastructure/base/keycloak/keycloak-namespace.yaml"
 
-flux create helmrelease keycloak \
-  --namespace="keycloak" \
-  --interval="5m" \
-  --source="HelmRepository/bitnami.flux-system" \
-  --chart="keycloak" \
-  --chart-version="5.2.3" \
-  --values-from="ConfigMap/keycloak-values" \
-  --export > infrastructure/base/keycloak/keycloak-helmrelease.yaml
+cat > infrastructure/base/keycloak/keycloak-helmrelease.yaml << EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  chart:
+    spec:
+      chart: keycloak
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: flux-system
+      version: 5.2.3
+  timeout: 10m
+  interval: 5m
+  valuesFrom:
+  - kind: ConfigMap
+    name: keycloak-values
+EOF
 
 [[ ! -s "infrastructure/base/keycloak/kustomization.yaml" ]] && \
 ( cd "infrastructure/base/keycloak" && kustomize create --autodetect && cd - || exit )
@@ -837,6 +850,7 @@ metrics:
   serviceMonitor:
     enabled: true
 postgresql:
+  postgresqlPassword: ${MY_PASSWORD}
   persistence:
     enabled: true
     size: 1Gi
@@ -1704,7 +1718,7 @@ flux create helmrelease polaris \
   --interval="5m" \
   --source="HelmRepository/fairwinds-stable.flux-system" \
   --chart="polaris" \
-  --chart-version="4.2.1" \
+  --chart-version="4.2.2" \
   --values-from="ConfigMap/polaris-values" \
   --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/polaris-helmrelease.yaml"
 
@@ -1769,7 +1783,7 @@ flux create helmrelease policy-reporter \
   --interval="5m" \
   --source="HelmRepository/policy-reporter.flux-system" \
   --chart="policy-reporter" \
-  --chart-version="2.0.0" \
+  --chart-version="2.1.0" \
   --values-from="ConfigMap/policy-reporter-values" \
   --export > infrastructure/base/policy-reporter/policy-reporter-helmrelease.yaml
 
@@ -1848,12 +1862,32 @@ target:
     minimumPriority: "warning"
 EOF
 
-kubectl create ingress \
-  --annotation="nginx.ingress.kubernetes.io/auth-signin=https://oauth2-proxy.\${CLUSTER_FQDN}/oauth2/start?rd=\$scheme://\$host\$request_uri" \
-  --annotation="nginx.ingress.kubernetes.io/auth-url=https://oauth2-proxy.\${CLUSTER_FQDN}/oauth2/auth" \
-  --namespace policy-reporter policy-reporter \
-  --class=nginx --rule="policy-reporter.${CLUSTER_FQDN}/*=policy-reporter-ui:8080,tls" \
-  -o yaml --dry-run=client > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization/policy-reporter-ingress.yaml"
+cat > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization/policy-reporter-ingress.yaml" << \EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/start?rd=$scheme://$host$request_uri
+    nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.${CLUSTER_FQDN}/oauth2/auth
+  name: policy-reporter
+  namespace: policy-reporter
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: policy-reporter.${CLUSTER_FQDN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: policy-reporter-ui
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - policy-reporter.${CLUSTER_FQDN}
+EOF
 
 [[ ! -s "infrastructure/${ENVIRONMENT}/policy-reporter/kustomization.yaml" ]] && \
 ( cd "infrastructure/${ENVIRONMENT}/policy-reporter" && kustomize create --autodetect && cd - || exit )
@@ -1880,7 +1914,7 @@ flux create helmrelease rancher \
   --timeout="10m" \
   --source="HelmRepository/rancher-latest.flux-system" \
   --chart="rancher" \
-  --chart-version="2.6.2" \
+  --chart-version="2.6.3" \
   --values-from="ConfigMap/rancher-values" \
   --export > infrastructure/base/rancher/rancher-helmrelease.yaml
 
@@ -2060,7 +2094,7 @@ flux create helmrelease velero \
   --interval="5m" \
   --source="HelmRepository/vmware-tanzu.flux-system" \
   --chart="velero" \
-  --chart-version="2.27.0" \
+  --chart-version="2.27.1" \
   --crds="CreateReplace" \
   --values-from="ConfigMap/velero-values" \
   --export > infrastructure/base/velero/velero-helmrelease.yaml
@@ -2195,7 +2229,7 @@ git add .
 git commit -m "[${CLUSTER_NAME}] Add applications" || true
 if [[ ! "$(git push 2>&1)" =~ ^Everything\ up-to-date ]] ; then
   flux reconcile source git flux-system
-  sleep 5
+  sleep 10
 fi
 ```
 
