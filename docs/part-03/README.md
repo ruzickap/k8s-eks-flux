@@ -288,7 +288,6 @@ declare -A HELMREPOSITORIES=(
   ["codecentric"]="https://codecentric.github.io/helm-charts"
   ["crossplane-stable"]="https://charts.crossplane.io/stable"
   ["dex"]="https://charts.dexidp.io"
-  ["grafana"]="https://grafana.github.io/helm-charts"
   ["ingress-nginx"]="https://kubernetes.github.io/ingress-nginx"
   ["jaegertracing"]="https://jaegertracing.github.io/helm-charts"
   ["jetstack"]="https://charts.jetstack.io"
@@ -390,9 +389,6 @@ if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-
     --from-literal="CLUSTER_FQDN=${CLUSTER_FQDN}" \
     --from-literal="CLUSTER_NAME=${CLUSTER_NAME}" \
     --from-literal="ENVIRONMENT=dev" \
-    --from-literal="GRAFANA_CLOUD_API_KEY_BASE64=$(echo -n "${GRAFANA_CLOUD_API_KEY}" | base64 --wrap=0)" \
-    --from-literal="GRAFANA_CLOUD_PROMETHEUS_USERNAME_BASE64=$(echo -n "${GRAFANA_CLOUD_PROMETHEUS_USERNAME}" | base64 --wrap=0)" \
-    --from-literal="GRAFANA_CLOUD_PROMETHEUS_REMOTE_WRITE_ENDPOINT=${GRAFANA_CLOUD_PROMETHEUS_REMOTE_WRITE_ENDPOINT}" \
     --from-literal="LETSENCRYPT_ENVIRONMENT=staging" \
     --from-literal="MY_COOKIE_SECRET=${MY_COOKIE_SECRET}" \
     --from-literal="MY_EMAIL=${MY_EMAIL}" \
@@ -863,16 +859,6 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kube-prometheus-stack-secret.yaml" << \EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: grafana-cloud
-data:
-  username: ${GRAFANA_CLOUD_PROMETHEUS_USERNAME_BASE64}
-  password: ${GRAFANA_CLOUD_API_KEY_BASE64}
-EOF
-
 cat > "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kube-prometheus-stack-kustomization/kustomizeconfig.yaml" << \EOF
 nameReference:
 - kind: ConfigMap
@@ -887,7 +873,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: kube-prometheus-stack
 resources:
-  - kube-prometheus-stack-secret.yaml
   - ../../../base/kube-prometheus-stack
 configMapGenerator:
   - name: kube-prometheus-stack-values
@@ -1160,7 +1145,6 @@ prometheus:
   prometheusSpec:
     externalLabels:
       cluster: ${CLUSTER_FQDN}
-    replicaExternalLabelName: "__replica__"
     externalUrl: https://prometheus.${CLUSTER_FQDN}
     ruleSelectorNilUsesHelmValues: false
     serviceMonitorSelectorNilUsesHelmValues: false
@@ -1168,21 +1152,6 @@ prometheus:
     retention: 7d
     retentionSize: 1GB
     walCompression: true
-    remoteWrite:
-      - url: ${GRAFANA_CLOUD_PROMETHEUS_REMOTE_WRITE_ENDPOINT}
-        basicAuth:
-          username:
-            name: grafana-cloud
-            key: username
-          password:
-            name: grafana-cloud
-            key: password
-        writeRelabelConfigs:
-        - sourceLabels:
-          - "__name__"
-          regex: "apiserver_request_total|kubelet_node_config_error|kubelet_runtime_operations_errors_total|kubeproxy_network_programming_duration_seconds_bucket|container_cpu_usage_seconds_total|kube_statefulset_status_replicas|kube_statefulset_status_replicas_ready|node_namespace_pod_container:container_memory_swap|kubelet_runtime_operations_total|kube_statefulset_metadata_generation|node_cpu_seconds_total|kube_pod_container_resource_limits_cpu_cores|node_namespace_pod_container:container_memory_cache|kubelet_pleg_relist_duration_seconds_bucket|scheduler_binding_duration_seconds_bucket|container_network_transmit_bytes_total|kube_pod_container_resource_requests_memory_bytes|namespace_workload_pod:kube_pod_owner:relabel|kube_statefulset_status_observed_generation|process_resident_memory_bytes|container_network_receive_packets_dropped_total|kubelet_running_containers|kubelet_pod_worker_duration_seconds_bucket|scheduler_binding_duration_seconds_count|scheduler_volume_scheduling_duration_seconds_bucket|workqueue_queue_duration_seconds_bucket|container_network_transmit_packets_total|rest_client_request_duration_seconds_bucket|node_namespace_pod_container:container_memory_rss|container_cpu_cfs_throttled_periods_total|kubelet_volume_stats_capacity_bytes|kubelet_volume_stats_inodes_used|cluster_quantile:apiserver_request_duration_seconds:histogram_quantile|kube_node_status_allocatable_memory_bytes|container_memory_cache|go_goroutines|kubelet_runtime_operations_duration_seconds_bucket|kube_statefulset_replicas|kube_pod_owner|rest_client_requests_total|container_memory_swap|node_namespace_pod_container:container_memory_working_set_bytes|storage_operation_errors_total|scheduler_e2e_scheduling_duration_seconds_bucket|container_network_transmit_packets_dropped_total|kube_pod_container_resource_limits_memory_bytes|node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate|storage_operation_duration_seconds_count|node_netstat_TcpExt_TCPSynRetrans|node_netstat_Tcp_OutSegs|container_cpu_cfs_periods_total|kubelet_pod_start_duration_seconds_count|kubeproxy_network_programming_duration_seconds_count|container_network_receive_bytes_total|node_netstat_Tcp_RetransSegs|up|storage_operation_duration_seconds_bucket|kubelet_cgroup_manager_duration_seconds_count|kubelet_volume_stats_available_bytes|scheduler_scheduling_algorithm_duration_seconds_bucket|kube_statefulset_status_replicas_current|code_resource:apiserver_request_total:rate5m|kube_statefulset_status_replicas_updated|process_cpu_seconds_total|kube_pod_container_resource_requests_cpu_cores|kubelet_pod_worker_duration_seconds_count|kubelet_cgroup_manager_duration_seconds_bucket|kubelet_pleg_relist_duration_seconds_count|kubeproxy_sync_proxy_rules_duration_seconds_bucket|container_memory_usage_bytes|workqueue_adds_total|container_network_receive_packets_total|container_memory_working_set_bytes|kube_resourcequota|kubelet_running_pods|kubelet_volume_stats_inodes|kubeproxy_sync_proxy_rules_duration_seconds_count|scheduler_scheduling_algorithm_duration_seconds_count|apiserver_request:availability30d|container_memory_rss|kubelet_pleg_relist_interval_seconds_bucket|scheduler_e2e_scheduling_duration_seconds_count|scheduler_volume_scheduling_duration_seconds_count|workqueue_depth|:node_memory_MemAvailable_bytes:sum|volume_manager_total_volumes|kube_node_status_allocatable_cpu_cores"
-          action: "keep"
-    replicaExternalLabelName: "__replica__"
     externalLabels:
       cluster: "${CLUSTER_FQDN}"
     storageSpec:
