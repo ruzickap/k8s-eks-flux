@@ -655,7 +655,7 @@ Get the details about recovery:
 
 ```bash
 velero restore describe restore-keycloak
-kubectl wait --timeout=10m --namespace flux-system --for=condition=Ready kustomization keycloak
+kubectl wait --timeout=10m --namespace keycloak --for=condition=Ready helmrelease keycloak
 kubectl get -n keycloak configmap,helmrelease,ingress,pvc,pod,secret,svc,statefulset,volumesnapshot
 ```
 
