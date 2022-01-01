@@ -821,7 +821,7 @@ flux create helmrelease kube-prometheus-stack \
   --interval="5m" \
   --source="HelmRepository/prometheus-community.flux-system" \
   --chart="kube-prometheus-stack" \
-  --chart-version="25.2.0" \
+  --chart-version="27.0.0" \
   --crds="CreateReplace" \
   --values-from="ConfigMap/kube-prometheus-stack-values" \
   --export > infrastructure/base/kube-prometheus-stack/kube-prometheus-stack-helmrelease.yaml
@@ -1043,7 +1043,7 @@ grafana:
         datasource: Prometheus
       node-exporter-full:
         gnetId: 1860
-        revision: 23
+        revision: 24
         datasource: Prometheus
       prometheus-2-0-overview:
         gnetId: 3662
@@ -1067,23 +1067,23 @@ grafana:
         datasource: Prometheus
       istio-mesh:
         gnetId: 7639
-        revision: 98
+        revision: 101
         datasource: Prometheus
       istio-performance:
         gnetId: 11829
-        revision: 98
+        revision: 101
         datasource: Prometheus
       istio-service:
         gnetId: 7636
-        revision: 98
+        revision: 101
         datasource: Prometheus
       istio-workload:
         gnetId: 7630
-        revision: 98
+        revision: 101
         datasource: Prometheus
       istio-control-plane:
         gnetId: 7645
-        revision: 98
+        revision: 101
         datasource: Prometheus
       jaeger:
         gnetId: 10001
@@ -1102,6 +1102,22 @@ grafana:
         datasource: Prometheus
       kyverno-policy-reports:
         gnetId: 13968
+        revision: 2
+        datasource: Prometheus
+      external-dns:
+        gnetId: 15038
+        revision: 1
+        datasource: Prometheus
+      kubernetes-monitor:
+        gnetId: 15398
+        revision: 5
+        datasource: Prometheus
+      cluster-autoscaler-stats:
+        gnetId: 12623
+        revision: 1
+        datasource: Prometheus
+      kubernetes-addons-velero-stats:
+        gnetId: 11055
         revision: 2
         datasource: Prometheus
   grafana.ini:

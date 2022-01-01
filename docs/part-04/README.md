@@ -1718,7 +1718,7 @@ flux create helmrelease polaris \
   --interval="5m" \
   --source="HelmRepository/fairwinds-stable.flux-system" \
   --chart="polaris" \
-  --chart-version="4.2.2" \
+  --chart-version="4.2.3" \
   --values-from="ConfigMap/polaris-values" \
   --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/polaris/polaris-helmrelease.yaml"
 
@@ -1783,7 +1783,7 @@ flux create helmrelease policy-reporter \
   --interval="5m" \
   --source="HelmRepository/policy-reporter.flux-system" \
   --chart="policy-reporter" \
-  --chart-version="2.1.0" \
+  --chart-version="2.1.1" \
   --values-from="ConfigMap/policy-reporter-values" \
   --export > infrastructure/base/policy-reporter/policy-reporter-helmrelease.yaml
 
