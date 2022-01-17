@@ -1859,7 +1859,7 @@ global:
 target:
   slack:
     webhook: "${SLACK_INCOMING_WEBHOOK_URL}"
-    minimumPriority: "warning"
+    minimumPriority: "critical"
 EOF
 
 cat > "infrastructure/${ENVIRONMENT}/policy-reporter/policy-reporter-kustomization/policy-reporter-ingress.yaml" << \EOF
