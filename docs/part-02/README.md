@@ -198,7 +198,6 @@ managedNodeGroups:
     minSize: 2
     maxSize: 5
     volumeSize: 30
-    volumeType: gp3
     tags:
       <<: *tags
       compliance:na:defender: bottlerocket

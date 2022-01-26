@@ -51,6 +51,7 @@ and other secrets/variables.
 # AWS Credentials
 export AWS_ACCESS_KEY_ID="xxxxxxxxxxxxxxxxxx"
 export AWS_SECRET_ACCESS_KEY="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#export AWS_SESSION_TOKEN="....."
 # Common password
 export MY_PASSWORD="xxxx"
 export GITHUB_TOKEN="xxxxx"

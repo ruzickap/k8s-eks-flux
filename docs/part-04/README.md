@@ -669,7 +669,7 @@ spec:
         kind: HelmRepository
         name: bitnami
         namespace: flux-system
-      version: 5.2.3
+      version: 5.2.8
   timeout: 10m
   interval: 5m
   valuesFrom:

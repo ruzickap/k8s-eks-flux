@@ -19,10 +19,9 @@ on:
         required: false
 
 env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  AWS_DEFAULT_REGION: eu-central-1
+  AWS_GITHUB_OIDC_FEDERATED_ROLE_TO_ASSUME: ${{ secrets.AWS_GITHUB_OIDC_FEDERATED_ROLE_TO_ASSUME }}
   AWS_CONSOLE_ADMIN_ROLE_ARN: ${{ secrets.AWS_CONSOLE_ADMIN_ROLE_ARN }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_USER_ROLE_ARN: ${{ secrets.AWS_USER_ROLE_ARN }}
   BASE_DOMAIN: k8s.mylabs.dev
   GH_TOKEN_K8S_EKS: ${{ secrets.GH_TOKEN_K8S_EKS }}
@@ -41,9 +40,11 @@ env:
 concurrency: test-k8s-eks-flux
 
 jobs:
-  create-k8s-eks-flux:
+  k8s-eks-flux:
     runs-on: ubuntu-latest
-    if: ${{ contains(github.event.inputs.action, 'create') || ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v2
 
@@ -52,13 +53,24 @@ jobs:
         run: |
           echo "CLUSTER_NAME=${{ github.event.inputs.cluster_name }}" >> "${GITHUB_ENV}"
 
+          AWS_DEFAULT_REGION=$(awk -F \" '/AWS_DEFAULT_REGION=/ {print $2}' docs/part-01/README.md)
+          echo "::set-output name=${AWS_DEFAULT_REGION}::${AWS_DEFAULT_REGION}"
+
+      - name: 💡🔪 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ env.AWS_GITHUB_OIDC_FEDERATED_ROLE_TO_ASSUME }}
+          role-session-name: GitHubOidcFederatedRole
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
       - name: Create EKS cluster + environment
+        if: ${{ contains(github.event.inputs.action, 'create') || ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) }}
         run: |
           docker run -i --rm \
             -e AWS_ACCESS_KEY_ID \
-            -e AWS_ACCOUNT_ID \
-            -e AWS_CONSOLE_ADMIN_ROLE_ARN \
             -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_SESSION_TOKEN \
+            -e AWS_CONSOLE_ADMIN_ROLE_ARN \
             -e AWS_USER_ROLE_ARN \
             -e BASE_DOMAIN \
             -e CLUSTER_NAME \
@@ -90,23 +102,13 @@ jobs:
               helm ls -A ;\
             "
 
-  delete-k8s-eks-flux:
-    runs-on: ubuntu-latest
-    needs: create-k8s-eks-flux
-    if: ${{ contains(github.event.inputs.action, 'delete') || ( github.event_name == 'push' && github.ref == 'refs/heads/main' && always() ) }}
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Replace CLUSTER_NAME variable if defined manually
-        if: ${{ github.event.inputs.cluster_name }}
-        run: |
-          echo "CLUSTER_NAME=${{ github.event.inputs.cluster_name }}" >> "${GITHUB_ENV}"
-
       - name: Delete EKS cluster + environment
+        if: ${{ contains(github.event.inputs.action, 'delete') || ( github.event_name == 'push' && github.ref == 'refs/heads/main' && always() ) }}
         run: |
           docker run -i --rm \
             -e AWS_ACCESS_KEY_ID \
             -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_SESSION_TOKEN \
             -e CLUSTER_NAME \
             -e GITHUB_TOKEN="${GH_TOKEN_K8S_EKS}" \
             -v "${PWD}:/mnt" \
