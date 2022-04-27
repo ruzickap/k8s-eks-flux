@@ -739,7 +739,7 @@ flux create kustomization external-snapshotter \
 
 ### Kubernetes Metrics Server
 
-[Kubernetes Metrics Server](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/)
+[Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server)
 
 * [metrics-server](https://artifacthub.io/packages/helm/bitnami/metrics-server)
 * [default values.yaml](https://github.com/bitnami/charts/blob/master/bitnami/metrics-server/values.yaml)
