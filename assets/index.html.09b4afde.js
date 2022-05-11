@@ -1,0 +1,1 @@
+const e={key:"v-536c6f68",path:"/part-cleanup/",title:"Clean-up",lang:"en-US",frontmatter:{},excerpt:"",headers:[],git:{updatedTime:1652245462e3,contributors:[{name:"dependabot[bot]",email:"49699333+dependabot[bot]@users.noreply.github.com",commits:1}]},filePathRelative:"part-cleanup/README.md"};export{e as data};
