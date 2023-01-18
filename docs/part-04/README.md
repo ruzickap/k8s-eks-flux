@@ -1174,7 +1174,7 @@ kubectl create ingress \
 [kubed](https://appscode.com/products/kubed/)
 
 * [kubed](https://artifacthub.io/packages/helm/appscode/kubed)
-* [default values.yaml](https://github.com/appscode/kubed/blob/master/charts/kubed/values.yaml)
+* [default values.yaml](https://github.com/kubeops/config-syncer/blob/2310687a9ee63ba22ef272cbaaef8f7f89314183/charts/kubed/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
