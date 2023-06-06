@@ -14,9 +14,9 @@
   are using "dependencies"
 * [HelmReleases](https://fluxcd.io/docs/components/helm/helmreleases/) are
   compatible with Helm (`helm ls -A` works fine)
-* [Variable substitution](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
+* [Post build variable substitution](https://fluxcd.io/flux/components/kustomize/kustomization/#post-build-variable-substitution)
   is really handy and easy to use in case you do not want to use too much
-  [patching](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
+  [patching](https://fluxcd.io/flux/components/kustomize/kustomization/#post-build-variable-substitution)
 * Changing values inside patches which are use `|-` is not possible, because
   it is a block of "text" and not "structure"
 
@@ -32,7 +32,7 @@
     applications
   * It should also help you to easily manage groups of clusters because their
     definitions will be in the specific directory (like `infrastructure/dev`)
-  * [Variables](https://fluxcd.io/docs/components/kustomize/kustomization/#variable-substitution)
+  * [Variables](https://fluxcd.io/flux/components/kustomize/kustomization/#post-build-variable-substitution)
     should be used per cluster (`clusters/dev/kube1/cluster-apps-substitutefrom-secret.yaml`)
 * `HelmRepository` / `HelmReleases` can be defined per "cluster":
   * `clusters/dev/kube1/sources/fairwinds-stable.yaml`
@@ -570,7 +570,7 @@ EOF
 [Crossplane](https://crossplane.io/)
 
 * [crossplane](https://github.com/crossplane/crossplane)
-* [default values.yaml](https://github.com/crossplane/crossplane/blob/master/cluster/charts/crossplane/values.yaml.tmpl)
+* [default values.yaml](https://github.com/crossplane/crossplane/blob/770ea1cfe73068ea012a50541740fdda783da308/cluster/charts/crossplane/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
