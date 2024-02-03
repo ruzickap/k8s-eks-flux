@@ -4,16 +4,13 @@
 # Kubernetes kubeconfig file
 kubeconfig*.conf*
 
+# Vuepress Pages
+docs/.vuepress/dist
+docs/.vuepress/.temp/
+docs/.vuepress/.cache/
+
 # tmp directory
 tmp/
 
 # Node modules
 node_modules/
-
-# Vuepress files
-docs/.vuepress/dist
-docs/.vuepress/.temp/
-docs/.vuepress/.cache/
-
-# release-it
-.release-it.yml

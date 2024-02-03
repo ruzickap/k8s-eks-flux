@@ -29,8 +29,8 @@ flux create helmrelease aws-efs-csi-driver \
   --values-from="ConfigMap/aws-efs-csi-driver-values" \
   --export > infrastructure/base/aws-efs-csi-driver/aws-efs-csi-driver-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/aws-efs-csi-driver/kustomization.yaml" ]] && \
-( cd "infrastructure/base/aws-efs-csi-driver" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/aws-efs-csi-driver/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/aws-efs-csi-driver" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -77,19 +77,19 @@ controller:
     name: efs-csi-controller-sa
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/aws-efs-csi-driver/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/aws-efs-csi-driver" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/aws-efs-csi-driver/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/aws-efs-csi-driver" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- aws-efs-csi-driver$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource aws-efs-csi-driver && cd - || exit )
+! grep -q '\- aws-efs-csi-driver$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource aws-efs-csi-driver && cd - || exit)
 ```
 
 Change the tags on the Cluster level, because they will be different on every
 cluster and it needs to be "set" form TAGS bash variable:
 
 ```bash
-! grep -q 'name: aws-efs-csi-driver$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" && \
-cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" << EOF
+! grep -q 'name: aws-efs-csi-driver$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" &&
+  cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" << EOF
 - |-
   apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
   kind: Kustomization
@@ -164,14 +164,14 @@ spec:
     name: aws-provider
 EOF
 
-[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws/kustomization.yaml" ]] && \
-( cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws/kustomization.yaml" ]] &&
+  (cd"clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- crossplane-aws$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" && \
+! grep -q '\- crossplane-aws$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" &&
   (
-    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps" && \
-    kustomize edit add resource crossplane-aws && \
-    cd - || exit
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps" &&
+      kustomize edit add resource crossplane-aws &&
+      cd - || exit
   )
 ```
 
@@ -205,15 +205,15 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws/cp-aws-asm-secret-key/cp-aws-asm-secret-key.yaml" ]] ; then
+if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws/cp-aws-asm-secret-key/cp-aws-asm-secret-key.yaml" ]]; then
   kubectl create secret generic cp-aws-asm-secret-key -n crossplane-system --dry-run=client -o yaml \
     --from-literal=username=myuser --from-literal=password=mytest12345 \
     > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws/cp-aws-asm-secret-key/cp-aws-asm-secret-key.yaml"
   sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws/cp-aws-asm-secret-key/cp-aws-asm-secret-key.yaml"
 fi
 
-! grep -q 'name: cp-aws-asm-secret-key$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" && \
-cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" << EOF
+! grep -q 'name: cp-aws-asm-secret-key$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" &&
+  cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" << EOF
 - |-
   apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
   kind: Kustomization
@@ -258,11 +258,11 @@ spec:
       namespace: crossplane-system
 EOF
 
-! grep -q "\- cp-aws-asm-secret-key.yaml$" "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws/kustomization.yaml" && \
+! grep -q "\- cp-aws-asm-secret-key.yaml$" "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws/kustomization.yaml" &&
   (
-    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws" && \
-    kustomize edit add resource cp-aws-asm-secret-key.yaml && \
-    cd - || exit
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/crossplane-aws" &&
+      kustomize edit add resource cp-aws-asm-secret-key.yaml &&
+      cd - || exit
   )
 ```
 
@@ -294,8 +294,8 @@ flux create helmrelease jaeger-operator \
   --values-from="ConfigMap/jaeger-operator-values" \
   --export > infrastructure/base/jaeger-operator/jaeger-operator-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/jaeger-operator/kustomization.yaml" ]] && \
-( cd "infrastructure/base/jaeger-operator" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/jaeger-operator/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/jaeger-operator" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -340,11 +340,11 @@ rbac:
   clusterRole: true
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/jaeger-operator/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/jaeger-operator" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/jaeger-operator/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/jaeger-operator" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- jaeger-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource jaeger-operator && cd - || exit )
+! grep -q '\- jaeger-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource jaeger-operator && cd - || exit)
 ```
 
 #### Deploy Jaeger using operator
@@ -442,11 +442,11 @@ spec:
       app: jaeger
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/jaeger-controlplane/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/jaeger-controlplane" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/jaeger-controlplane/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/jaeger-controlplane" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- jaeger-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource jaeger-controlplane && cd - || exit )
+! grep -q '\- jaeger-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource jaeger-controlplane && cd - || exit)
 ```
 
 #### istio-operator
@@ -499,8 +499,8 @@ flux create helmrelease istio-operator \
   --values-from="ConfigMap/istio-operator-values" \
   --export > infrastructure/base/istio-operator/istio-operator-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/istio-operator/kustomization.yaml" ]] && \
-( cd "infrastructure/base/istio-operator" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/istio-operator/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/istio-operator" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -545,11 +545,11 @@ hub: docker.io/istio
 tag: ${ISTIO_VERSION}
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/istio-operator/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/istio-operator" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/istio-operator/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/istio-operator" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- istio-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource istio-operator && cd - || exit )
+! grep -q '\- istio-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource istio-operator && cd - || exit)
 ```
 
 #### Deploy Istio using operator
@@ -631,11 +631,11 @@ spec:
             memory: 64Mi
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/istio-controlplane/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/istio-controlplane" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/istio-controlplane/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/istio-controlplane" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- istio-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource istio-controlplane && cd - || exit )
+! grep -q '\- istio-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource istio-controlplane && cd - || exit)
 ```
 
 #### Keycloak
@@ -677,8 +677,8 @@ spec:
     name: keycloak-values
 EOF
 
-[[ ! -s "infrastructure/base/keycloak/kustomization.yaml" ]] && \
-( cd "infrastructure/base/keycloak" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/keycloak/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/keycloak" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -856,11 +856,11 @@ postgresql:
     size: 1Gi
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/keycloak/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/keycloak" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/keycloak/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/keycloak" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- keycloak$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource keycloak && cd - || exit )
+! grep -q '\- keycloak$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource keycloak && cd - || exit)
 ```
 
 #### Kiali
@@ -886,8 +886,8 @@ flux create helmrelease kiali-operator \
   --crds="CreateReplace" \
   --export > infrastructure/base/kiali-operator/kiali-operator-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/kiali-operator/kustomization.yaml" ]] && \
-( cd "infrastructure/base/kiali-operator" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/kiali-operator/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/kiali-operator" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -904,18 +904,18 @@ flux create kustomization kiali-operator \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization.yaml"
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization/kustomization.yaml" ]] && \
+[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization/kustomization.yaml" ]] &&
   (
-    cd "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization" && \
-    kustomize create --resources ../../../base/kiali-operator && \
-    cd - || exit
+    cd "infrastructure/${ENVIRONMENT}/kiali-operator/kiali-operator-kustomization" &&
+      kustomize create --resources ../../../base/kiali-operator &&
+      cd - || exit
   )
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-operator/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/kiali-operator" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-operator/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/kiali-operator" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- kiali-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kiali-operator && cd - || exit )
+! grep -q '\- kiali-operator$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource kiali-operator && cd - || exit)
 ```
 
 #### Deploy Kiali using operator
@@ -1014,11 +1014,11 @@ spec:
     web_root: /
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-controlplane/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/kiali-controlplane" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/kiali-controlplane/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/kiali-controlplane" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- kiali-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kiali-controlplane && cd - || exit )
+! grep -q '\- kiali-controlplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource kiali-controlplane && cd - || exit)
 ```
 
 ### kuard
@@ -1158,14 +1158,14 @@ kubectl create ingress \
   --class=nginx --rule="kuard.${CLUSTER_FQDN}/*=kuard:8080,tls" \
   -o yaml --dry-run=client > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kuard/kuard-manifests/kuard-ingress.yaml"
 
-[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kuard/kustomization.yaml" ]] && \
-( cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kuard" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kuard/kustomization.yaml" ]] &&
+  (cd"clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kuard" && kustomize create --autodetect && cd - || exit)
 
-! grep -q "\- kuard$" "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" && \
+! grep -q "\- kuard$" "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" &&
   (
-    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps" && \
-    kustomize edit add resource kuard && \
-    cd - || exit
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps" &&
+      kustomize edit add resource kuard &&
+      cd - || exit
   )
 ```
 
@@ -1191,8 +1191,8 @@ flux create helmrelease kubed \
   --chart-version="v0.12.0" \
   --export > infrastructure/base/kubed/kubed-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/kubed/kustomization.yaml" ]] && \
-( cd "infrastructure/base/kubed" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/kubed/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/kubed" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1209,18 +1209,18 @@ flux create kustomization kubed \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/kubed/kubed-kustomization.yaml"
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kubed/kubed-kustomization/kustomization.yaml" ]] && \
+[[ ! -s "infrastructure/${ENVIRONMENT}/kubed/kubed-kustomization/kustomization.yaml" ]] &&
   (
-    cd "infrastructure/${ENVIRONMENT}/kubed/kubed-kustomization" && \
-    kustomize create --resources ../../../base/kubed && \
-    cd - || exit
+    cd "infrastructure/${ENVIRONMENT}/kubed/kubed-kustomization" &&
+      kustomize create --resources ../../../base/kubed &&
+      cd - || exit
   )
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kubed/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/kubed" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/kubed/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/kubed" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- kubed$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kubed && cd - || exit )
+! grep -q '\- kubed$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource kubed && cd - || exit)
 ```
 
 ### kubernetes-dashboard
@@ -1246,8 +1246,8 @@ flux create helmrelease kubernetes-dashboard \
   --values-from="ConfigMap/kubernetes-dashboard-values" \
   --export > infrastructure/base/kubernetes-dashboard/kubernetes-dashboard-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/kubernetes-dashboard/kustomization.yaml" ]] && \
-( cd "infrastructure/base/kubernetes-dashboard" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/kubernetes-dashboard/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/kubernetes-dashboard" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1334,11 +1334,11 @@ kubectl create clusterrolebinding kubernetes-dashboard-admin \
   --serviceaccount=kubernetes-dashboard:kubernetes-dashboard-admin \
   -o yaml --dry-run=client > "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kubernetes-dashboard-kustomization/kubernetes-dashboard-clusterrolebinding.yaml"
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/kubernetes-dashboard" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/kubernetes-dashboard/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/kubernetes-dashboard" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- kubernetes-dashboard$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kubernetes-dashboard && cd - || exit )
+! grep -q '\- kubernetes-dashboard$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource kubernetes-dashboard && cd - || exit)
 ```
 
 ### Kyverno
@@ -1367,8 +1367,8 @@ flux create helmrelease kyverno \
   --values-from="ConfigMap/kyverno-values" \
   --export > infrastructure/base/kyverno/kyverno-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/kyverno/kustomization.yaml" ]] && \
-( cd "infrastructure/base/kyverno" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/kyverno/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/kyverno" && kustomize create --autodetect && cd - || exit)
 
 mkdir -vp infrastructure/base/kyverno-policies
 
@@ -1381,8 +1381,8 @@ flux create helmrelease kyverno-policies \
   --chart-version="v2.1.3" \
   --export > infrastructure/base/kyverno-policies/kyverno-policies-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/kyverno-policies/kustomization.yaml" ]] && \
-( cd "infrastructure/base/kyverno-policies" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/kyverno-policies/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/kyverno-policies" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1428,11 +1428,11 @@ serviceMonitor:
   enabled: true
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kyverno/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/kyverno" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/kyverno/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/kyverno" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- kyverno$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kyverno && cd - || exit )
+! grep -q '\- kyverno$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource kyverno && cd - || exit)
 
 mkdir -vp "infrastructure/${ENVIRONMENT}/kyverno-policies/kyverno-policies-kustomization"
 
@@ -1445,18 +1445,18 @@ flux create kustomization kyverno-policies \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/kyverno-policies/kyverno-policies-kustomization.yaml"
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kyverno-policies/kyverno-policies-kustomization/kustomization.yaml" ]] && \
+[[ ! -s "infrastructure/${ENVIRONMENT}/kyverno-policies/kyverno-policies-kustomization/kustomization.yaml" ]] &&
   (
-    cd "infrastructure/${ENVIRONMENT}/kyverno-policies/kyverno-policies-kustomization" && \
-    kustomize create --resources ../../../base/kyverno-policies && \
-    cd -  || exit
+    cd "infrastructure/${ENVIRONMENT}/kyverno-policies/kyverno-policies-kustomization" &&
+      kustomize create --resources ../../../base/kyverno-policies &&
+      cd - || exit
   )
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kyverno-policies/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/kyverno-policies" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/kyverno-policies/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/kyverno-policies" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- kyverno-policies$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kyverno-policies && cd - || exit )
+! grep -q '\- kyverno-policies$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource kyverno-policies && cd - || exit)
 ```
 
 ### OAuth2 Proxy - Keycloak
@@ -1482,8 +1482,8 @@ flux create helmrelease oauth2-proxy-keycloak \
   --values-from="ConfigMap/oauth2-proxy-keycloak-values" \
   --export > infrastructure/base/oauth2-proxy-keycloak/oauth2-proxy-keycloak-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/oauth2-proxy-keycloak/kustomization.yaml" ]] && \
-( cd "infrastructure/base/oauth2-proxy-keycloak" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/oauth2-proxy-keycloak/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/oauth2-proxy-keycloak" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1569,11 +1569,11 @@ metrics:
     enabled: true
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/oauth2-proxy-keycloak" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- oauth2-proxy-keycloak$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource oauth2-proxy-keycloak && cd - || exit )
+! grep -q '\- oauth2-proxy-keycloak$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource oauth2-proxy-keycloak && cd - || exit)
 ```
 
 ### podinfo
@@ -1599,8 +1599,8 @@ flux create helmrelease podinfo \
   --values-from="ConfigMap/podinfo-values" \
   --export > infrastructure/base/podinfo/podinfo-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/podinfo/kustomization.yaml" ]] && \
-( cd "infrastructure/base/podinfo" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/podinfo/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/podinfo" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1674,11 +1674,11 @@ serviceMonitor:
   enabled: true
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/podinfo/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/podinfo" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/podinfo/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/podinfo" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- podinfo$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource podinfo && cd - || exit )
+! grep -q '\- podinfo$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource podinfo && cd - || exit)
 ```
 
 ### Polaris
@@ -1698,11 +1698,11 @@ flux create source helm "fairwinds-stable" \
   --interval=1h \
   --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/fairwinds-stable.yaml"
 
-! grep -q '\- fairwinds-stable.yaml$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/kustomization.yaml" && \
+! grep -q '\- fairwinds-stable.yaml$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/kustomization.yaml" &&
   (
-    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/" && \
-    kustomize edit add resource fairwinds-stable.yaml && \
-    cd -  || exit
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/" &&
+      kustomize edit add resource fairwinds-stable.yaml &&
+      cd - || exit
   )
 ```
 
@@ -1760,8 +1760,8 @@ dashboard:
         - polaris.${CLUSTER_FQDN}
 EOF
 
-! grep -q '\- polaris$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" && \
-( cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps" && kustomize edit add resource polaris && cd - || exit )
+! grep -q '\- polaris$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" &&
+  (cd"clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps" && kustomize edit add resource polaris && cd - || exit)
 ```
 
 ### Policy Reporter
@@ -1787,8 +1787,8 @@ flux create helmrelease policy-reporter \
   --values-from="ConfigMap/policy-reporter-values" \
   --export > infrastructure/base/policy-reporter/policy-reporter-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/policy-reporter/kustomization.yaml" ]] && \
-( cd "infrastructure/base/policy-reporter" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/policy-reporter/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/policy-reporter" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1889,11 +1889,11 @@ spec:
     - policy-reporter.${CLUSTER_FQDN}
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/policy-reporter/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/policy-reporter" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/policy-reporter/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/policy-reporter" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- policy-reporter$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource policy-reporter && cd - || exit )
+! grep -q '\- policy-reporter$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource policy-reporter && cd - || exit)
 ```
 
 ### Rancher
@@ -1918,8 +1918,8 @@ flux create helmrelease rancher \
   --values-from="ConfigMap/rancher-values" \
   --export > infrastructure/base/rancher/rancher-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/rancher/kustomization.yaml" ]] && \
-( cd "infrastructure/base/rancher" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/rancher/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/rancher" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1998,11 +1998,11 @@ replicas: 1
 bootstrapPassword: ${MY_PASSWORD}
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/rancher/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/rancher" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/rancher/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/rancher" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- rancher$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource rancher && cd - || exit )
+! grep -q '\- rancher$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource rancher && cd - || exit)
 ```
 
 ### Secrets Store CSI driver
@@ -2028,8 +2028,8 @@ flux create helmrelease secrets-store-csi-driver \
   --crds="CreateReplace" \
   --export > infrastructure/base/secrets-store-csi-driver/secrets-store-csi-driver-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/secrets-store-csi-driver/kustomization.yaml" ]] && \
-( cd "infrastructure/base/secrets-store-csi-driver" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/secrets-store-csi-driver/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/secrets-store-csi-driver" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -2046,11 +2046,11 @@ flux create kustomization secrets-store-csi-driver \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-kustomization.yaml"
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-kustomization/kustomization.yaml" ]] && \
+[[ ! -s "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-kustomization/kustomization.yaml" ]] &&
   (
-    cd "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-kustomization" && \
-    kustomize create --resources ../../../base/secrets-store-csi-driver && \
-    cd - || exit
+    cd "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/secrets-store-csi-driver-kustomization" &&
+      kustomize create --resources ../../../base/secrets-store-csi-driver &&
+      cd - || exit
   )
 
 flux create kustomization secrets-store-csi-driver-provider-aws \
@@ -2067,14 +2067,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: secrets-store-csi-driver
 resources:
-  - https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/807d3cea12264c518e2a5007d6009cee159c2917/deployment/aws-provider-installer.yaml
+  - https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/807d3cea12264c518e2a5007d6009cee159c2917/deployment/aws-provider-installer.yaml # DevSkim: ignore DS117838
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/secrets-store-csi-driver/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/secrets-store-csi-driver" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- secrets-store-csi-driver$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource secrets-store-csi-driver && cd - || exit )
+! grep -q '\- secrets-store-csi-driver$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource secrets-store-csi-driver && cd - || exit)
 ```
 
 ### Velero
@@ -2099,8 +2099,8 @@ flux create helmrelease velero \
   --values-from="ConfigMap/velero-values" \
   --export > infrastructure/base/velero/velero-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/velero/kustomization.yaml" ]] && \
-( cd "infrastructure/base/velero" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/velero/kustomization.yaml" ]] &&
+  (cd"infrastructure/base/velero" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -2190,7 +2190,8 @@ configuration:
     prefix: velero
     config:
       region: ${AWS_DEFAULT_REGION}
-      # kmsKeyId: TODO !!!! xxxxx
+      # Not working...
+      # kmsKeyId:
   volumeSnapshotLocation:
     name: aws
     config:
@@ -2213,11 +2214,11 @@ schedules:
       ttl: 48h
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/velero/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/velero" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/velero/kustomization.yaml" ]] &&
+  (cd"infrastructure/${ENVIRONMENT}/velero" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- velero$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource velero && cd - || exit )
+! grep -q '\- velero$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd"infrastructure/${ENVIRONMENT}" && kustomize edit add resource velero && cd - || exit)
 ```
 
 ## Flux
@@ -2227,7 +2228,7 @@ Commit changes to git repository:
 ```bash
 git add .
 git commit -m "[${CLUSTER_NAME}] Add applications" || true
-if [[ ! "$(git push 2>&1)" =~ ^Everything\ up-to-date ]] ; then
+if [[ ! "$(git push 2>&1)" =~ ^Everything\ up-to-date ]]; then
   flux reconcile source git flux-system
   sleep 10
 fi
