@@ -30,7 +30,7 @@ export LETSENCRYPT_ENVIRONMENT="staging"
 # Flux GitHub repository
 export GITHUB_USER="ruzickap"
 export GITHUB_FLUX_REPOSITORY="k8s-eks-flux-repo"
-MY_GITHUB_WEBHOOK_TOKEN=${MY_GITHUB_WEBHOOK_TOKEN:-$(head -c 12 /dev/urandom | md5sum | cut -d " " -f1)}
+MY_GITHUB_WEBHOOK_TOKEN=${MY_GITHUB_WEBHOOK_TOKEN:-$(head -c 12 /dev/urandom | md5sum | cut -d " " -f1)} # DevSkim: ignore DS126858
 export MY_GITHUB_WEBHOOK_TOKEN
 MY_COOKIE_SECRET=${MY_COOKIE_SECRET:-$(head -c 32 /dev/urandom | base64)}
 export MY_COOKIE_SECRET
@@ -70,17 +70,17 @@ Verify if all the necessary variables were set:
 
 ```bash
 case "${CLUSTER_NAME}" in
-  kube1)
-    MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID_KUBE1}}
-    MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET_KUBE1}}
+kube1)
+  MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID_KUBE1}}
+  MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET_KUBE1}}
   ;;
-  kube2)
-    MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID_KUBE2}}
-    MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET_KUBE2}}
+kube2)
+  MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_ID_KUBE2}}
+  MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET=${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET:-${MY_GITHUB_ORG_OAUTH_DEX_CLIENT_SECRET_KUBE2}}
   ;;
-  *)
-    echo "Unsupported cluster name: ${CLUSTER_NAME} !"
-    exit 1
+*)
+  echo "Unsupported cluster name: ${CLUSTER_NAME} !"
+  exit 1
   ;;
 esac
 
@@ -152,7 +152,7 @@ Install [kubectl](https://github.com/kubernetes/kubectl) binary:
 ```bash
 if ! command -v kubectl &> /dev/null; then
   # https://github.com/kubernetes/kubectl/releases
-  sudo curl -s -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.21.7/bin/$(uname | sed "s/./\L&/g" )/amd64/kubectl"
+  sudo curl -s -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.21.7/bin/$(uname | sed "s/./\L&/g")/amd64/kubectl"
   sudo chmod a+x /usr/local/bin/kubectl
 fi
 ```

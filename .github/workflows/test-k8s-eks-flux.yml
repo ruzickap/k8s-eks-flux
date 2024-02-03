@@ -18,6 +18,8 @@ on:
         default: kube2
         required: false
 
+permissions: read-all
+
 env:
   AWS_DEFAULT_REGION: eu-central-1
   AWS_GITHUB_OIDC_FEDERATED_ROLE_TO_ASSUME: ${{ secrets.AWS_GITHUB_OIDC_FEDERATED_ROLE_TO_ASSUME }}

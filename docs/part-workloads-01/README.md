@@ -274,7 +274,7 @@ velero-data-keycloak-postgresql-0-twj92   true         data-keycloak-postgresql-
 Check the `VolumeSnapshot` details:
 
 ```bash
-kubectl describe volumesnapshots  -n keycloak --selector=velero.io/backup-name=backup-keycloak
+kubectl describe volumesnapshots -n keycloak --selector=velero.io/backup-name=backup-keycloak
 ```
 
 Output:

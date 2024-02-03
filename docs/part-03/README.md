@@ -206,7 +206,7 @@ infrastructure
 Clone initial git repository created by `eksctl` used by Flux:
 
 ```bash
-if [[ -d "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}" ]] ; then
+if [[ -d "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}" ]]; then
   git -C "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}" pull -r
 else
   git clone "https://${GITHUB_TOKEN}@github.com/${GITHUB_USER}/${GITHUB_FLUX_REPOSITORY}.git" "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"
@@ -222,7 +222,7 @@ mkdir -vp "tmp/${CLUSTER_FQDN}/${GITHUB_FLUX_REPOSITORY}"/infrastructure/{base,d
 Set `user.name` and `user.email` for git (if not already configured)
 
 ```bash
-git config user.name  || git config --global user.name  "${GITHUB_USER}"
+git config user.name || git config --global user.name "${GITHUB_USER}"
 git config user.email || git config --global user.email "${MY_EMAIL}"
 ```
 
@@ -262,9 +262,9 @@ spec:
 EOF
 
   (
-    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system" && \
-    kustomize edit add patch --path gotk-patches.yaml && \
-    cd - || exit
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system" &&
+      kustomize edit add patch --path gotk-patches.yaml &&
+      cd - || exit
   )
 
   git add .sops.yaml "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/flux-system"
@@ -338,11 +338,11 @@ flux create kustomization sources \
   --wait \
   --export > "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources.yaml"
 
-[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/kustomization.yaml" ]] && \
+[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/kustomization.yaml" ]] &&
   (
-    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/" && \
-    kustomize create --resources "../../../../infrastructure/sources" && \
-    cd - || exit
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/sources/" &&
+      kustomize create --resources "../../../../infrastructure/sources" &&
+      cd - || exit
   )
 ```
 
@@ -374,14 +374,14 @@ spec:
       name: cluster-apps-substitutefrom-secret
 EOF
 
-[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" ]] && \
+[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" ]] &&
   (
-    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/" && \
-    kustomize create --resources "../../../../infrastructure/${ENVIRONMENT}" && \
-    cd - || exit
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/" &&
+      kustomize create --resources "../../../../infrastructure/${ENVIRONMENT}" &&
+      cd - || exit
   )
 
-if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-secret.yaml" ]] ; then
+if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-secret.yaml" ]]; then
   kubectl create secret generic cluster-apps-substitutefrom-secret -n flux-system --dry-run=client -o yaml \
     --from-literal="AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}" \
     --from-literal="AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}" \
@@ -409,11 +409,11 @@ if [[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-
   sops --encrypt --in-place "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps-substitutefrom-secret.yaml"
 fi
 
-[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/kustomization.yaml" ]] && \
+[[ ! -s "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/kustomization.yaml" ]] &&
   (
-    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}" && \
-    kustomize create --resources "flux-system,sources.yaml,cluster-apps-substitutefrom-secret.yaml,cluster-apps.yaml" && \
-    cd - || exit
+    cd "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}" &&
+      kustomize create --resources "flux-system,sources.yaml,cluster-apps-substitutefrom-secret.yaml,cluster-apps.yaml" &&
+      cd - || exit
   )
 ```
 
@@ -423,8 +423,8 @@ Create initial `kustomization.yaml` where all the group application will
 have their record:
 
 ```bash
-[[ ! -s "infrastructure/${ENVIRONMENT}/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize create --resources "../sources" && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize create --resources "../sources" && cd - || exit)
 ```
 
 ## Base Applications definitions
@@ -450,8 +450,8 @@ flux create helmrelease aws-ebs-csi-driver \
   --values-from="ConfigMap/aws-ebs-csi-driver-values" \
   --export > infrastructure/base/aws-ebs-csi-driver/aws-ebs-csi-driver-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/aws-ebs-csi-driver/kustomization.yaml" ]] && \
-( cd "infrastructure/base/aws-ebs-csi-driver" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/aws-ebs-csi-driver/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/aws-ebs-csi-driver" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -504,7 +504,7 @@ storageClasses:
     storageclass.kubernetes.io/is-default-class: "true"
   parameters:
     encrypted: "true"
-    # TODO XXXX !!!! this is not working :-(
+    # Not working :-(
     # kmskeyid: ${AWS_KMS_KEY_ARN}
 EOF
 
@@ -523,19 +523,19 @@ reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/aws-ebs-csi-driver" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- aws-ebs-csi-driver$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource aws-ebs-csi-driver && cd - || exit )
+! grep -q '\- aws-ebs-csi-driver$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource aws-ebs-csi-driver && cd - || exit)
 ```
 
 Change the "aws-ebs-csi-driver tags" on the Cluster level, because they will be
 different for every cluster and it needs to be "set" form `TAGS` bash variable:
 
 ```bash
-! grep -q 'name: aws-ebs-csi-driver$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" && \
-cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" << EOF
+! grep -q 'name: aws-ebs-csi-driver$' "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" &&
+  cat >> "clusters/${ENVIRONMENT}/${CLUSTER_FQDN}/cluster-apps/kustomization.yaml" << EOF
 patchesStrategicMerge:
 - |-
   apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
@@ -587,8 +587,8 @@ flux create helmrelease crossplane \
   --chart-version="1.5.1" \
   --export > infrastructure/base/crossplane/crossplane-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/crossplane/kustomization.yaml" ]] && \
-( cd "infrastructure/base/crossplane" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/crossplane/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/crossplane" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -605,11 +605,11 @@ flux create kustomization crossplane \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization.yaml"
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization/kustomization.yaml" ]] && \
+[[ ! -s "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization/kustomization.yaml" ]] &&
   (
-    cd "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization" && \
-    kustomize create --resources ../../../base/crossplane && \
-    cd - || exit
+    cd "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization" &&
+      kustomize create --resources ../../../base/crossplane &&
+      cd - || exit
   )
 
 cat > "infrastructure/${ENVIRONMENT}/crossplane/crossplane-kustomization-provider.yaml" << \EOF
@@ -680,11 +680,11 @@ spec:
     source: InjectedIdentity
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/crossplane/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/crossplane" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/crossplane/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/crossplane" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- crossplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource crossplane && cd - || exit )
+! grep -q '\- crossplane$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource crossplane && cd - || exit)
 ```
 
 ### CSI Snapshotter
@@ -723,18 +723,18 @@ flux create kustomization external-snapshotter \
   --wait \
   --export > "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization.yaml"
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization/kustomization.yaml" ]] && \
+[[ ! -s "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization/kustomization.yaml" ]] &&
   (
-    cd "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization" && \
-    kustomize create --resources "../../../base/external-snapshotter" && \
-    cd - || exit
+    cd "infrastructure/${ENVIRONMENT}/external-snapshotter/external-snapshotter-kustomization" &&
+      kustomize create --resources "../../../base/external-snapshotter" &&
+      cd - || exit
   )
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/external-snapshotter/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/external-snapshotter" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/external-snapshotter/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/external-snapshotter" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- external-snapshotter$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource external-snapshotter && cd - || exit )
+! grep -q '\- external-snapshotter$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource external-snapshotter && cd - || exit)
 ```
 
 ### Kubernetes Metrics Server
@@ -760,8 +760,8 @@ flux create helmrelease metrics-server \
   --values-from="ConfigMap/metrics-server-values" \
   --export > infrastructure/base/metrics-server/metrics-server-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/metrics-server/kustomization.yaml" ]] && \
-( cd "infrastructure/base/metrics-server" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/metrics-server/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/metrics-server" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -798,8 +798,8 @@ apiService:
   create: true
 EOF
 
-! grep -q '\- metrics-server$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource metrics-server && cd - || exit )
+! grep -q '\- metrics-server$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource metrics-server && cd - || exit)
 ```
 
 ### kube-prometheus-stack
@@ -826,8 +826,8 @@ flux create helmrelease kube-prometheus-stack \
   --values-from="ConfigMap/kube-prometheus-stack-values" \
   --export > infrastructure/base/kube-prometheus-stack/kube-prometheus-stack-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/kube-prometheus-stack/kustomization.yaml" ]] && \
-( cd "infrastructure/base/kube-prometheus-stack" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/kube-prometheus-stack/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/kube-prometheus-stack" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1180,11 +1180,11 @@ prometheus:
               storage: 2Gi
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/kube-prometheus-stack" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/kube-prometheus-stack/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/kube-prometheus-stack" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- kube-prometheus-stack$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kube-prometheus-stack && cd - || exit )
+! grep -q '\- kube-prometheus-stack$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource kube-prometheus-stack && cd - || exit)
 ```
 
 ### cert-manager
@@ -1208,8 +1208,8 @@ flux create helmrelease cert-manager \
   --values-from="ConfigMap/cert-manager-values" \
   --export > infrastructure/base/cert-manager/cert-manager-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/cert-manager/kustomization.yaml" ]] && \
-( cd "infrastructure/base/cert-manager" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/cert-manager/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/cert-manager" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1372,11 +1372,11 @@ spec:
     - "${CLUSTER_FQDN}"
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/cert-manager/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/cert-manager" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/cert-manager/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/cert-manager" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- cert-manager$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource cert-manager && cd - || exit )
+! grep -q '\- cert-manager$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource cert-manager && cd - || exit)
 ```
 
 ### cluster-autoscaler
@@ -1400,8 +1400,8 @@ flux create helmrelease cluster-autoscaler \
   --values-from="ConfigMap/cluster-autoscaler-values" \
   --export > infrastructure/base/cluster-autoscaler/cluster-autoscaler-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/cluster-autoscaler/kustomization.yaml" ]] && \
-( cd "infrastructure/base/cluster-autoscaler" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/cluster-autoscaler/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/cluster-autoscaler" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1475,11 +1475,11 @@ prometheusRule:
   namespace: kube-prometheus-stack
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/cluster-autoscaler/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/cluster-autoscaler" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/cluster-autoscaler/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/cluster-autoscaler" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- cluster-autoscaler$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource cluster-autoscaler && cd - || exit )
+! grep -q '\- cluster-autoscaler$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource cluster-autoscaler && cd - || exit)
 ```
 
 ### Dex
@@ -1505,8 +1505,8 @@ flux create helmrelease dex \
   --values-from="ConfigMap/dex-values" \
   --export > infrastructure/base/dex/dex-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/dex/kustomization.yaml" ]] && \
-( cd "infrastructure/base/dex" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/dex/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/dex" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1597,8 +1597,8 @@ config:
   enablePasswordDB: false
 EOF
 
-! grep -q '\- dex$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource dex && cd - || exit )
+! grep -q '\- dex$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource dex && cd - || exit)
 ```
 
 ### ExternalDNS
@@ -1622,8 +1622,8 @@ flux create helmrelease external-dns \
   --values-from="ConfigMap/external-dns-values" \
   --export > infrastructure/base/external-dns/external-dns-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/external-dns/kustomization.yaml" ]] && \
-( cd "infrastructure/base/external-dns" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/external-dns/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/external-dns" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -1695,11 +1695,11 @@ metrics:
     enabled: true
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/external-dns/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/external-dns" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/external-dns/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/external-dns" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- external-dns$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource external-dns && cd - || exit )
+! grep -q '\- external-dns$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource external-dns && cd - || exit)
 ```
 
 ### Flux provides, alerts, receivers and monitoring
@@ -1861,11 +1861,11 @@ spec:
     - flux-receiver.${CLUSTER_FQDN}
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/flux/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/flux" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/flux/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/flux" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- flux$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource flux && cd - || exit )
+! grep -q '\- flux$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource flux && cd - || exit)
 ```
 
 ### ingress-nginx
@@ -1891,8 +1891,8 @@ flux create helmrelease ingress-nginx \
   --values-from="ConfigMap/ingress-nginx-values" \
   --export > infrastructure/base/ingress-nginx/ingress-nginx-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/ingress-nginx/kustomization.yaml" ]] && \
-( cd "infrastructure/base/ingress-nginx" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/ingress-nginx/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/ingress-nginx" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -2000,11 +2000,11 @@ controller:
             summary: More than 5% of all requests returned 4XX, this requires your attention
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/ingress-nginx/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/ingress-nginx" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/ingress-nginx/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/ingress-nginx" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- ingress-nginx$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource ingress-nginx && cd - || exit )
+! grep -q '\- ingress-nginx$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource ingress-nginx && cd - || exit)
 ```
 
 ### MailHog
@@ -2030,8 +2030,8 @@ flux create helmrelease mailhog \
   --values-from="ConfigMap/mailhog-values" \
   --export > infrastructure/base/mailhog/mailhog-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/mailhog/kustomization.yaml" ]] && \
-( cd "infrastructure/base/mailhog" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/mailhog/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/mailhog" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -2080,8 +2080,8 @@ ingress:
       - mailhog.${CLUSTER_FQDN}
 EOF
 
-! grep -q '\- mailhog$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource mailhog && cd - || exit )
+! grep -q '\- mailhog$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource mailhog && cd - || exit)
 ```
 
 ### OAuth2 Proxy
@@ -2107,8 +2107,8 @@ flux create helmrelease oauth2-proxy \
   --values-from="ConfigMap/oauth2-proxy-values" \
   --export > infrastructure/base/oauth2-proxy/oauth2-proxy-helmrelease.yaml
 
-[[ ! -s "infrastructure/base/oauth2-proxy/kustomization.yaml" ]] && \
-( cd "infrastructure/base/oauth2-proxy" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/base/oauth2-proxy/kustomization.yaml" ]] &&
+  (cd "infrastructure/base/oauth2-proxy" && kustomize create --autodetect && cd - || exit)
 ```
 
 Define "infrastructure level" application definition in
@@ -2194,11 +2194,11 @@ metrics:
     enabled: true
 EOF
 
-[[ ! -s "infrastructure/${ENVIRONMENT}/oauth2-proxy/kustomization.yaml" ]] && \
-( cd "infrastructure/${ENVIRONMENT}/oauth2-proxy" && kustomize create --autodetect && cd - || exit )
+[[ ! -s "infrastructure/${ENVIRONMENT}/oauth2-proxy/kustomization.yaml" ]] &&
+  (cd "infrastructure/${ENVIRONMENT}/oauth2-proxy" && kustomize create --autodetect && cd - || exit)
 
-! grep -q '\- oauth2-proxy$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" && \
-( cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource oauth2-proxy && cd - || exit )
+! grep -q '\- oauth2-proxy$' "infrastructure/${ENVIRONMENT}/kustomization.yaml" &&
+  (cd "infrastructure/${ENVIRONMENT}" && kustomize edit add resource oauth2-proxy && cd - || exit)
 ```
 
 ## Flux
@@ -2226,7 +2226,7 @@ details about `ServiceAccount` created by Crossplane and use eksctl to create
 IRSA:
 
 ```bash
-if [[ "$( eksctl get iamserviceaccount --cluster="${CLUSTER_NAME}" --namespace crossplane-system -o yaml )" == "null" ]] ; then
+if [[ "$(eksctl get iamserviceaccount --cluster="${CLUSTER_NAME}" --namespace crossplane-system -o yaml)" == "null" ]]; then
   kubectl wait --timeout=10m --for=condition=ready kustomizations crossplane-provider -n flux-system
   kubectl wait --timeout=10m --for=condition=Healthy provider.pkg.crossplane.io provider-aws
   CROSSPLANE_PROVIDER_AWS_SERVICE_ACCOUNT_NAME=$(kubectl get serviceaccounts -n crossplane-system -o=custom-columns=NAME:.metadata.name | grep provider-aws)
