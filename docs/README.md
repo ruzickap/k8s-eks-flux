@@ -1,6 +1,6 @@
 # Amazon EKS and Flux
 
-[![Build Status](https://github.com/ruzickap/k8s-eks-flux/workflows/test-k8s-eks-flux/badge.svg)](https://github.com/ruzickap/k8s-eks-flux)
+[![Build Status](https://github.com/ruzickap/k8s-eks-flux/workflows/vuepress-build/badge.svg)](https://github.com/ruzickap/k8s-eks-flux)
 
 * GitHub repository: [https://github.com/ruzickap/k8s-eks-flux](https://github.com/ruzickap/k8s-eks-flux)
 * Web Pages: [https://ruzickap.github.io/k8s-eks-flux](https://ruzickap.github.io/k8s-eks-flux)
