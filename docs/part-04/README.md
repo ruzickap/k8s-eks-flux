@@ -1228,7 +1228,7 @@ flux create kustomization kubed \
 [kubernetes-dashboard](https://github.com/kubernetes/dashboard)
 
 * [kubernetes-dashboard](https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard)
-* [default values.yaml](https://github.com/kubernetes/dashboard/blob/master/charts/helm-chart/kubernetes-dashboard/values.yaml)
+* [default values.yaml](https://github.com/kubernetes/dashboard/blob/d27d62127573e775b122976eccbc2c8aa94f5f84/charts/helm-chart/kubernetes-dashboard/values.yaml)
 
 Define "base level" application definition in `infrastructure`:
 
