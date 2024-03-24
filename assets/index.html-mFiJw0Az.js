@@ -1,0 +1,1885 @@
+import{_ as o,r,o as p,c,a as s,b as a,w as l,d as n,e as t}from"./app-CPf3PThy.js";const u={},d=s("h1",{id:"applications",tabindex:"-1"},[s("a",{class:"header-anchor",href:"#applications"},[s("span",null,"Applications")])],-1),v={class:"table-of-contents"},m=s("h2",{id:"applications-definitions",tabindex:"-1"},[s("a",{class:"header-anchor",href:"#applications-definitions"},[s("span",null,"Applications definitions")])],-1),k=s("h3",{id:"amazon-efs-csi-driver",tabindex:"-1"},[s("a",{class:"header-anchor",href:"#amazon-efs-csi-driver"},[s("span",null,"Amazon EFS CSI Driver")])],-1),b={href:"https://github.com/kubernetes-sigs/aws-efs-csi-driver",target:"_blank",rel:"noopener noreferrer"},g={href:"https://aws.amazon.com/blogs/containers/introducing-efs-csi-dynamic-provisioning/",target:"_blank",rel:"noopener noreferrer"},f={href:"https://github.com/kubernetes-sigs/aws-efs-csi-driver",target:"_blank",rel:"noopener noreferrer"},h={href:"https://github.com/kubernetes-sigs/aws-efs-csi-driver/tree/master/charts/aws-efs-csi-driver",target:"_blank",rel:"noopener noreferrer"},q={href:"https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/charts/aws-efs-csi-driver/values.yaml",target:"_blank",rel:"noopener noreferrer"},y=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/aws-efs-csi-driver
+
+flux create helmrelease aws-efs-csi-driver <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;aws-efs-csi-driver&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/aws-efs-csi-driver.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;aws-efs-csi-driver&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;2.2.2&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/aws-efs-csi-driver-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/aws-efs-csi-driver/aws-efs-csi-driver-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/aws-efs-csi-driver/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd <span class="token string">&quot;infrastructure/base/aws-efs-csi-driver&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/aws-efs-csi-driver</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/aws-efs-csi-driver/aws-efs-csi-driver-kustomization&quot;</span>
+
+flux create kustomization aws-efs-csi-driver <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/\\<span class="token variable">\${ENVIRONMENT}</span>/aws-efs-csi-driver/aws-efs-csi-driver-kustomization&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/aws-efs-csi-driver/aws-efs-csi-driver-kustomization.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/aws-efs-csi-driver/aws-efs-csi-driver-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/aws-efs-csi-driver/aws-efs-csi-driver-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: aws-efs-csi-driver
+resources:
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/aws-efs-csi-driver
+configMapGenerator:
+  - name: aws-efs-csi-driver-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>aws-efs-csi-driver-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/aws-efs-csi-driver/aws-efs-csi-driver-kustomization/aws-efs-csi-driver-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+controller:
+  serviceAccount:
+    create: <span class="token boolean">false</span>
+    name: efs-csi-controller-sa
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/aws-efs-csi-driver/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/aws-efs-csi-driver&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- aws-efs-csi-driver$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource aws-efs-csi-driver <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Change the tags on the Cluster level, because they will be different on every cluster and it needs to be &quot;set&quot; form TAGS bash variable:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;name: aws-efs-csi-driver$&#39;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token function">cat</span> <span class="token operator">&gt;&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+- |-
+  apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+  kind: Kustomization
+  metadata:
+    name: aws-efs-csi-driver
+    namespace: flux-system
+  spec:
+    patches:
+      - target:
+          kind: HelmRelease
+          name: aws-efs-csi-driver
+          namespace: aws-efs-csi-driver
+        patch: |-
+          apiVersion: helm.toolkit.fluxcd.io/v2beta1
+          kind: HelmRelease
+          metadata:
+            name: not-used
+          spec:
+            values:
+              controller:
+                serviceAccount:
+                  create: false
+                  name: efs-csi-controller-sa
+                tags:
+                  Name: \\<span class="token variable">\${CLUSTER_NAME}</span>
+                  Cluster: \\<span class="token variable">\${CLUSTER_FQDN}</span>
+                  <span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">echo</span> <span class="token string">&quot;<span class="token variable">\${TAGS}</span>&quot;</span> <span class="token operator">|</span> <span class="token function">sed</span> <span class="token string">&quot;s/ /<span class="token entity" title="\\\\">\\\\</span>n                  /g; s/=/: /g&quot;</span><span class="token variable">)</span></span>
+EOF</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="crossplane-aws" tabindex="-1"><a class="header-anchor" href="#crossplane-aws"><span>Crossplane AWS</span></a></h3><h4 id="get-kms-key" tabindex="-1"><a class="header-anchor" href="#get-kms-key"><span>Get KMS key</span></a></h4><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: crossplane-providerconfig
+  interval: 5m
+  path: <span class="token string">&quot;./clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key&quot;</span>
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key/cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kms.aws.crossplane.io/v1alpha1
+kind: Key
+metadata:
+  name: cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key
+  annotations:
+    crossplane.io/external-name: <span class="token variable">\${AWS_KMS_KEY_ARN}</span>
+spec:
+  forProvider:
+    region: <span class="token variable">\${AWS_DEFAULT_REGION}</span>
+  providerConfigRef:
+    name: aws-provider
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- crossplane-aws$&#39;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>
+    <span class="token builtin class-name">cd</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps&quot;</span> <span class="token operator">&amp;&amp;</span>
+      kustomize edit <span class="token function">add</span> resource crossplane-aws <span class="token operator">&amp;&amp;</span>
+      <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+  <span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="crate-secret-in-amazon-secret-manager" tabindex="-1"><a class="header-anchor" href="#crate-secret-in-amazon-secret-manager"><span>Crate secret in Amazon Secret Manager</span></a></h4><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-asm-secret-key&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-asm-secret-key.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: cp-aws-asm-secret-key
+  namespace: flux-system
+spec:
+  decryption:
+    provider: sops
+  dependsOn:
+    - name: cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key
+  interval: 5m
+  path: <span class="token string">&quot;./clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-asm-secret-key&quot;</span>
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-asm-secret-key/cp-aws-asm-secret-key.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+  kubectl create secret generic cp-aws-asm-secret-key <span class="token parameter variable">-n</span> crossplane-system --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token punctuation">\\</span>
+    --from-literal<span class="token operator">=</span>username<span class="token operator">=</span>myuser --from-literal<span class="token operator">=</span>password<span class="token operator">=</span>mytest12345 <span class="token punctuation">\\</span>
+    <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-asm-secret-key/cp-aws-asm-secret-key.yaml&quot;</span>
+  sops <span class="token parameter variable">--encrypt</span> --in-place <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-asm-secret-key/cp-aws-asm-secret-key.yaml&quot;</span>
+<span class="token keyword">fi</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;name: cp-aws-asm-secret-key$&#39;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token function">cat</span> <span class="token operator">&gt;&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+- |-
+  apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+  kind: Kustomization
+  metadata:
+    name: cp-aws-asm-secret-key
+    namespace: flux-system
+  spec:
+    patches:
+      - target:
+          group: secretsmanager.aws.crossplane.io
+          kind: Secret
+          name: cp-aws-asm-secret-key
+        patch: |-
+          apiVersion: secretsmanager.aws.crossplane.io/v1alpha1
+          kind: Secret
+          metadata:
+            name: not-used
+          spec:
+            forProvider:
+              tags:
+                - key: Cluster
+                  value: \\<span class="token variable">\${CLUSTER_FQDN}</span>
+                <span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">echo</span> <span class="token string">&quot;<span class="token variable">\${TAGS}</span>&quot;</span> <span class="token operator">|</span> <span class="token function">sed</span> <span class="token string">&quot;s/ /<span class="token entity" title="\\\\">\\\\</span>n                - key: /g; s/^/- key: /g; s/=/<span class="token entity" title="\\n">\\n</span>                  value: /g&quot;</span><span class="token variable">)</span></span>
+EOF</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/cp-aws-asm-secret-key/asm-secretsmanager-secret-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: secretsmanager.aws.crossplane.io/v1alpha1
+kind: Secret
+metadata:
+  name: cp-aws-asm-secret-key
+spec:
+  providerConfigRef:
+    name: aws-provider
+  forProvider:
+    region: <span class="token variable">\${AWS_DEFAULT_REGION}</span>
+    description: <span class="token string">&quot;Secret for <span class="token variable">\${CLUSTER_FQDN}</span>&quot;</span>
+    kmsKeyIDRef:
+      name: cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key
+    forceDeleteWithoutRecovery: <span class="token boolean">true</span>
+    stringSecretRef:
+      name: cp-aws-asm-secret-key
+      namespace: crossplane-system
+EOF
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&quot;\\- cp-aws-asm-secret-key.yaml$&quot;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>
+    <span class="token builtin class-name">cd</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/crossplane-aws&quot;</span> <span class="token operator">&amp;&amp;</span>
+      kustomize edit <span class="token function">add</span> resource cp-aws-asm-secret-key.yaml <span class="token operator">&amp;&amp;</span>
+      <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+  <span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="istio" tabindex="-1"><a class="header-anchor" href="#istio"><span>Istio</span></a></h3>`,12),N={href:"https://istio.io/",target:"_blank",rel:"noopener noreferrer"},E=s("h4",{id:"jaeger",tabindex:"-1"},[s("a",{class:"header-anchor",href:"#jaeger"},[s("span",null,"Jaeger")])],-1),R={href:"https://www.jaegertracing.io/",target:"_blank",rel:"noopener noreferrer"},_={href:"https://artifacthub.io/packages/helm/jaegertracing/jaeger-operator",target:"_blank",rel:"noopener noreferrer"},O={href:"https://github.com/jaegertracing/helm-charts/blob/main/charts/jaeger-operator/values.yaml",target:"_blank",rel:"noopener noreferrer"},$=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/jaeger-operator
+
+kubectl create namespace jaeger-operator --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/jaeger-operator/jaeger-operator-namespace.yaml
+
+flux create helmrelease jaeger-operator <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;jaeger-operator&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/jaegertracing.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;jaeger-operator&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;2.27.1&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--crds</span><span class="token operator">=</span><span class="token string">&quot;CreateReplace&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/jaeger-operator-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/jaeger-operator/jaeger-operator-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/jaeger-operator/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/jaeger-operator&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/jaeger-operator</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-operator/jaeger-operator-kustomization&quot;</span>
+
+flux create kustomization jaeger-operator <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/\\<span class="token variable">\${ENVIRONMENT}</span>/jaeger-operator/jaeger-operator-kustomization&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-operator/jaeger-operator-kustomization.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-operator/jaeger-operator-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-operator/jaeger-operator-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: jaeger-operator
+resources:
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/jaeger-operator
+configMapGenerator:
+  - name: jaeger-operator-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>jaeger-operator-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-operator/jaeger-operator-kustomization/jaeger-operator-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+rbac:
+  clusterRole: <span class="token boolean">true</span>
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-operator/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-operator&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- jaeger-operator$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource jaeger-operator <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="deploy-jaeger-using-operator" tabindex="-1"><a class="header-anchor" href="#deploy-jaeger-using-operator"><span>Deploy Jaeger using operator</span></a></h4>`,5),x={href:"https://www.jaegertracing.io/",target:"_blank",rel:"noopener noreferrer"},T={href:"https://www.jaegertracing.io/docs/latest/operator/",target:"_blank",rel:"noopener noreferrer"},z=t(`<div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane/jaeger-controlplane-kustomization&quot;</span>
+
+kubectl create namespace jaeger-system --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-namespace.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane/jaeger-controlplane-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: jaeger-controlplane
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: jaeger-operator
+  interval: 5m
+  path: ./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane/jaeger-controlplane-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-jaeger.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: jaeger-controlplane
+  namespace: jaeger-system
+spec:
+  strategy: AllInOne
+  allInOne:
+    image: jaegertracing/all-in-one:1.28
+    options:
+      log-level: debug
+  storage:
+    type: memory
+    options:
+      memory:
+        max-traces: <span class="token number">100000</span>
+  ingress:
+    enabled: <span class="token boolean">true</span>
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/start?rd<span class="token operator">=</span><span class="token punctuation">\\</span><span class="token variable">$scheme</span>://<span class="token punctuation">\\</span><span class="token variable">$host</span><span class="token punctuation">\\</span><span class="token variable">$request_uri</span>
+    hosts:
+      - jaeger.<span class="token variable">\${CLUSTER_FQDN}</span>
+    tls:
+      - hosts:
+        - jaeger.<span class="token variable">\${CLUSTER_FQDN}</span>
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-rolebinding.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jaeger-controlplane-in-jaeger-system
+  namespace: jaeger-system
+subjects:
+  - kind: ServiceAccount
+    name: jaeger-operator
+    namespace: jaeger-operator
+roleRef:
+  kind: Role
+  name: jaeger-operator
+  apiGroup: rbac.authorization.k8s.io
+EOF</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane/jaeger-controlplane-kustomization/jaeger-controlplane-podmonitor.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: tracing
+  namespace: jaeger-system
+spec:
+  podMetricsEndpoints:
+  - interval: 5s
+    port: &quot;admin-http&quot;
+  selector:
+    matchLabels:
+      app: jaeger
+EOF</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/jaeger-controlplane&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- jaeger-controlplane$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource jaeger-controlplane <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="istio-operator" tabindex="-1"><a class="header-anchor" href="#istio-operator"><span>istio-operator</span></a></h4>`,2),M={href:"https://istio.io/latest/docs/setup/install/operator/",target:"_blank",rel:"noopener noreferrer"},I={href:"https://github.com/istio/istio/tree/master/manifests/charts/istio-operator",target:"_blank",rel:"noopener noreferrer"},V={href:"https://github.com/istio/istio/blob/master/manifests/charts/istio-operator/values.yaml",target:"_blank",rel:"noopener noreferrer"},F=t(`<p>Set Istio version:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token builtin class-name">export</span> <span class="token assign-left variable">ISTIO_VERSION</span><span class="token operator">=</span><span class="token string">&quot;1.12.0&quot;</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div></div></div><p>Add HelmRepository file to <code>infrastructure/sources</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">cat</span> <span class="token operator">&gt;</span> infrastructure/sources/istio-operator-git.yaml <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: istio-operator
+  namespace: flux-system
+spec:
+  interval: 1h
+  timeout: 5m
+  ref:
+    tag: <span class="token variable">\${ISTIO_VERSION}</span>
+  url: https://github.com/istio/istio
+EOF</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token parameter variable">-f</span> infrastructure/sources/kustomization.yaml <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span> <span class="token function">rm</span> infrastructure/sources/kustomization.yaml
+<span class="token builtin class-name">cd</span> infrastructure/sources <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/istio-operator
+
+kubectl create namespace istio-operator --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/istio-operator/istio-operator-namespace.yaml
+
+flux create helmrelease istio-operator <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;istio-operator&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/istio-operator.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;manifests/charts/istio-operator&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--crds</span><span class="token operator">=</span><span class="token string">&quot;CreateReplace&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/istio-operator-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/istio-operator/istio-operator-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/istio-operator/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/istio-operator&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/istio-operator</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-operator/istio-operator-kustomization&quot;</span>
+
+flux create kustomization istio-operator <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/\\<span class="token variable">\${ENVIRONMENT}</span>/istio-operator/istio-operator-kustomization&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-operator/istio-operator-kustomization.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-operator/istio-operator-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-operator/istio-operator-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: istio-operator
+resources:
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/istio-operator
+configMapGenerator:
+  - name: istio-operator-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>istio-operator-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-operator/istio-operator-kustomization/istio-operator-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+hub: docker.io/istio
+tag: <span class="token variable">\${ISTIO_VERSION}</span>
+EOF</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-operator/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-operator&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- istio-operator$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource istio-operator <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="deploy-istio-using-operator" tabindex="-1"><a class="header-anchor" href="#deploy-istio-using-operator"><span>Deploy Istio using operator</span></a></h4>`,9),S={href:"https://istio.io",target:"_blank",rel:"noopener noreferrer"},w={href:"https://istio.io/latest/docs/reference/config/istio.operator.v1alpha1/",target:"_blank",rel:"noopener noreferrer"},C=t(`<div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-controlplane/istio-controlplane-kustomization&quot;</span>
+
+kubectl create namespace istio-system --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-namespace.yaml&quot;</span>
+
+<span class="token function">curl</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;https://raw.githubusercontent.com/istio/istio/<span class="token variable">\${ISTIO_VERSION}</span>/samples/addons/extras/prometheus-operator.yaml&quot;</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-prometheus.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-controlplane/istio-controlplane-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: istio-controlplane
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: jaeger-controlplane
+  - name: istio-operator
+  interval: 5m
+  path: ./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-controlplane/istio-controlplane-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-controlplane/istio-controlplane-kustomization/istio-controlplane-istiooperator.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: istio-controlplane
+spec:
+  profile: default
+  meshConfig:
+    enableTracing: <span class="token boolean">true</span>
+    enableAutoMtls: <span class="token boolean">true</span>
+    defaultConfig:
+      tracing:
+        zipkin:
+          address: <span class="token string">&quot;jaeger-controlplane-collector-headless.jaeger-system.svc.cluster.local:9411&quot;</span>
+        sampling: <span class="token number">100</span>
+      sds:
+        enabled: <span class="token boolean">true</span>
+  components:
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: <span class="token boolean">true</span>
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: <span class="token boolean">true</span>
+        k8s:
+          serviceAnnotations:
+            service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+            service.beta.kubernetes.io/aws-load-balancer-type: nlb
+            service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: <span class="token string">&quot;<span class="token variable">\${TAGS_INLINE}</span>&quot;</span>
+    pilot:
+      k8s:
+        <span class="token comment"># Reduce resource requirements for local testing. This is NOT recommended for the real use cases</span>
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-controlplane/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/istio-controlplane&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- istio-controlplane$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource istio-controlplane <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="keycloak" tabindex="-1"><a class="header-anchor" href="#keycloak"><span>Keycloak</span></a></h4><blockquote><p>I was not able to make Keycloak working with local Dex, because Dex is not using valid certificates (Let&#39;s Encrypt staging).</p></blockquote>`,3),D={href:"https://www.keycloak.org/",target:"_blank",rel:"noopener noreferrer"},L={href:"https://artifacthub.io/packages/helm/bitnami/keycloak",target:"_blank",rel:"noopener noreferrer"},U={href:"https://github.com/bitnami/charts/blob/master/bitnami/keycloak/values.yaml",target:"_blank",rel:"noopener noreferrer"},Q=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/keycloak
+
+kubectl create namespace keycloak --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/base/keycloak/keycloak-namespace.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> infrastructure/base/keycloak/keycloak-helmrelease.yaml <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  chart:
+    spec:
+      chart: keycloak
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: flux-system
+      version: 5.2.8
+  timeout: 10m
+  interval: 5m
+  valuesFrom:
+  - kind: ConfigMap
+    name: keycloak-values
+EOF</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/keycloak/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/keycloak&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/keycloak</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/keycloak/keycloak-kustomization&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/keycloak/keycloak-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: keycloak
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+  interval: 5m
+  path: ./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/keycloak/keycloak-kustomization
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/keycloak/keycloak-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/keycloak/keycloak-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: keycloak
+resources:
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/keycloak
+configMapGenerator:
+  - name: keycloak-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>keycloak-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/keycloak/keycloak-kustomization/keycloak-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+global:
+  storageClass: <span class="token string">&quot;gp3&quot;</span>
+clusterDomain: <span class="token variable">\${CLUSTER_FQDN}</span>
+auth:
+  adminUser: admin
+  adminPassword: <span class="token variable">\${MY_PASSWORD}</span>
+  managementUser: manager
+  managementPassword: <span class="token variable">\${MY_PASSWORD}</span>
+proxyAddressForwarding: <span class="token boolean">true</span>
+<span class="token comment"># https://stackoverflow.com/questions/51616770/keycloak-restricting-user-management-to-certain-groups-while-enabling-manage-us</span>
+extraStartupArgs: <span class="token string">&quot;-Dkeycloak.profile.feature.admin_fine_grained_authz=enabled&quot;</span>
+keycloakConfigCli:
+  enabled: <span class="token boolean">true</span>
+  configuration:
+    myrealm.yaml: <span class="token operator">|</span>
+      realm: myrealm
+      enabled: <span class="token boolean">true</span>
+      displayName: My Realm
+      rememberMe: <span class="token boolean">true</span>
+      userManagedAccessAllowed: <span class="token boolean">true</span>
+      smtpServer:
+        from: myrealm-keycloak@<span class="token variable">\${CLUSTER_FQDN}</span>
+        fromDisplayName: Keycloak
+        host: mailhog.mailhog.svc.cluster.local
+        port: <span class="token number">1025</span>
+      clients:
+      <span class="token comment"># https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/oauth_provider/#keycloak-auth-provider</span>
+      - clientId: oauth2-proxy-keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>
+        name: oauth2-proxy-keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>
+        description: <span class="token string">&quot;OAuth2 Proxy for Keycloak&quot;</span>
+        secret: <span class="token variable">\${MY_PASSWORD}</span>
+        redirectUris:
+        - <span class="token string">&quot;https://oauth2-proxy-keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/callback&quot;</span>
+        protocolMappers:
+        - name: groupMapper
+          protocol: openid-connect
+          protocolMapper: oidc-group-membership-mapper
+          config:
+            userinfo.token.claim: <span class="token string">&quot;true&quot;</span>
+            id.token.claim: <span class="token string">&quot;true&quot;</span>
+            access.token.claim: <span class="token string">&quot;true&quot;</span>
+            claim.name: <span class="token function">groups</span>
+            full.path: <span class="token string">&quot;true&quot;</span>
+      identityProviders:
+      <span class="token comment"># https://ultimatesecurity.pro/post/okta-oidc/</span>
+      - alias: keycloak-oidc-okta
+        displayName: <span class="token string">&quot;Okta&quot;</span>
+        providerId: keycloak-oidc
+        trustEmail: <span class="token boolean">true</span>
+        config:
+          clientId: <span class="token variable">\${OKTA_CLIENT_ID}</span>
+          clientSecret: <span class="token variable">\${OKTA_CLIENT_SECRET}</span>
+          tokenUrl: <span class="token string">&quot;<span class="token variable">\${OKTA_ISSUER}</span>/oauth2/default/v1/token&quot;</span>
+          authorizationUrl: <span class="token string">&quot;<span class="token variable">\${OKTA_ISSUER}</span>/oauth2/default/v1/authorize&quot;</span>
+          defaultScope: <span class="token string">&quot;openid profile email&quot;</span>
+          syncMode: IMPORT
+      users:
+      - username: myuser1
+        email: myuser1@<span class="token variable">\${CLUSTER_FQDN}</span>
+        enabled: <span class="token boolean">true</span>
+        firstName: My Firstname <span class="token number">1</span>
+        lastName: My Lastname <span class="token number">1</span>
+        groups:
+          - group-admins
+        credentials:
+        - type: password
+          value: <span class="token variable">\${MY_PASSWORD}</span>
+      - username: myuser2
+        email: myuser2@<span class="token variable">\${CLUSTER_FQDN}</span>
+        enabled: <span class="token boolean">true</span>
+        firstName: My Firstname <span class="token number">2</span>
+        lastName: My Lastname <span class="token number">2</span>
+        groups:
+          - group-admins
+        credentials:
+        - type: password
+          value: <span class="token variable">\${MY_PASSWORD}</span>
+      - username: myuser3
+        email: myuser3@<span class="token variable">\${CLUSTER_FQDN}</span>
+        enabled: <span class="token boolean">true</span>
+        firstName: My Firstname <span class="token number">3</span>
+        lastName: My Lastname <span class="token number">3</span>
+        groups:
+          - group-users
+        credentials:
+        - type: password
+          value: <span class="token variable">\${MY_PASSWORD}</span>
+      - username: myuser4
+        email: myuser4@<span class="token variable">\${CLUSTER_FQDN}</span>
+        enabled: <span class="token boolean">true</span>
+        firstName: My Firstname <span class="token number">4</span>
+        lastName: My Lastname <span class="token number">4</span>
+        groups:
+          - group-users
+          - group-test
+        credentials:
+        - type: password
+          value: <span class="token variable">\${MY_PASSWORD}</span>
+      groups:
+      - name: group-users
+      - name: group-admins
+      - name: group-test
+service:
+  type: ClusterIP
+ingress:
+  enabled: <span class="token boolean">true</span>
+  hostname: keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>
+  ingressClassName: nginx
+  extraTls:
+  - hosts:
+    - keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>
+metrics:
+  enabled: <span class="token boolean">true</span>
+  serviceMonitor:
+    enabled: <span class="token boolean">true</span>
+postgresql:
+  postgresqlPassword: <span class="token variable">\${MY_PASSWORD}</span>
+  persistence:
+    enabled: <span class="token boolean">true</span>
+    size: 1Gi
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/keycloak/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/keycloak&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- keycloak$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource keycloak <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="kiali" tabindex="-1"><a class="header-anchor" href="#kiali"><span>Kiali</span></a></h4>`,5),j={href:"https://github.com/kiali/kiali-operator",target:"_blank",rel:"noopener noreferrer"},A={href:"https://github.com/kiali/helm-charts/tree/master/kiali-operator",target:"_blank",rel:"noopener noreferrer"},K={href:"https://github.com/kiali/helm-charts/blob/master/kiali-operator/values.yaml",target:"_blank",rel:"noopener noreferrer"},G=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/kiali-operator
+
+kubectl create namespace kiali-operator --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/base/kiali-operator/kiali-operator-namespace.yaml&quot;</span>
+
+flux create helmrelease kiali-operator <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;kiali-operator&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/kiali.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;kiali-operator&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;1.44.0&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--crds</span><span class="token operator">=</span><span class="token string">&quot;CreateReplace&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/kiali-operator/kiali-operator-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/kiali-operator/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/kiali-operator&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/kiali-operator</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-operator/kiali-operator-kustomization&quot;</span>
+
+flux create kustomization kiali-operator <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/\\<span class="token variable">\${ENVIRONMENT}</span>/kiali-operator/kiali-operator-kustomization&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-operator/kiali-operator-kustomization.yaml&quot;</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-operator/kiali-operator-kustomization/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>
+    <span class="token builtin class-name">cd</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-operator/kiali-operator-kustomization&quot;</span> <span class="token operator">&amp;&amp;</span>
+      kustomize create <span class="token parameter variable">--resources</span> <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/kiali-operator <span class="token operator">&amp;&amp;</span>
+      <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+  <span class="token punctuation">)</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-operator/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-operator&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- kiali-operator$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource kiali-operator <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="deploy-kiali-using-operator" tabindex="-1"><a class="header-anchor" href="#deploy-kiali-using-operator"><span>Deploy Kiali using operator</span></a></h4>`,5),P={href:"https://kiali.io/",target:"_blank",rel:"noopener noreferrer"},H={href:"https://github.com/kiali/kiali-operator/blob/master/deploy/kiali/kiali_cr.yaml",target:"_blank",rel:"noopener noreferrer"},B=t(`<div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-controlplane/kiali-controlplane-kustomization&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-controlplane/kiali-controlplane-kustomization/kiali-controlplane-secret.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kiali
+  namespace: istio-system
+data:
+  oidc-secret: <span class="token variable">\${MY_PASSWORD_BASE64}</span>
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-controlplane/kiali-controlplane-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: kiali-controlplane
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: istio-controlplane
+  interval: 5m
+  path: ./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-controlplane/kiali-controlplane-kustomization
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-controlplane/kiali-controlplane-kustomization/kiali-controlplane-kiali.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  namespace: istio-system
+  name: kiali-controlplane
+spec:
+  istio_namespace: istio-system
+  auth:
+    strategy: openid
+    openid:
+      client_id: kiali.<span class="token variable">\${CLUSTER_FQDN}</span>
+      disable_rbac: <span class="token boolean">true</span>
+      insecure_skip_verify_tls: <span class="token boolean">true</span>
+      issuer_uri: <span class="token string">&quot;https://dex.<span class="token variable">\${CLUSTER_FQDN}</span>&quot;</span>
+      username_claim: email
+  deployment:
+    namespace: istio-system
+    ingress:
+      enabled: <span class="token boolean">true</span>
+      override_yaml:
+        spec:
+          ingressClassName: nginx
+          rules:
+          - host: kiali.<span class="token variable">\${CLUSTER_FQDN}</span>
+            http:
+              paths:
+              - path: /
+                pathType: ImplementationSpecific
+                backend:
+                  service:
+                    name: kiali
+                    port:
+                      number: <span class="token number">20001</span>
+            tls:
+            - hosts:
+              - kiali.<span class="token variable">\${CLUSTER_FQDN}</span>
+  external_services:
+    grafana:
+      is_core_component: <span class="token boolean">true</span>
+      url: <span class="token string">&quot;https://grafana.<span class="token variable">\${CLUSTER_FQDN}</span>&quot;</span>
+      in_cluster_url: <span class="token string">&quot;http://kube-prometheus-stack-grafana.kube-prometheus-stack.svc.cluster.local:80&quot;</span>
+    prometheus:
+      is_core_component: <span class="token boolean">true</span>
+      url: http://kube-prometheus-stack-prometheus.kube-prometheus-stack.svc.cluster.local:9090
+    tracing:
+      is_core_component: <span class="token boolean">true</span>
+      url: https://jaeger.<span class="token variable">\${CLUSTER_FQDN}</span>
+      in_cluster_url: http://jaeger-controlplane-query.jaeger-system.svc.cluster.local:16686
+  server:
+    web_fqdn: kiali.<span class="token variable">\${CLUSTER_FQDN}</span>
+    web_root: /
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-controlplane/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kiali-controlplane&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- kiali-controlplane$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource kiali-controlplane <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="kuard" tabindex="-1"><a class="header-anchor" href="#kuard"><span>kuard</span></a></h3><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-secretproviderclass&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-secretproviderclass.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: kuard-secretproviderclass
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: secrets-store-csi-driver-provider-aws
+    - name: cp-aws-kms-key-eks-<span class="token variable">\${CLUSTER_NAME}</span>-key
+  interval: 5m
+  path: <span class="token string">&quot;./clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-secretproviderclass&quot;</span>
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-secretproviderclass/kuard-secretproviderclass.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+kind: SecretProviderClass
+metadata:
+  name: kuard-asm-eks-<span class="token variable">\${CLUSTER_NAME}</span>-secrets
+  namespace: kuard
+spec:
+  provider: aws
+  parameters:
+    objects: <span class="token operator">|</span>
+      - objectName: <span class="token string">&quot;cp-aws-asm-secret-key&quot;</span>
+        objectType: <span class="token string">&quot;secretsmanager&quot;</span>
+  secretObjects:
+  - secretName: <span class="token string">&quot;cp-aws-asm-secret-key&quot;</span>
+    type: Opaque
+    data:
+    - objectName: <span class="token string">&quot;cp-aws-asm-secret-key&quot;</span>
+      key: username
+    - objectName: <span class="token string">&quot;cp-aws-asm-secret-key&quot;</span>
+      key: password
+EOF
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-manifests&quot;</span>
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-manifests.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: kuard-manifests
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kuard-secretproviderclass
+  interval: 5m
+  path: <span class="token string">&quot;./clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-manifests&quot;</span>
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+kubectl create <span class="token function">service</span> clusterip kuard <span class="token parameter variable">--namespace</span> kuard <span class="token parameter variable">--tcp</span><span class="token operator">=</span><span class="token number">8080</span>:8080 --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-manifests/kuard-service.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-manifests/kuard-deployment.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kuard-deployment
+  namespace: kuard
+  labels:
+    app: kuard
+spec:
+  replicas: <span class="token number">1</span>
+  selector:
+    matchLabels:
+      app: kuard
+  template:
+    metadata:
+      labels:
+        app: kuard
+    spec:
+      serviceAccountName: kuard-sa
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: <span class="token string">&quot;kubernetes.io/hostname&quot;</span>
+            labelSelector:
+              matchLabels:
+                app: kuard
+      volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: <span class="token boolean">true</span>
+          volumeAttributes:
+            secretProviderClass: kuard-asm-eks-<span class="token variable">\${CLUSTER_NAME}</span>-secrets
+      containers:
+      - name: kuard-deployment
+        image: gcr.io/kuar-demo/kuard-amd64:v0.10.0-green
+        resources:
+          requests:
+            cpu: 100m
+            memory: <span class="token string">&quot;64Mi&quot;</span>
+          limits:
+            cpu: 100m
+            memory: <span class="token string">&quot;64Mi&quot;</span>
+        ports:
+        - containerPort: <span class="token number">8080</span>
+        volumeMounts:
+        - name: secrets-store-inline
+          mountPath: <span class="token string">&quot;/mnt/secrets-store&quot;</span>
+          readOnly: <span class="token boolean">true</span>
+EOF
+
+kubectl create ingress <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--annotation</span><span class="token operator">=</span><span class="token string">&quot;nginx.ingress.kubernetes.io/auth-signin=https://oauth2-proxy.\\<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/start?rd=\\<span class="token variable">$scheme</span>://\\<span class="token variable">$host</span>\\<span class="token variable">$request_uri</span>&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--annotation</span><span class="token operator">=</span><span class="token string">&quot;nginx.ingress.kubernetes.io/auth-url=https://oauth2-proxy.\\<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/auth&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span> kuard kuard <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--class</span><span class="token operator">=</span>nginx <span class="token parameter variable">--rule</span><span class="token operator">=</span><span class="token string">&quot;kuard.<span class="token variable">\${CLUSTER_FQDN}</span>/*=kuard:8080,tls&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">-o</span> yaml --dry-run<span class="token operator">=</span>client <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kuard-manifests/kuard-ingress.yaml&quot;</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kuard&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&quot;\\- kuard$&quot;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>
+    <span class="token builtin class-name">cd</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps&quot;</span> <span class="token operator">&amp;&amp;</span>
+      kustomize edit <span class="token function">add</span> resource kuard <span class="token operator">&amp;&amp;</span>
+      <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+  <span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="kubed" tabindex="-1"><a class="header-anchor" href="#kubed"><span>kubed</span></a></h3>`,5),W={href:"https://appscode.com/products/kubed/",target:"_blank",rel:"noopener noreferrer"},Y={href:"https://artifacthub.io/packages/helm/appscode/kubed",target:"_blank",rel:"noopener noreferrer"},J={href:"https://github.com/kubeops/config-syncer/blob/2310687a9ee63ba22ef272cbaaef8f7f89314183/charts/kubed/values.yaml",target:"_blank",rel:"noopener noreferrer"},X=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/kubed
+
+kubectl create namespace kubed --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/kubed/kubed-namespace.yaml
+
+flux create helmrelease kubed <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;kubed&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/appscode.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;kubed&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;v0.12.0&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/kubed/kubed-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/kubed/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/kubed&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/kubed</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubed/kubed-kustomization&quot;</span>
+
+flux create kustomization kubed <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubed/kubed-kustomization&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubed/kubed-kustomization.yaml&quot;</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubed/kubed-kustomization/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>
+    <span class="token builtin class-name">cd</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubed/kubed-kustomization&quot;</span> <span class="token operator">&amp;&amp;</span>
+      kustomize create <span class="token parameter variable">--resources</span> <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/kubed <span class="token operator">&amp;&amp;</span>
+      <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+  <span class="token punctuation">)</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubed/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubed&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- kubed$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource kubed <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="kubernetes-dashboard" tabindex="-1"><a class="header-anchor" href="#kubernetes-dashboard"><span>kubernetes-dashboard</span></a></h3>`,5),Z={href:"https://github.com/kubernetes/dashboard",target:"_blank",rel:"noopener noreferrer"},ss={href:"https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard",target:"_blank",rel:"noopener noreferrer"},ns={href:"https://github.com/kubernetes/dashboard/blob/d27d62127573e775b122976eccbc2c8aa94f5f84/charts/helm-chart/kubernetes-dashboard/values.yaml",target:"_blank",rel:"noopener noreferrer"},as=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/kubernetes-dashboard
+
+kubectl create namespace kubernetes-dashboard --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/kubernetes-dashboard/kubernetes-dashboard-namespace.yaml
+
+flux create helmrelease kubernetes-dashboard <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;kubernetes-dashboard&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/kubernetes-dashboard.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;kubernetes-dashboard&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;5.0.5&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/kubernetes-dashboard-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/kubernetes-dashboard/kubernetes-dashboard-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/kubernetes-dashboard/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/kubernetes-dashboard&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/kubernetes-dashboard</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard/kubernetes-dashboard-kustomization&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard/kubernetes-dashboard-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: kubernetes-dashboard
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+  interval: 5m
+  path: <span class="token string">&quot;./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard/kubernetes-dashboard-kustomization&quot;</span>
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard/kubernetes-dashboard-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard/kubernetes-dashboard-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubernetes-dashboard
+resources:
+  - kubernetes-dashboard-clusterrolebinding.yaml
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/kubernetes-dashboard
+configMapGenerator:
+  - name: kubernetes-dashboard-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>kubernetes-dashboard-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard/kubernetes-dashboard-kustomization/kubernetes-dashboard-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+extraArgs:
+  - --enable-skip-login
+  - --enable-insecure-login
+  - --disable-settings-authorizer
+protocolHttp: <span class="token boolean">true</span>
+ingress:
+  enabled: <span class="token boolean">true</span>
+  annotations:
+     nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/auth
+     nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/start?rd<span class="token operator">=</span><span class="token variable">$scheme</span>://<span class="token variable">$host</span><span class="token variable">$request_uri</span>
+  className: <span class="token string">&quot;nginx&quot;</span>
+  hosts:
+    - kubernetes-dashboard.<span class="token variable">\${CLUSTER_FQDN}</span>
+  tls:
+    - hosts:
+      - kubernetes-dashboard.<span class="token variable">\${CLUSTER_FQDN}</span>
+settings:
+  clusterName: <span class="token variable">\${CLUSTER_FQDN}</span>
+  itemsPerPage: <span class="token number">50</span>
+metricsScraper:
+  enabled: <span class="token boolean">true</span>
+serviceAccount:
+  name: kubernetes-dashboard-admin
+EOF
+
+kubectl create clusterrolebinding kubernetes-dashboard-admin <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--clusterrole</span><span class="token operator">=</span>cluster-admin <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--serviceaccount</span><span class="token operator">=</span>kubernetes-dashboard:kubernetes-dashboard-admin <span class="token punctuation">\\</span>
+  <span class="token parameter variable">-o</span> yaml --dry-run<span class="token operator">=</span>client <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard/kubernetes-dashboard-kustomization/kubernetes-dashboard-clusterrolebinding.yaml&quot;</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kubernetes-dashboard&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- kubernetes-dashboard$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource kubernetes-dashboard <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="kyverno" tabindex="-1"><a class="header-anchor" href="#kyverno"><span>Kyverno</span></a></h3>`,5),es={href:"https://kyverno.io/",target:"_blank",rel:"noopener noreferrer"},ts={href:"https://artifacthub.io/packages/helm/kyverno/kyverno",target:"_blank",rel:"noopener noreferrer"},is={href:"https://github.com/kyverno/kyverno/blob/main/charts/kyverno/values.yaml",target:"_blank",rel:"noopener noreferrer"},ls={href:"https://artifacthub.io/packages/helm/kyverno/kyverno-policies",target:"_blank",rel:"noopener noreferrer"},rs={href:"https://github.com/kyverno/kyverno/blob/main/charts/kyverno-policies/values.yaml",target:"_blank",rel:"noopener noreferrer"},os=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/kyverno
+
+kubectl create namespace kyverno --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/kyverno/kyverno-namespace.yaml
+
+flux create helmrelease kyverno <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;kyverno&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/kyverno.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;kyverno&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;v2.1.3&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/kyverno-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/kyverno/kyverno-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/kyverno/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/kyverno&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/kyverno-policies
+
+flux create helmrelease kyverno-policies <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;kyverno&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  --depends-on<span class="token operator">=</span><span class="token string">&quot;kyverno&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/kyverno.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;kyverno-policies&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;v2.1.3&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/kyverno-policies/kyverno-policies-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/kyverno-policies/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/kyverno-policies&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/crossplane</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno/kyverno-kustomization&quot;</span>
+
+flux create kustomization kyverno <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  --depends-on<span class="token operator">=</span><span class="token string">&quot;kube-prometheus-stack&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/\\<span class="token variable">\${ENVIRONMENT}</span>/kyverno/kyverno-kustomization&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno/kyverno-kustomization.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno/kyverno-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno/kyverno-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kyverno
+resources:
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/kyverno
+configMapGenerator:
+  - name: kyverno-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>kyverno-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno/kyverno-kustomization/kyverno-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+serviceMonitor:
+  enabled: <span class="token boolean">true</span>
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- kyverno$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource kyverno <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno-policies/kyverno-policies-kustomization&quot;</span>
+
+flux create kustomization kyverno-policies <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  --depends-on<span class="token operator">=</span><span class="token string">&quot;kyverno&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/\\<span class="token variable">\${ENVIRONMENT}</span>/kyverno-policies/kyverno-policies-kustomization&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno-policies/kyverno-policies-kustomization.yaml&quot;</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno-policies/kyverno-policies-kustomization/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>
+    <span class="token builtin class-name">cd</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno-policies/kyverno-policies-kustomization&quot;</span> <span class="token operator">&amp;&amp;</span>
+      kustomize create <span class="token parameter variable">--resources</span> <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/kyverno-policies <span class="token operator">&amp;&amp;</span>
+      <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+  <span class="token punctuation">)</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno-policies/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kyverno-policies&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- kyverno-policies$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource kyverno-policies <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="oauth2-proxy-keycloak" tabindex="-1"><a class="header-anchor" href="#oauth2-proxy-keycloak"><span>OAuth2 Proxy - Keycloak</span></a></h3>`,5),ps={href:"https://oauth2-proxy.github.io/oauth2-proxy/",target:"_blank",rel:"noopener noreferrer"},cs={href:"https://artifacthub.io/packages/helm/oauth2-proxy/oauth2-proxy",target:"_blank",rel:"noopener noreferrer"},us={href:"https://github.com/oauth2-proxy/manifests/blob/main/helm/oauth2-proxy/values.yaml",target:"_blank",rel:"noopener noreferrer"},ds=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/oauth2-proxy-keycloak
+
+kubectl create namespace oauth2-proxy-keycloak --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/oauth2-proxy-keycloak/oauth2-proxy-keycloak-namespace.yaml
+
+flux create helmrelease oauth2-proxy-keycloak <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;oauth2-proxy-keycloak&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/oauth2-proxy.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;oauth2-proxy&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;5.0.6&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/oauth2-proxy-keycloak-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/oauth2-proxy-keycloak/oauth2-proxy-keycloak-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/oauth2-proxy-keycloak/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/oauth2-proxy-keycloak&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/oauth2-proxy-keycloak</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: oauth2-proxy-keycloak
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: kube-prometheus-stack
+  interval: 5m
+  path: ./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: oauth2-proxy-keycloak
+resources:
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/oauth2-proxy-keycloak
+configMapGenerator:
+  - name: oauth2-proxy-keycloak-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>oauth2-proxy-keycloak-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/oauth2-proxy-keycloak/oauth2-proxy-keycloak-kustomization/oauth2-proxy-keycloak-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+config:
+  clientID: oauth2-proxy-keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>
+  clientSecret: <span class="token variable">\${MY_PASSWORD}</span>
+  cookieSecret: <span class="token variable">\${MY_COOKIE_SECRET}</span>
+  configFile: <span class="token operator">|</span>-
+    email_domains <span class="token operator">=</span> <span class="token punctuation">[</span> <span class="token string">&quot;*&quot;</span> <span class="token punctuation">]</span>
+    upstreams <span class="token operator">=</span> <span class="token punctuation">[</span> <span class="token string">&quot;file:///dev/null&quot;</span> <span class="token punctuation">]</span>
+    whitelist_domains <span class="token operator">=</span> <span class="token string">&quot;.<span class="token variable">\${CLUSTER_FQDN}</span>&quot;</span>
+    cookie_domains <span class="token operator">=</span> <span class="token string">&quot;.<span class="token variable">\${CLUSTER_FQDN}</span>&quot;</span>
+    provider <span class="token operator">=</span> <span class="token string">&quot;keycloak&quot;</span>
+    login_url <span class="token operator">=</span> <span class="token string">&quot;https://keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>/auth/realms/myrealm/protocol/openid-connect/auth&quot;</span>
+    redeem_url <span class="token operator">=</span> <span class="token string">&quot;https://keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>/auth/realms/myrealm/protocol/openid-connect/token&quot;</span>
+    profile_url <span class="token operator">=</span> <span class="token string">&quot;https://keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>/auth/realms/myrealm/protocol/openid-connect/userinfo&quot;</span>
+    validate_url <span class="token operator">=</span> <span class="token string">&quot;https://keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>/auth/realms/myrealm/protocol/openid-connect/userinfo&quot;</span>
+    scope <span class="token operator">=</span> <span class="token string">&quot;openid email profile&quot;</span>
+    ssl_insecure_skip_verify <span class="token operator">=</span> <span class="token string">&quot;true&quot;</span>
+    insecure_oidc_skip_issuer_verification <span class="token operator">=</span> <span class="token string">&quot;true&quot;</span>
+ingress:
+  enabled: <span class="token boolean">true</span>
+  className: nginx
+  hosts:
+    - oauth2-proxy-keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>
+  tls:
+    - hosts:
+      - oauth2-proxy-keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>
+metrics:
+  servicemonitor:
+    enabled: <span class="token boolean">true</span>
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/oauth2-proxy-keycloak/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/oauth2-proxy-keycloak&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- oauth2-proxy-keycloak$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource oauth2-proxy-keycloak <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="podinfo" tabindex="-1"><a class="header-anchor" href="#podinfo"><span>podinfo</span></a></h3>`,5),vs={href:"https://github.com/stefanprodan/podinfo",target:"_blank",rel:"noopener noreferrer"},ms={href:"https://artifacthub.io/packages/helm/podinfo/podinfo",target:"_blank",rel:"noopener noreferrer"},ks={href:"https://github.com/stefanprodan/podinfo/blob/master/charts/podinfo/values.yaml",target:"_blank",rel:"noopener noreferrer"},bs=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/podinfo
+
+kubectl create namespace podinfo --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/podinfo/podinfo-namespace.yaml
+
+flux create helmrelease podinfo <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;podinfo&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/podinfo.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;podinfo&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;6.0.3&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/podinfo-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/podinfo/podinfo-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/podinfo/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/podinfo&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/podinfo</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/podinfo/podinfo-kustomization&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/podinfo/podinfo-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+  interval: 5m
+  path: <span class="token string">&quot;./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/podinfo/podinfo-kustomization&quot;</span>
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/podinfo/podinfo-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/podinfo/podinfo-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: podinfo
+resources:
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/podinfo
+configMapGenerator:
+  - name: podinfo-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>podinfo-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/podinfo/podinfo-kustomization/podinfo-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+ingress:
+  enabled: <span class="token boolean">true</span>
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy-keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy-keycloak.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/start?rd<span class="token operator">=</span><span class="token variable">$scheme</span>://<span class="token variable">$host</span><span class="token variable">$request_uri</span>
+  hosts:
+    - host: podinfo.<span class="token variable">\${CLUSTER_FQDN}</span>
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - hosts:
+      - podinfo.<span class="token variable">\${CLUSTER_FQDN}</span>
+serviceMonitor:
+  enabled: <span class="token boolean">true</span>
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/podinfo/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/podinfo&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- podinfo$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource podinfo <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="polaris" tabindex="-1"><a class="header-anchor" href="#polaris"><span>Polaris</span></a></h3><p>Add Polaris to the single K8s cluster.</p>`,6),gs={href:"https://www.fairwinds.com/polaris",target:"_blank",rel:"noopener noreferrer"},fs={href:"https://artifacthub.io/packages/helm/fairwinds-stable/polaris",target:"_blank",rel:"noopener noreferrer"},hs={href:"https://github.com/FairwindsOps/charts/blob/master/stable/polaris/values.yaml",target:"_blank",rel:"noopener noreferrer"},qs=t(`<p>Add <code>HelmRepository</code> for polaris to &quot;cluster level&quot;:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code>flux create <span class="token builtin class-name">source</span> helm <span class="token string">&quot;fairwinds-stable&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--url</span><span class="token operator">=</span><span class="token string">&quot;https://charts.fairwinds.com/stable&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span>1h <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/sources/fairwinds-stable.yaml&quot;</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- fairwinds-stable.yaml$&#39;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/sources/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>
+    <span class="token builtin class-name">cd</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/sources/&quot;</span> <span class="token operator">&amp;&amp;</span>
+      kustomize edit <span class="token function">add</span> resource fairwinds-stable.yaml <span class="token operator">&amp;&amp;</span>
+      <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+  <span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;cluster level&quot; application definition:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-pv</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/polaris&quot;</span>
+
+kubectl create namespace polaris --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/polaris/polaris-namespace.yaml&quot;</span>
+
+flux create helmrelease polaris <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;polaris&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/fairwinds-stable.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;polaris&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;4.2.3&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/polaris-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/polaris/polaris-helmrelease.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/polaris/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/polaris/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: polaris
+resources:
+  - polaris-namespace.yaml
+  - polaris-helmrelease.yaml
+configMapGenerator:
+  - name: polaris-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>polaris-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/polaris/polaris-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+dashboard:
+  ingress:
+    enabled: <span class="token boolean">true</span>
+    annotations:
+      nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/start?rd<span class="token operator">=</span><span class="token variable">$scheme</span>://<span class="token variable">$host</span><span class="token variable">$request_uri</span>
+    hosts:
+      - polaris.<span class="token variable">\${CLUSTER_FQDN}</span>
+    tls:
+      - hosts:
+        - polaris.<span class="token variable">\${CLUSTER_FQDN}</span>
+EOF
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- polaris$&#39;</span> <span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;clusters/<span class="token variable">\${ENVIRONMENT}</span>/<span class="token variable">\${CLUSTER_FQDN}</span>/cluster-apps&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource polaris <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="policy-reporter" tabindex="-1"><a class="header-anchor" href="#policy-reporter"><span>Policy Reporter</span></a></h3>`,5),ys={href:"https://github.com/kyverno/policy-reporter/wiki",target:"_blank",rel:"noopener noreferrer"},Ns={href:"https://github.com/kyverno/policy-reporter/tree/main/charts/policy-reporter",target:"_blank",rel:"noopener noreferrer"},Es={href:"https://github.com/kyverno/policy-reporter/blob/main/charts/policy-reporter/values.yaml",target:"_blank",rel:"noopener noreferrer"},Rs=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/policy-reporter
+
+kubectl create namespace policy-reporter --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/policy-reporter/policy-reporter-namespace.yaml
+
+flux create helmrelease policy-reporter <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;policy-reporter&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/policy-reporter.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;policy-reporter&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;2.1.1&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/policy-reporter-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/policy-reporter/policy-reporter-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/policy-reporter/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/policy-reporter&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/cert-manager</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter/policy-reporter-kustomization&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter/policy-reporter-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: policy-reporter
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: kyverno
+  - name: kube-prometheus-stack
+  interval: 5m
+  path: ./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter/policy-reporter-kustomization
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter/policy-reporter-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter/policy-reporter-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: policy-reporter
+resources:
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/policy-reporter
+  - policy-reporter-ingress.yaml
+configMapGenerator:
+  - name: policy-reporter-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>policy-reporter-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter/policy-reporter-kustomization/policy-reporter-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+ui:
+  enabled: <span class="token boolean">true</span>
+kyvernoPlugin:
+  enabled: <span class="token boolean">true</span>
+monitoring:
+  enabled: <span class="token boolean">true</span>
+  namespace: policy-reporter
+global:
+  plugins:
+    keyverno: <span class="token boolean">true</span>
+target:
+  slack:
+    webhook: <span class="token string">&quot;<span class="token variable">\${SLACK_INCOMING_WEBHOOK_URL}</span>&quot;</span>
+    minimumPriority: <span class="token string">&quot;critical&quot;</span>
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter/policy-reporter-kustomization/policy-reporter-ingress.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/start?rd<span class="token operator">=</span><span class="token variable">$scheme</span>://<span class="token variable">$host</span><span class="token variable">$request_uri</span>
+    nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/auth
+  name: policy-reporter
+  namespace: policy-reporter
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: policy-reporter.<span class="token variable">\${CLUSTER_FQDN}</span>
+    http:
+      paths:
+      - backend:
+          service:
+            name: policy-reporter-ui
+            port:
+              number: <span class="token number">8080</span>
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - policy-reporter.<span class="token variable">\${CLUSTER_FQDN}</span>
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/policy-reporter&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- policy-reporter$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource policy-reporter <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="rancher" tabindex="-1"><a class="header-anchor" href="#rancher"><span>Rancher</span></a></h3>`,5),_s={href:"https://rancher.com/",target:"_blank",rel:"noopener noreferrer"},Os={href:"https://github.com/rancher/rancher/tree/master/chart",target:"_blank",rel:"noopener noreferrer"},$s={href:"https://github.com/rancher/rancher/blob/master/chart/values.yaml",target:"_blank",rel:"noopener noreferrer"},xs=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/rancher
+
+flux create helmrelease rancher <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;cattle-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--timeout</span><span class="token operator">=</span><span class="token string">&quot;10m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/rancher-latest.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;rancher&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;2.6.3&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/rancher-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/rancher/rancher-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/rancher/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/rancher&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/rancher</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher/rancher-kustomization&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher/rancher-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: rancher
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kubed
+    - name: cert-manager-certificate
+  interval: 5m
+  path: ./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher/rancher-kustomization
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher/rancher-kustomization/rancher-namespace.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cattle-system
+  labels:
+    cert-manager-cert-<span class="token variable">\${LETSENCRYPT_ENVIRONMENT}</span><span class="token builtin class-name">:</span> copy
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher/rancher-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher/rancher-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cattle-system
+resources:
+  - rancher-namespace.yaml
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/rancher
+configMapGenerator:
+  - name: rancher-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>rancher-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher/rancher-kustomization/rancher-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+hostname: rancher.<span class="token variable">\${CLUSTER_FQDN}</span>
+ingress:
+  extraAnnotations:
+    nginx.ingress.kubernetes.io/auth-url: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.<span class="token variable">\${CLUSTER_FQDN}</span>/oauth2/start?rd<span class="token operator">=</span><span class="token variable">$scheme</span>://<span class="token variable">$host</span><span class="token variable">$request_uri</span>
+  tls:
+    source: secret
+    secretName: ingress-cert-<span class="token variable">\${LETSENCRYPT_ENVIRONMENT}</span>
+replicas: <span class="token number">1</span>
+bootstrapPassword: <span class="token variable">\${MY_PASSWORD}</span>
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/rancher&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- rancher$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource rancher <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="secrets-store-csi-driver" tabindex="-1"><a class="header-anchor" href="#secrets-store-csi-driver"><span>Secrets Store CSI driver</span></a></h3>`,5),Ts={href:"https://secrets-store-csi-driver.sigs.k8s.io/",target:"_blank",rel:"noopener noreferrer"},zs={href:"https://github.com/kubernetes-sigs/secrets-store-csi-driver/tree/master/charts/secrets-store-csi-driver",target:"_blank",rel:"noopener noreferrer"},Ms={href:"https://github.com/kubernetes-sigs/secrets-store-csi-driver/blob/master/charts/secrets-store-csi-driver/values.yaml",target:"_blank",rel:"noopener noreferrer"},Is=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/secrets-store-csi-driver
+
+kubectl create namespace secrets-store-csi-driver --dry-run<span class="token operator">=</span>client <span class="token parameter variable">-o</span> yaml <span class="token operator">&gt;</span> infrastructure/base/secrets-store-csi-driver/secrets-store-csi-driver-namespace.yaml
+
+flux create helmrelease secrets-store-csi-driver <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;secrets-store-csi-driver&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/secrets-store-csi-driver.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;secrets-store-csi-driver&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;1.0.0&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--crds</span><span class="token operator">=</span><span class="token string">&quot;CreateReplace&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/secrets-store-csi-driver/secrets-store-csi-driver-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/secrets-store-csi-driver/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/secrets-store-csi-driver&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/crossplane</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-pv</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver&quot;</span>/secrets-store-csi-driver-<span class="token punctuation">{</span>kustomization,kustomization-provider-aws<span class="token punctuation">}</span>
+
+flux create kustomization secrets-store-csi-driver <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/\\<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver/secrets-store-csi-driver-kustomization&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver/secrets-store-csi-driver-kustomization.yaml&quot;</span>
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver/secrets-store-csi-driver-kustomization/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>
+    <span class="token builtin class-name">cd</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver/secrets-store-csi-driver-kustomization&quot;</span> <span class="token operator">&amp;&amp;</span>
+      kustomize create <span class="token parameter variable">--resources</span> <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/secrets-store-csi-driver <span class="token operator">&amp;&amp;</span>
+      <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+  <span class="token punctuation">)</span>
+
+flux create kustomization secrets-store-csi-driver-provider-aws <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  --depends-on<span class="token operator">=</span><span class="token string">&quot;secrets-store-csi-driver&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--path</span><span class="token operator">=</span><span class="token string">&quot;./infrastructure/\\<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver/secrets-store-csi-driver-kustomization-provider-aws&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--prune</span><span class="token operator">=</span><span class="token string">&quot;true&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;GitRepository/flux-system.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--wait</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver/secrets-store-csi-driver-kustomization-provider-aws.yaml&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver/secrets-store-csi-driver-kustomization-provider-aws/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: secrets-store-csi-driver
+resources:
+  - https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/807d3cea12264c518e2a5007d6009cee159c2917/deployment/aws-provider-installer.yaml <span class="token comment"># DevSkim: ignore DS117838</span>
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/secrets-store-csi-driver&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- secrets-store-csi-driver$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource secrets-store-csi-driver <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="velero" tabindex="-1"><a class="header-anchor" href="#velero"><span>Velero</span></a></h3>`,5),Vs={href:"https://velero.io/",target:"_blank",rel:"noopener noreferrer"},Fs={href:"https://artifacthub.io/packages/helm/vmware-tanzu/velero",target:"_blank",rel:"noopener noreferrer"},Ss={href:"https://github.com/vmware-tanzu/helm-charts/blob/main/charts/velero/values.yaml",target:"_blank",rel:"noopener noreferrer"},ws=t(`<p>Define &quot;base level&quot; application definition in <code>infrastructure</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> infrastructure/base/velero
+
+flux create helmrelease velero <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--namespace</span><span class="token operator">=</span><span class="token string">&quot;velero&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--interval</span><span class="token operator">=</span><span class="token string">&quot;5m&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--source</span><span class="token operator">=</span><span class="token string">&quot;HelmRepository/vmware-tanzu.flux-system&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--chart</span><span class="token operator">=</span><span class="token string">&quot;velero&quot;</span> <span class="token punctuation">\\</span>
+  --chart-version<span class="token operator">=</span><span class="token string">&quot;2.27.1&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--crds</span><span class="token operator">=</span><span class="token string">&quot;CreateReplace&quot;</span> <span class="token punctuation">\\</span>
+  --values-from<span class="token operator">=</span><span class="token string">&quot;ConfigMap/velero-values&quot;</span> <span class="token punctuation">\\</span>
+  <span class="token parameter variable">--export</span> <span class="token operator">&gt;</span> infrastructure/base/velero/velero-helmrelease.yaml
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/base/velero/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/base/velero&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Define &quot;infrastructure level&quot; application definition in <code>infrastructure/\${ENVIRONMENT}/velero</code>:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">mkdir</span> <span class="token parameter variable">-vp</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero/velero-kustomization&quot;</span>
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero/velero-kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: velero
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-prometheus-stack
+    - name: external-snapshotter
+  interval: 5m
+  path: ./infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero/velero-kustomization
+  prune: <span class="token boolean">true</span>
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: <span class="token boolean">true</span>
+  postBuild:
+    substituteFrom:
+    - kind: Secret
+      name: cluster-apps-substitutefrom-secret
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero/velero-kustomization/velero-volumesnapshotclass.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: velero-csi-ebs-snapclass
+  labels:
+    velero.io/csi-volumesnapshot-class: <span class="token string">&quot;true&quot;</span>
+driver: ebs.csi.aws.com
+deletionPolicy: Delete
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero/velero-kustomization/kustomizeconfig.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+nameReference:
+- kind: ConfigMap
+  version: v1
+  fieldSpecs:
+  - path: spec/valuesFrom/name
+    kind: HelmRelease
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero/velero-kustomization/kustomization.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: velero
+resources:
+  - velero-volumesnapshotclass.yaml
+  - <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/base/velero
+configMapGenerator:
+  - name: velero-values
+    files:
+      - <span class="token assign-left variable">values.yaml</span><span class="token operator">=</span>velero-values.yaml
+configurations:
+  - kustomizeconfig.yaml
+EOF
+
+<span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero/velero-kustomization/velero-values.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\\</span>EOF
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.3.0
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+  - name: velero-plugin-for-csi
+    image: velero/velero-plugin-for-csi:v0.2.0
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+metrics:
+  serviceMonitor:
+    enabled: <span class="token boolean">true</span>
+configuration:
+  provider: aws
+  backupStorageLocation:
+    bucket: <span class="token variable">\${CLUSTER_FQDN}</span>
+    prefix: velero
+    config:
+      region: <span class="token variable">\${AWS_DEFAULT_REGION}</span>
+      <span class="token comment"># Not working...</span>
+      <span class="token comment"># kmsKeyId:</span>
+  volumeSnapshotLocation:
+    name: aws
+    config:
+      region: <span class="token variable">\${AWS_DEFAULT_REGION}</span>
+  features: EnableCSI
+  defaultResticPruneFrequency: 71h
+serviceAccount:
+  server:
+    create: <span class="token boolean">false</span>
+    name: velero
+credentials:
+  useSecret: <span class="token boolean">false</span>
+schedules:
+  <span class="token comment"># https://doc.crds.dev/github.com/vmware-tanzu/velero/velero.io/Backup/v1@v1.5.1</span>
+  my-backup-all:
+    disabled: <span class="token boolean">false</span>
+    schedule: <span class="token string">&quot;0 */8 * * *&quot;</span>
+    useOwnerReferencesInBackup: <span class="token boolean">true</span>
+    template:
+      ttl: 48h
+EOF
+
+<span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero/kustomization.yaml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/velero&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize create <span class="token parameter variable">--autodetect</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+
+<span class="token operator">!</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">&#39;\\- velero$&#39;</span> <span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>/kustomization.yaml&quot;</span> <span class="token operator">&amp;&amp;</span>
+  <span class="token punctuation">(</span>cd<span class="token string">&quot;infrastructure/<span class="token variable">\${ENVIRONMENT}</span>&quot;</span> <span class="token operator">&amp;&amp;</span> kustomize edit <span class="token function">add</span> resource velero <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span><span class="token punctuation">)</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h2 id="flux" tabindex="-1"><a class="header-anchor" href="#flux"><span>Flux</span></a></h2><p>Commit changes to git repository:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token function">git</span> <span class="token function">add</span> <span class="token builtin class-name">.</span>
+<span class="token function">git</span> commit <span class="token parameter variable">-m</span> <span class="token string">&quot;[<span class="token variable">\${CLUSTER_NAME}</span>] Add applications&quot;</span> <span class="token operator">||</span> <span class="token boolean">true</span>
+<span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token string">&quot;<span class="token variable"><span class="token variable">$(</span><span class="token function">git</span> push <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span><span class="token variable">)</span></span>&quot;</span> <span class="token operator">=~</span> ^Everything<span class="token punctuation">\\</span> up-to-date <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+  flux reconcile <span class="token builtin class-name">source</span> <span class="token function">git</span> flux-system
+  <span class="token function">sleep</span> <span class="token number">10</span>
+<span class="token keyword">fi</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Go back to the main directory:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token builtin class-name">cd</span> - <span class="token operator">||</span> <span class="token builtin class-name">exit</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div></div></div><p>Check Flux errors:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code>kubectl <span class="token function">wait</span> <span class="token parameter variable">--timeout</span><span class="token operator">=</span>30m <span class="token parameter variable">--for</span><span class="token operator">=</span>condition<span class="token operator">=</span>ready kustomizations.kustomize.toolkit.fluxcd.io <span class="token parameter variable">-n</span> flux-system cluster-apps
+flux logs <span class="token parameter variable">--level</span><span class="token operator">=</span>error --all-namespaces
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div></div></div><p>Check <code>helmreleases</code>, <code>helmrepositories</code>, <code>kustomizations</code>, ...</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code>kubectl get pods <span class="token parameter variable">-A</span>
+kubectl get helmreleases.helm.toolkit.fluxcd.io <span class="token parameter variable">-A</span>
+kubectl get helmrepositories.source.toolkit.fluxcd.io <span class="token parameter variable">-A</span>
+kubectl get kustomizations.kustomize.toolkit.fluxcd.io <span class="token parameter variable">-A</span>
+helm <span class="token function">ls</span> <span class="token parameter variable">-A</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Export command for kubeconfig:</p><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token builtin class-name">echo</span> <span class="token string">&quot;export KUBECONFIG=<span class="token entity" title="\\&quot;">\\&quot;</span>\\<span class="token variable">\${<span class="token environment constant">PWD</span>}</span>/tmp/<span class="token variable">\${CLUSTER_FQDN}</span>/kubeconfig-<span class="token variable">\${CLUSTER_NAME}</span>.conf<span class="token entity" title="\\&quot;">\\&quot;</span>&quot;</span>
+</code></pre><div class="line-numbers" aria-hidden="true"><div class="line-number"></div></div></div>`,15);function Cs(Ds,Ls){const i=r("router-link"),e=r("ExternalLinkIcon");return p(),c("div",null,[d,s("nav",v,[s("ul",null,[s("li",null,[a(i,{to:"#applications-definitions"},{default:l(()=>[n("Applications definitions")]),_:1}),s("ul",null,[s("li",null,[a(i,{to:"#amazon-efs-csi-driver"},{default:l(()=>[n("Amazon EFS CSI Driver")]),_:1})]),s("li",null,[a(i,{to:"#crossplane-aws"},{default:l(()=>[n("Crossplane AWS")]),_:1})]),s("li",null,[a(i,{to:"#istio"},{default:l(()=>[n("Istio")]),_:1})]),s("li",null,[a(i,{to:"#kuard"},{default:l(()=>[n("kuard")]),_:1})]),s("li",null,[a(i,{to:"#kubed"},{default:l(()=>[n("kubed")]),_:1})]),s("li",null,[a(i,{to:"#kubernetes-dashboard"},{default:l(()=>[n("kubernetes-dashboard")]),_:1})]),s("li",null,[a(i,{to:"#kyverno"},{default:l(()=>[n("Kyverno")]),_:1})]),s("li",null,[a(i,{to:"#oauth2-proxy-keycloak"},{default:l(()=>[n("OAuth2 Proxy - Keycloak")]),_:1})]),s("li",null,[a(i,{to:"#podinfo"},{default:l(()=>[n("podinfo")]),_:1})]),s("li",null,[a(i,{to:"#polaris"},{default:l(()=>[n("Polaris")]),_:1})]),s("li",null,[a(i,{to:"#policy-reporter"},{default:l(()=>[n("Policy Reporter")]),_:1})]),s("li",null,[a(i,{to:"#rancher"},{default:l(()=>[n("Rancher")]),_:1})]),s("li",null,[a(i,{to:"#secrets-store-csi-driver"},{default:l(()=>[n("Secrets Store CSI driver")]),_:1})]),s("li",null,[a(i,{to:"#velero"},{default:l(()=>[n("Velero")]),_:1})])])]),s("li",null,[a(i,{to:"#flux"},{default:l(()=>[n("Flux")]),_:1})])])]),m,k,s("p",null,[n("Install "),s("a",b,[n("Amazon EFS CSI Driver"),a(e)]),n(", which supports ReadWriteMany PVC. Details can be found here: "),s("a",g,[n("Introducing Amazon EFS CSI dynamic provisioning"),a(e)])]),s("p",null,[s("a",f,[n("Amazon EFS CSI Driver"),a(e)])]),s("ul",null,[s("li",null,[s("a",h,[n("aws-efs-csi-driver"),a(e)])]),s("li",null,[s("a",q,[n("default values.yaml"),a(e)])])]),y,s("p",null,[s("a",N,[n("Istio"),a(e)])]),E,s("p",null,[s("a",R,[n("Jaeger"),a(e)])]),s("ul",null,[s("li",null,[s("a",_,[n("jaeger-operator"),a(e)])]),s("li",null,[s("a",O,[n("default values.yaml"),a(e)])])]),$,s("p",null,[s("a",x,[n("Jaeger"),a(e)])]),s("ul",null,[s("li",null,[s("a",T,[n("Jaeger Operator"),a(e)])])]),z,s("p",null,[s("a",M,[n("Istio Operator"),a(e)])]),s("ul",null,[s("li",null,[s("a",I,[n("istio-operator"),a(e)])]),s("li",null,[s("a",V,[n("default values.yaml"),a(e)])])]),F,s("p",null,[s("a",S,[n("Istio"),a(e)])]),s("ul",null,[s("li",null,[s("a",w,[n("Istio CRD"),a(e)])])]),C,s("p",null,[s("a",D,[n("Keycloak"),a(e)])]),s("ul",null,[s("li",null,[s("a",L,[n("Keycloak"),a(e)])]),s("li",null,[s("a",U,[n("default values.yaml"),a(e)])])]),Q,s("p",null,[s("a",j,[n("Kiali Operator"),a(e)])]),s("ul",null,[s("li",null,[s("a",A,[n("kiali-operator"),a(e)])]),s("li",null,[s("a",K,[n("default values.yaml"),a(e)])])]),G,s("p",null,[s("a",P,[n("Kiali"),a(e)])]),s("ul",null,[s("li",null,[s("a",H,[n("Kiali CRD"),a(e)])])]),B,s("p",null,[s("a",W,[n("kubed"),a(e)])]),s("ul",null,[s("li",null,[s("a",Y,[n("kubed"),a(e)])]),s("li",null,[s("a",J,[n("default values.yaml"),a(e)])])]),X,s("p",null,[s("a",Z,[n("kubernetes-dashboard"),a(e)])]),s("ul",null,[s("li",null,[s("a",ss,[n("kubernetes-dashboard"),a(e)])]),s("li",null,[s("a",ns,[n("default values.yaml"),a(e)])])]),as,s("p",null,[s("a",es,[n("Kyverno"),a(e)])]),s("ul",null,[s("li",null,[s("p",null,[s("a",ts,[n("kyverno"),a(e)])])]),s("li",null,[s("p",null,[s("a",is,[n("default values.yaml"),a(e)])])]),s("li",null,[s("p",null,[s("a",ls,[n("kyverno-policies"),a(e)])])]),s("li",null,[s("p",null,[s("a",rs,[n("default values.yaml"),a(e)])])])]),os,s("p",null,[s("a",ps,[n("oauth2-proxy"),a(e)])]),s("ul",null,[s("li",null,[s("a",cs,[n("oauth2-proxy"),a(e)])]),s("li",null,[s("a",us,[n("default values.yaml"),a(e)])])]),ds,s("p",null,[s("a",vs,[n("podinfo"),a(e)])]),s("ul",null,[s("li",null,[s("a",ms,[n("podinfo"),a(e)])]),s("li",null,[s("a",ks,[n("default values.yaml"),a(e)])])]),bs,s("p",null,[s("a",gs,[n("Polaris"),a(e)])]),s("ul",null,[s("li",null,[s("a",fs,[n("polaris"),a(e)])]),s("li",null,[s("a",hs,[n("default values.yaml"),a(e)])])]),qs,s("p",null,[s("a",ys,[n("Policy Reporter"),a(e)])]),s("ul",null,[s("li",null,[s("a",Ns,[n("policy-reporter"),a(e)])]),s("li",null,[s("a",Es,[n("default values.yaml"),a(e)])])]),Rs,s("p",null,[s("a",_s,[n("Rancher"),a(e)])]),s("ul",null,[s("li",null,[s("a",Os,[n("rancher"),a(e)])]),s("li",null,[s("a",$s,[n("default values.yaml"),a(e)])])]),xs,s("p",null,[s("a",Ts,[n("secrets-store-csi-driver"),a(e)])]),s("ul",null,[s("li",null,[s("a",zs,[n("secrets-store-csi-driver"),a(e)])]),s("li",null,[s("a",Ms,[n("default values.yaml"),a(e)])])]),Is,s("p",null,[s("a",Vs,[n("Velero"),a(e)])]),s("ul",null,[s("li",null,[s("a",Fs,[n("velero"),a(e)])]),s("li",null,[s("a",Ss,[n("default values.yaml"),a(e)])])]),ws])}const Qs=o(u,[["render",Cs],["__file","index.html.vue"]]),js=JSON.parse('{"path":"/part-04/","title":"Applications","lang":"en-US","frontmatter":{},"headers":[{"level":2,"title":"Applications definitions","slug":"applications-definitions","link":"#applications-definitions","children":[{"level":3,"title":"Amazon EFS CSI Driver","slug":"amazon-efs-csi-driver","link":"#amazon-efs-csi-driver","children":[]},{"level":3,"title":"Crossplane AWS","slug":"crossplane-aws","link":"#crossplane-aws","children":[]},{"level":3,"title":"Istio","slug":"istio","link":"#istio","children":[]},{"level":3,"title":"kuard","slug":"kuard","link":"#kuard","children":[]},{"level":3,"title":"kubed","slug":"kubed","link":"#kubed","children":[]},{"level":3,"title":"kubernetes-dashboard","slug":"kubernetes-dashboard","link":"#kubernetes-dashboard","children":[]},{"level":3,"title":"Kyverno","slug":"kyverno","link":"#kyverno","children":[]},{"level":3,"title":"OAuth2 Proxy - Keycloak","slug":"oauth2-proxy-keycloak","link":"#oauth2-proxy-keycloak","children":[]},{"level":3,"title":"podinfo","slug":"podinfo","link":"#podinfo","children":[]},{"level":3,"title":"Polaris","slug":"polaris","link":"#polaris","children":[]},{"level":3,"title":"Policy Reporter","slug":"policy-reporter","link":"#policy-reporter","children":[]},{"level":3,"title":"Rancher","slug":"rancher","link":"#rancher","children":[]},{"level":3,"title":"Secrets Store CSI driver","slug":"secrets-store-csi-driver","link":"#secrets-store-csi-driver","children":[]},{"level":3,"title":"Velero","slug":"velero","link":"#velero","children":[]}]},{"level":2,"title":"Flux","slug":"flux","link":"#flux","children":[]}],"git":{"updatedTime":1711264771000},"filePathRelative":"part-04/README.md"}');export{Qs as comp,js as data};
