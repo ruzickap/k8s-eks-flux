@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="generator" content="VuePress 2.0.0-rc.14" />
+    <style>
+      :root {
+        --c-bg: #fff;
+      }
+
+      html.dark {
+        --c-bg: #22272e;
+      }
+
+      html,
+      body {
+        background-color: var(--c-bg);
+      }
+    </style>
+    <script>
+      const userMode = localStorage.getItem('vuepress-color-scheme')
+      const systemDarkMode =
+        window.matchMedia &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+      if (userMode === 'dark' || (userMode !== 'light' && systemDarkMode)) {
+        document.documentElement.classList.toggle('dark', true)
+      }
+    </script>
+    <link rel="icon" href="https://raw.githubusercontent.com/cncf/artwork/40e2e8948509b40e4bad479446aaec18d6273bf2/projects/kubernetes/icon/color/kubernetes-icon-color.svg"><title>Create additional AWS structure | Amazon EKS and Flux</title><meta name="description" content="Few nots about Amazon EKS and Flux">
+    <link rel="preload" href="/k8s-eks-flux/assets/style-BDZmSSuf.css" as="style"><link rel="stylesheet" href="/k8s-eks-flux/assets/style-BDZmSSuf.css">
+    <link rel="modulepreload" href="/k8s-eks-flux/assets/app-DVraMtkj.js"><link rel="modulepreload" href="/k8s-eks-flux/assets/index.html-DSJHJU1x.js">
+    <link rel="prefetch" href="/k8s-eks-flux/assets/index.html-DrrOCl_c.js" as="script"><link rel="prefetch" href="/k8s-eks-flux/assets/index.html-CGN1dr1y.js" as="script"><link rel="prefetch" href="/k8s-eks-flux/assets/index.html-BtU8ggyg.js" as="script"><link rel="prefetch" href="/k8s-eks-flux/assets/index.html-DX1tKGQt.js" as="script"><link rel="prefetch" href="/k8s-eks-flux/assets/index.html-CCJ6Rigb.js" as="script"><link rel="prefetch" href="/k8s-eks-flux/assets/index.html-CaVHFpoA.js" as="script"><link rel="prefetch" href="/k8s-eks-flux/assets/404.html-Dj8q0a3-.js" as="script">
+  </head>
+  <body>
+    <div id="app"><!--[--><div class="vp-theme-container external-link-icon"><!--[--><header class="vp-navbar"><div class="vp-toggle-sidebar-button" title="toggle sidebar" aria-expanded="false" role="button" tabindex="0"><div class="icon" aria-hidden="true"><span></span><span></span><span></span></div></div><span><a class="route-link" href="/k8s-eks-flux/"><img class="vp-site-logo" src="https://raw.githubusercontent.com/cncf/artwork/04763c0f5f72b23d6a20bfc9c68c88cee805dbcc/projects/kubernetes/horizontal/all-blue-color/kubernetes-horizontal-all-blue-color.svg" alt="Amazon EKS and Flux"><span class="vp-site-name vp-hide-mobile" aria-hidden="true">Amazon EKS and Flux</span></a></span><div class="vp-navbar-items-wrapper" style=""><!--[--><!--]--><nav class="vp-navbar-items vp-hide-mobile" aria-label="site navigation"><!--[--><div class="vp-navbar-item"><a class="route-link auto-link" href="/k8s-eks-flux/" aria-label="Home"><!---->Home<!----></a></div><div class="vp-navbar-item"><div class="vp-navbar-dropdown-wrapper"><button class="vp-navbar-dropdown-title" type="button" aria-label="Links"><span class="title">Links</span><span class="arrow down"></span></button><button class="vp-navbar-dropdown-title-mobile" type="button" aria-label="Links"><span class="title">Links</span><span class="right arrow"></span></button><ul style="display:none;" class="vp-navbar-dropdown"><!--[--><li class="vp-navbar-dropdown-item"><a class="auto-link external-link" href="https://aws.amazon.com/eks/" aria-label="Amazon EKS" rel="noopener noreferrer" target="_blank"><!---->Amazon EKS<!----></a></li><li class="vp-navbar-dropdown-item"><a class="auto-link external-link" href="https://fluxcd.io/" aria-label="Fux" rel="noopener noreferrer" target="_blank"><!---->Fux<!----></a></li><!--]--></ul></div></div><div class="vp-navbar-item"><a class="auto-link external-link" href="https://github.com/ruzickap/k8s-eks-flux" aria-label="GitHub" rel="noopener noreferrer" target="_blank"><!---->GitHub<!----></a></div><!--]--></nav><!--[--><!--]--><button class="vp-toggle-color-mode-button" title="toggle color mode"><svg class="light-icon" viewbox="0 0 32 32" style=""><path d="M16 12.005a4 4 0 1 1-4 4a4.005 4.005 0 0 1 4-4m0-2a6 6 0 1 0 6 6a6 6 0 0 0-6-6z" fill="currentColor"></path><path d="M5.394 6.813l1.414-1.415l3.506 3.506L8.9 10.318z" fill="currentColor"></path><path d="M2 15.005h5v2H2z" fill="currentColor"></path><path d="M5.394 25.197L8.9 21.691l1.414 1.415l-3.506 3.505z" fill="currentColor"></path><path d="M15 25.005h2v5h-2z" fill="currentColor"></path><path d="M21.687 23.106l1.414-1.415l3.506 3.506l-1.414 1.414z" fill="currentColor"></path><path d="M25 15.005h5v2h-5z" fill="currentColor"></path><path d="M21.687 8.904l3.506-3.506l1.414 1.415l-3.506 3.505z" fill="currentColor"></path><path d="M15 2.005h2v5h-2z" fill="currentColor"></path></svg><svg class="dark-icon" viewbox="0 0 32 32" style="display:none;"><path d="M13.502 5.414a15.075 15.075 0 0 0 11.594 18.194a11.113 11.113 0 0 1-7.975 3.39c-.138 0-.278.005-.418 0a11.094 11.094 0 0 1-3.2-21.584M14.98 3a1.002 1.002 0 0 0-.175.016a13.096 13.096 0 0 0 1.825 25.981c.164.006.328 0 .49 0a13.072 13.072 0 0 0 10.703-5.555a1.01 1.01 0 0 0-.783-1.565A13.08 13.08 0 0 1 15.89 4.38A1.015 1.015 0 0 0 14.98 3z" fill="currentColor"></path></svg></button><!----></div></header><!--]--><div class="vp-sidebar-mask"></div><!--[--><aside class="vp-sidebar"><nav class="vp-navbar-items" aria-label="site navigation"><!--[--><div class="vp-navbar-item"><a class="route-link auto-link" href="/k8s-eks-flux/" aria-label="Home"><!---->Home<!----></a></div><div class="vp-navbar-item"><div class="vp-navbar-dropdown-wrapper"><button class="vp-navbar-dropdown-title" type="button" aria-label="Links"><span class="title">Links</span><span class="arrow down"></span></button><button class="vp-navbar-dropdown-title-mobile" type="button" aria-label="Links"><span class="title">Links</span><span class="right arrow"></span></button><ul style="display:none;" class="vp-navbar-dropdown"><!--[--><li class="vp-navbar-dropdown-item"><a class="auto-link external-link" href="https://aws.amazon.com/eks/" aria-label="Amazon EKS" rel="noopener noreferrer" target="_blank"><!---->Amazon EKS<!----></a></li><li class="vp-navbar-dropdown-item"><a class="auto-link external-link" href="https://fluxcd.io/" aria-label="Fux" rel="noopener noreferrer" target="_blank"><!---->Fux<!----></a></li><!--]--></ul></div></div><div class="vp-navbar-item"><a class="auto-link external-link" href="https://github.com/ruzickap/k8s-eks-flux" aria-label="GitHub" rel="noopener noreferrer" target="_blank"><!---->GitHub<!----></a></div><!--]--></nav><!--[--><!--]--><ul class="vp-sidebar-items"><!--[--><li><a class="route-link auto-link vp-sidebar-item vp-sidebar-heading" href="/k8s-eks-flux/" aria-label="Amazon EKS and Flux"><!---->Amazon EKS and Flux<!----></a><!----></li><li><a class="route-link auto-link vp-sidebar-item vp-sidebar-heading" href="/k8s-eks-flux/part-01/" aria-label="Create initial AWS structure"><!---->Create initial AWS structure<!----></a><!----></li><li><a class="route-link route-link-active auto-link vp-sidebar-item vp-sidebar-heading active" href="/k8s-eks-flux/part-02/" aria-label="Create additional AWS structure"><!---->Create additional AWS structure<!----></a><!----></li><li><a class="route-link auto-link vp-sidebar-item vp-sidebar-heading" href="/k8s-eks-flux/part-03/" aria-label="Base Applications"><!---->Base Applications<!----></a><!----></li><li><a class="route-link auto-link vp-sidebar-item vp-sidebar-heading" href="/k8s-eks-flux/part-04/" aria-label="Applications"><!---->Applications<!----></a><!----></li><li><a class="route-link auto-link vp-sidebar-item vp-sidebar-heading" href="/k8s-eks-flux/part-workloads-01/" aria-label="Examples and tests"><!---->Examples and tests<!----></a><!----></li><li><a class="route-link auto-link vp-sidebar-item vp-sidebar-heading" href="/k8s-eks-flux/part-cleanup/" aria-label="Clean-up"><!---->Clean-up<!----></a><!----></li><!--]--></ul><!--[--><!--]--></aside><!--]--><!--[--><main class="vp-page"><!--[--><!--]--><div class="theme-default-content"><!--[--><!--]--><div><h1 id="create-additional-aws-structure" tabindex="-1"><a class="header-anchor" href="#create-additional-aws-structure"><span>Create additional AWS structure</span></a></h1><nav class="table-of-contents"><ul><li><a aria-current="page" href="/k8s-eks-flux/part-02/#create-route53" class="router-link-active router-link-exact-active">Create Route53</a></li><li><a aria-current="page" href="/k8s-eks-flux/part-02/#create-amazon-eks" class="router-link-active router-link-exact-active">Create Amazon EKS</a></li><li><a aria-current="page" href="/k8s-eks-flux/part-02/#post-installation-tasks" class="router-link-active router-link-exact-active">Post installation tasks</a></li></ul></nav><h2 id="create-route53" tabindex="-1"><a class="header-anchor" href="#create-route53"><span>Create Route53</span></a></h2><p>Create CloudFormation template containing policies for Route53, S3 access (Harbor, Velero) and Domain.</p><p>Put new domain <code>CLUSTER_FQDN</code> to the Route 53 and configure the DNS delegation from the <code>BASE_DOMAIN</code>.</p><p>Create Route53 zone:</p><div class="language-bash line-numbers-mode" data-highlighter="prismjs" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="line"><span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;tmp/<span class="token variable">${CLUSTER_FQDN}</span>/cf-route53.yml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token punctuation">\</span>EOF</span>
+<span class="line">AWSTemplateFormatVersion: <span class="token number">2010</span>-09-09</span>
+<span class="line">Description: Route53 entries</span>
+<span class="line"></span>
+<span class="line">Parameters:</span>
+<span class="line"></span>
+<span class="line">  BaseDomain:</span>
+<span class="line">    Description: <span class="token string">&quot;Base domain where cluster domains + their subdomains will live. Ex: k8s.mylabs.dev&quot;</span></span>
+<span class="line">    Type: String</span>
+<span class="line"></span>
+<span class="line">  ClusterFQDN:</span>
+<span class="line">    Description: <span class="token string">&quot;Cluster FQDN. (domain for all applications) Ex: kube1.k8s.mylabs.dev&quot;</span></span>
+<span class="line">    Type: String</span>
+<span class="line"></span>
+<span class="line">Resources:</span>
+<span class="line"></span>
+<span class="line">  HostedZone:</span>
+<span class="line">    Type: AWS::Route53::HostedZone</span>
+<span class="line">    Properties:</span>
+<span class="line">      Name: <span class="token operator">!</span>Ref ClusterFQDN</span>
+<span class="line"></span>
+<span class="line">  RecordSet:</span>
+<span class="line">    Type: AWS::Route53::RecordSet</span>
+<span class="line">    Properties:</span>
+<span class="line">      HostedZoneName: <span class="token operator">!</span>Sub <span class="token string">&quot;<span class="token variable">${BaseDomain}</span>.&quot;</span></span>
+<span class="line">      Name: <span class="token operator">!</span>Ref ClusterFQDN</span>
+<span class="line">      Type: NS</span>
+<span class="line">      TTL: <span class="token number">60</span></span>
+<span class="line">      ResourceRecords: <span class="token operator">!</span>GetAtt HostedZone.NameServers</span>
+<span class="line"></span>
+<span class="line">  S3Bucket:</span>
+<span class="line">    Type: AWS::S3::Bucket</span>
+<span class="line">    Properties:</span>
+<span class="line">      AccessControl: Private</span>
+<span class="line">      BucketName: <span class="token operator">!</span>Sub <span class="token string">&quot;<span class="token variable">${ClusterFQDN}</span>&quot;</span></span>
+<span class="line">      BucketEncryption:</span>
+<span class="line">        ServerSideEncryptionConfiguration:</span>
+<span class="line">          - ServerSideEncryptionByDefault:</span>
+<span class="line">              SSEAlgorithm: AES256</span>
+<span class="line">EOF</span>
+<span class="line"></span>
+<span class="line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token variable"><span class="token variable">$(</span>aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE <span class="token parameter variable">--query</span> <span class="token string">&quot;StackSummaries[?starts_with(StackName, \<span class="token variable"><span class="token variable">`</span>$<span class="token punctuation">{</span>CLUSTER_NAME<span class="token punctuation">}</span>-route53<span class="token punctuation">\</span><span class="token variable">`</span></span>) == \<span class="token variable"><span class="token variable">`</span>true<span class="token punctuation">\</span><span class="token variable">`</span></span>].StackName&quot;</span> <span class="token parameter variable">--output</span> text<span class="token variable">)</span></span> <span class="token operator">==</span> <span class="token string">&quot;&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span></span>
+<span class="line">  <span class="token comment"># shellcheck disable=SC2001</span></span>
+<span class="line">  <span class="token builtin class-name">eval</span> aws cloudformation <span class="token string">&quot;create-stack&quot;</span> <span class="token punctuation">\</span></span>
+<span class="line">    <span class="token parameter variable">--parameters</span> <span class="token string">&quot;ParameterKey=BaseDomain,ParameterValue=<span class="token variable">${BASE_DOMAIN}</span> ParameterKey=ClusterFQDN,ParameterValue=<span class="token variable">${CLUSTER_FQDN}</span>&quot;</span> <span class="token punctuation">\</span></span>
+<span class="line">    --stack-name <span class="token string">&quot;<span class="token variable">${CLUSTER_NAME}</span>-route53&quot;</span> <span class="token punctuation">\</span></span>
+<span class="line">    --template-body <span class="token string">&quot;file://tmp/<span class="token variable">${CLUSTER_FQDN}</span>/cf-route53.yml&quot;</span> <span class="token punctuation">\</span></span>
+<span class="line">    <span class="token parameter variable">--tags</span> <span class="token string">&quot;<span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">echo</span> <span class="token string">&quot;<span class="token variable">${TAGS}</span>&quot;</span> <span class="token operator">|</span> <span class="token function">sed</span> <span class="token parameter variable">-e</span> <span class="token string">&#39;s/\([^ =]*\)=\([^ ]*\)/Key=\1,Value=\2/g&#39;</span><span class="token variable">)</span></span>&quot;</span> <span class="token operator">||</span> <span class="token boolean">true</span></span>
+<span class="line"><span class="token keyword">fi</span></span>
+<span class="line"></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h2 id="create-amazon-eks" tabindex="-1"><a class="header-anchor" href="#create-amazon-eks"><span>Create Amazon EKS</span></a></h2><p><img src="https://raw.githubusercontent.com/aws-samples/eks-workshop/65b766c494a5b4f5420b2912d8373c4957163541/static/images/3-service-animated.gif" alt="EKS" title="EKS"></p><p>Create <a href="https://aws.amazon.com/eks/" target="_blank" rel="noopener noreferrer">Amazon EKS</a> in AWS by using <a href="https://eksctl.io/" target="_blank" rel="noopener noreferrer">eksctl</a>.</p><p><img src="https://raw.githubusercontent.com/weaveworks/eksctl/c365149fc1a0b8d357139cbd6cda5aee8841c16c/logo/eksctl.png" alt="eksctl" title="eksctl"></p><p>Create the Amazon EKS cluster with Calico using <code>eksctl</code>:</p><div class="language-bash line-numbers-mode" data-highlighter="prismjs" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="line"><span class="token function">cat</span> <span class="token operator">&gt;</span> <span class="token string">&quot;tmp/<span class="token variable">${CLUSTER_FQDN}</span>/eksctl-<span class="token variable">${CLUSTER_NAME}</span>.yaml&quot;</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF</span>
+<span class="line">apiVersion: eksctl.io/v1alpha5</span>
+<span class="line">kind: ClusterConfig</span>
+<span class="line">metadata:</span>
+<span class="line">  name: <span class="token variable">${CLUSTER_NAME}</span></span>
+<span class="line">  region: <span class="token variable">${AWS_DEFAULT_REGION}</span></span>
+<span class="line">  version: &quot;1.21&quot;</span>
+<span class="line">  tags: &amp;tags</span>
+<span class="line"><span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">echo</span> <span class="token string">&quot;<span class="token variable">${TAGS}</span>&quot;</span> <span class="token operator">|</span> <span class="token function">sed</span> <span class="token string">&quot;s/ /<span class="token entity" title="\\">\\</span>n    /g; s/^/    /g; s/=/: /g&quot;</span><span class="token variable">)</span></span></span>
+<span class="line">iam:</span>
+<span class="line">  withOIDC: true</span>
+<span class="line">  serviceAccounts:</span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: aws-load-balancer-controller</span>
+<span class="line">        namespace: aws-load-balancer</span>
+<span class="line">      wellKnownPolicies:</span>
+<span class="line">        awsLoadBalancerController: true</span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: cert-manager</span>
+<span class="line">        namespace: cert-manager</span>
+<span class="line">      wellKnownPolicies:</span>
+<span class="line">        certManager: true</span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: cluster-autoscaler</span>
+<span class="line">        namespace: cluster-autoscaler</span>
+<span class="line">      wellKnownPolicies:</span>
+<span class="line">        autoScaler: true</span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: external-dns</span>
+<span class="line">        namespace: external-dns</span>
+<span class="line">      wellKnownPolicies:</span>
+<span class="line">        externalDNS: true</span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: ebs-csi-controller-sa</span>
+<span class="line">        namespace: aws-ebs-csi-driver</span>
+<span class="line">      wellKnownPolicies:</span>
+<span class="line">        ebsCSIController: true</span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: efs-csi-controller-sa</span>
+<span class="line">        namespace: aws-efs-csi-driver</span>
+<span class="line">      wellKnownPolicies:</span>
+<span class="line">        efsCSIController: true</span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: kustomize-controller</span>
+<span class="line">        namespace: flux-system</span>
+<span class="line">      attachPolicy:</span>
+<span class="line">        Version: 2012-10-17</span>
+<span class="line">        Statement:</span>
+<span class="line">        - Sid: FluxKMS</span>
+<span class="line">          Effect: Allow</span>
+<span class="line">          Action:</span>
+<span class="line">            - kms:Encrypt</span>
+<span class="line">            - kms:Decrypt</span>
+<span class="line">            - kms:ReEncrypt*</span>
+<span class="line">            - kms:GenerateDataKey*</span>
+<span class="line">            - kms:DescribeKey</span>
+<span class="line">          Resource:</span>
+<span class="line">          - <span class="token variable">${AWS_KMS_KEY_ARN}</span></span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: kuard-sa</span>
+<span class="line">        namespace: kuard</span>
+<span class="line">      attachPolicy:</span>
+<span class="line">        Version: 2012-10-17</span>
+<span class="line">        Statement:</span>
+<span class="line">        - Sid: AllowSecretManagerAccess</span>
+<span class="line">          Effect: Allow</span>
+<span class="line">          Action:</span>
+<span class="line">          - secretsmanager:GetSecretValue</span>
+<span class="line">          Resource:</span>
+<span class="line">          - arn:*:secretsmanager:*:*:secret:*</span>
+<span class="line">        - Sid: AllowKMSAccess</span>
+<span class="line">          Effect: Allow</span>
+<span class="line">          Action:</span>
+<span class="line">          - kms:Decrypt</span>
+<span class="line">          Resource:</span>
+<span class="line">          - <span class="token variable">${AWS_KMS_KEY_ARN}</span></span>
+<span class="line">          Condition:</span>
+<span class="line">            StringLike:</span>
+<span class="line">              kms:ViaService:</span>
+<span class="line">                - secretsmanager.*.amazonaws.com</span>
+<span class="line">    - metadata:</span>
+<span class="line">        name: velero</span>
+<span class="line">        namespace: velero</span>
+<span class="line">      attachPolicy:</span>
+<span class="line">        Version: 2012-10-17</span>
+<span class="line">        Statement:</span>
+<span class="line">        - Effect: Allow</span>
+<span class="line">          Action:</span>
+<span class="line">          - s3:ListBucket</span>
+<span class="line">          Resource:</span>
+<span class="line">          - arn:aws:s3:::<span class="token variable">${CLUSTER_FQDN}</span></span>
+<span class="line">        - Effect: Allow</span>
+<span class="line">          Action:</span>
+<span class="line">          - s3:PutObject</span>
+<span class="line">          - s3:GetObject</span>
+<span class="line">          - s3:DeleteObject</span>
+<span class="line">          - s3:ListMultipartUploadParts</span>
+<span class="line">          - s3:AbortMultipartUpload</span>
+<span class="line">          Resource:</span>
+<span class="line">          - arn:aws:s3:::<span class="token variable">${CLUSTER_FQDN}</span>/*</span>
+<span class="line">vpc:</span>
+<span class="line">  id: &quot;<span class="token variable">${AWS_VPC_ID}</span>&quot;</span>
+<span class="line">  subnets:</span>
+<span class="line">    private:</span>
+<span class="line">      <span class="token variable">${AWS_DEFAULT_REGION}</span>a:</span>
+<span class="line">          id: &quot;<span class="token variable">${AWS_PRIVATESUBNETID1}</span>&quot;</span>
+<span class="line">      <span class="token variable">${AWS_DEFAULT_REGION}</span>b:</span>
+<span class="line">          id: &quot;<span class="token variable">${AWS_PRIVATESUBNETID2}</span>&quot;</span>
+<span class="line">    public:</span>
+<span class="line">      <span class="token variable">${AWS_DEFAULT_REGION}</span>a:</span>
+<span class="line">          id: &quot;<span class="token variable">${AWS_PUBLICSUBNETID1}</span>&quot;</span>
+<span class="line">      <span class="token variable">${AWS_DEFAULT_REGION}</span>b:</span>
+<span class="line">          id: &quot;<span class="token variable">${AWS_PUBLICSUBNETID2}</span>&quot;</span>
+<span class="line">managedNodeGroups:</span>
+<span class="line">  - name: managed-ng-1</span>
+<span class="line">    amiFamily: Bottlerocket</span>
+<span class="line">    instanceType: t3.large</span>
+<span class="line">    desiredCapacity: 3</span>
+<span class="line">    minSize: 2</span>
+<span class="line">    maxSize: 5</span>
+<span class="line">    volumeSize: 30</span>
+<span class="line">    tags:</span>
+<span class="line">      &lt;&lt;: *tags</span>
+<span class="line">      compliance:na:defender: bottlerocket</span>
+<span class="line">    volumeEncrypted: true</span>
+<span class="line">    volumeKmsKeyID: <span class="token variable">${AWS_KMS_KEY_ID}</span></span>
+<span class="line">    disableIMDSv1: true</span>
+<span class="line">secretsEncryption:</span>
+<span class="line">  keyARN: <span class="token variable">${AWS_KMS_KEY_ARN}</span></span>
+<span class="line">gitops:</span>
+<span class="line">  flux:</span>
+<span class="line">    gitProvider: github</span>
+<span class="line">    flags:</span>
+<span class="line">      owner: &quot;<span class="token variable">${GITHUB_USER}</span>&quot;</span>
+<span class="line">      repository: &quot;<span class="token variable">${GITHUB_FLUX_REPOSITORY}</span>&quot;</span>
+<span class="line">      personal: &quot;true&quot;</span>
+<span class="line">      private: &quot;false&quot;</span>
+<span class="line">      branch: &quot;main&quot;</span>
+<span class="line">      path: &quot;clusters/<span class="token variable">${ENVIRONMENT}</span>/<span class="token variable">${CLUSTER_FQDN}</span>&quot;</span>
+<span class="line">EOF</span></span>
+<span class="line"></span>
+<span class="line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;<span class="token variable">${KUBECONFIG}</span>&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span></span>
+<span class="line">  <span class="token keyword">if</span> <span class="token operator">!</span> eksctl get clusters <span class="token parameter variable">--name</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${CLUSTER_NAME}</span>&quot;</span> <span class="token operator">&amp;&gt;</span> /dev/null<span class="token punctuation">;</span> <span class="token keyword">then</span></span>
+<span class="line">    eksctl create cluster --config-file <span class="token string">&quot;tmp/<span class="token variable">${CLUSTER_FQDN}</span>/eksctl-<span class="token variable">${CLUSTER_NAME}</span>.yaml&quot;</span> <span class="token parameter variable">--kubeconfig</span> <span class="token string">&quot;<span class="token variable">${KUBECONFIG}</span>&quot;</span></span>
+<span class="line">  <span class="token keyword">else</span></span>
+<span class="line">    eksctl utils write-kubeconfig <span class="token parameter variable">--cluster</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${CLUSTER_NAME}</span>&quot;</span> <span class="token parameter variable">--kubeconfig</span> <span class="token string">&quot;<span class="token variable">${KUBECONFIG}</span>&quot;</span></span>
+<span class="line">  <span class="token keyword">fi</span></span>
+<span class="line"><span class="token keyword">fi</span></span>
+<span class="line"></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Add add the user or role to the aws-auth ConfigMap. This is handy if you are using different user for CLI operations and different user/role for accessing the AWS Console to see EKS Workloads in Cluster&#39;s tab.</p><div class="language-bash line-numbers-mode" data-highlighter="prismjs" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token parameter variable">-n</span> <span class="token variable">${AWS_CONSOLE_ADMIN_ROLE_ARN+x}</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span> eksctl get iamidentitymapping <span class="token parameter variable">--cluster</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${CLUSTER_NAME}</span>&quot;</span> <span class="token parameter variable">--arn</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${AWS_CONSOLE_ADMIN_ROLE_ARN}</span>&quot;</span> <span class="token operator">&amp;&gt;</span> /dev/null<span class="token punctuation">;</span> <span class="token keyword">then</span></span>
+<span class="line">  eksctl create iamidentitymapping <span class="token parameter variable">--cluster</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${CLUSTER_NAME}</span>&quot;</span> <span class="token parameter variable">--arn</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${AWS_CONSOLE_ADMIN_ROLE_ARN}</span>&quot;</span> <span class="token parameter variable">--group</span> system:masters <span class="token parameter variable">--username</span> admin</span>
+<span class="line"><span class="token keyword">fi</span></span>
+<span class="line"></span>
+<span class="line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token parameter variable">-n</span> <span class="token variable">${AWS_USER_ROLE_ARN+x}</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span> eksctl get iamidentitymapping <span class="token parameter variable">--cluster</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${CLUSTER_NAME}</span>&quot;</span> <span class="token parameter variable">--arn</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${AWS_USER_ROLE_ARN}</span>&quot;</span> <span class="token operator">&amp;&gt;</span> /dev/null<span class="token punctuation">;</span> <span class="token keyword">then</span></span>
+<span class="line">  eksctl create iamidentitymapping <span class="token parameter variable">--cluster</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${CLUSTER_NAME}</span>&quot;</span> <span class="token parameter variable">--arn</span><span class="token operator">=</span><span class="token string">&quot;<span class="token variable">${AWS_USER_ROLE_ARN}</span>&quot;</span> <span class="token parameter variable">--group</span> system:masters <span class="token parameter variable">--username</span> admin</span>
+<span class="line"><span class="token keyword">fi</span></span>
+<span class="line"></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h2 id="post-installation-tasks" tabindex="-1"><a class="header-anchor" href="#post-installation-tasks"><span>Post installation tasks</span></a></h2><p>Change TTL=60 of SOA + NS records for new domain (it can not be done in CloudFormation):</p><div class="language-bash line-numbers-mode" data-highlighter="prismjs" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-s</span> <span class="token string">&quot;tmp/<span class="token variable">${CLUSTER_FQDN}</span>/route53-hostedzone-ttl.yml&quot;</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span></span>
+<span class="line">  aws cloudformation <span class="token function">wait</span> stack-create-complete --stack-name <span class="token string">&quot;<span class="token variable">${CLUSTER_NAME}</span>-route53&quot;</span></span>
+<span class="line">  <span class="token assign-left variable">HOSTED_ZONE_ID</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>aws route53 list-hosted-zones <span class="token parameter variable">--query</span> <span class="token string">&quot;HostedZones[?Name==\<span class="token variable"><span class="token variable">`</span>$<span class="token punctuation">{</span>CLUSTER_FQDN<span class="token punctuation">}</span>.<span class="token punctuation">\</span><span class="token variable">`</span></span>].Id&quot;</span> <span class="token parameter variable">--output</span> text<span class="token variable">)</span></span></span>
+<span class="line">  <span class="token assign-left variable">RESOURCE_RECORD_SET_SOA</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>aws route53 <span class="token parameter variable">--output</span> json list-resource-record-sets --hosted-zone-id <span class="token string">&quot;<span class="token variable">${HOSTED_ZONE_ID}</span>&quot;</span> <span class="token parameter variable">--query</span> <span class="token string">&quot;(ResourceRecordSets[?Type == \<span class="token variable"><span class="token variable">`</span>SOA<span class="token punctuation">\</span><span class="token variable">`</span></span>])[0]&quot;</span> <span class="token operator">|</span> <span class="token function">sed</span> <span class="token string">&quot;s/<span class="token entity" title="\&quot;">\&quot;</span>TTL<span class="token entity" title="\&quot;">\&quot;</span>:.*/<span class="token entity" title="\&quot;">\&quot;</span>TTL<span class="token entity" title="\&quot;">\&quot;</span>: 60,/&quot;</span><span class="token variable">)</span></span></span>
+<span class="line">  <span class="token assign-left variable">RESOURCE_RECORD_SET_NS</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>aws route53 <span class="token parameter variable">--output</span> json list-resource-record-sets --hosted-zone-id <span class="token string">&quot;<span class="token variable">${HOSTED_ZONE_ID}</span>&quot;</span> <span class="token parameter variable">--query</span> <span class="token string">&quot;(ResourceRecordSets[?Type == \<span class="token variable"><span class="token variable">`</span>NS<span class="token punctuation">\</span><span class="token variable">`</span></span>])[0]&quot;</span> <span class="token operator">|</span> <span class="token function">sed</span> <span class="token string">&quot;s/<span class="token entity" title="\&quot;">\&quot;</span>TTL<span class="token entity" title="\&quot;">\&quot;</span>:.*/<span class="token entity" title="\&quot;">\&quot;</span>TTL<span class="token entity" title="\&quot;">\&quot;</span>: 60,/&quot;</span><span class="token variable">)</span></span></span>
+<span class="line">  <span class="token function">cat</span> <span class="token operator">&lt;&lt;</span> <span class="token string">EOF<span class="token bash punctuation"> <span class="token operator">|</span> jq <span class="token operator">&gt;</span> <span class="token string">&quot;tmp/<span class="token variable">${CLUSTER_FQDN}</span>/route53-hostedzone-ttl.yml&quot;</span></span></span>
+<span class="line">{</span>
+<span class="line">    &quot;Comment&quot;: &quot;Update record to reflect new TTL for SOA and NS records&quot;,</span>
+<span class="line">    &quot;Changes&quot;: [</span>
+<span class="line">        {</span>
+<span class="line">            &quot;Action&quot;: &quot;UPSERT&quot;,</span>
+<span class="line">            &quot;ResourceRecordSet&quot;:</span>
+<span class="line"><span class="token variable">${RESOURCE_RECORD_SET_SOA}</span></span>
+<span class="line">        },</span>
+<span class="line">        {</span>
+<span class="line">            &quot;Action&quot;: &quot;UPSERT&quot;,</span>
+<span class="line">            &quot;ResourceRecordSet&quot;:</span>
+<span class="line"><span class="token variable">${RESOURCE_RECORD_SET_NS}</span></span>
+<span class="line">        }</span>
+<span class="line">    ]</span>
+<span class="line">}</span>
+<span class="line">EOF</span></span>
+<span class="line">  aws route53 change-resource-record-sets <span class="token parameter variable">--output</span> json --hosted-zone-id <span class="token string">&quot;<span class="token variable">${HOSTED_ZONE_ID}</span>&quot;</span> --change-batch<span class="token operator">=</span><span class="token string">&quot;file://tmp/<span class="token variable">${CLUSTER_FQDN}</span>/route53-hostedzone-ttl.yml&quot;</span></span>
+<span class="line"><span class="token keyword">fi</span></span>
+<span class="line"></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div></div><!--[--><!--]--></div><footer class="vp-page-meta"><div class="vp-meta-item edit-link"><a class="auto-link external-link label" href="https://github.com/ruzickap/k8s-eks-flux/edit/main/docs/part-02/README.md" aria-label="Edit this page" rel="noopener noreferrer" target="_blank"><!--[--><svg class="edit-icon" viewbox="0 0 1024 1024"><g fill="currentColor"><path d="M430.818 653.65a60.46 60.46 0 0 1-50.96-93.281l71.69-114.012 7.773-10.365L816.038 80.138A60.46 60.46 0 0 1 859.225 62a60.46 60.46 0 0 1 43.186 18.138l43.186 43.186a60.46 60.46 0 0 1 0 86.373L588.879 565.55l-8.637 8.637-117.466 68.234a60.46 60.46 0 0 1-31.958 11.229z"></path><path d="M728.802 962H252.891A190.883 190.883 0 0 1 62.008 771.98V296.934a190.883 190.883 0 0 1 190.883-192.61h267.754a60.46 60.46 0 0 1 0 120.92H252.891a69.962 69.962 0 0 0-69.098 69.099V771.98a69.962 69.962 0 0 0 69.098 69.098h475.911A69.962 69.962 0 0 0 797.9 771.98V503.363a60.46 60.46 0 1 1 120.922 0V771.98A190.883 190.883 0 0 1 728.802 962z"></path></g></svg><!--]-->Edit this page<!----></a></div><div class="vp-meta-item git-info"><div class="vp-meta-item last-updated"><span class="meta-item-label">Last Updated: </span><!----></div><!----></div></footer><nav class="vp-page-nav" aria-label="page navigation"><a class="route-link auto-link prev" href="/k8s-eks-flux/part-01/" aria-label="Create initial AWS structure"><div class="hint"><span class="arrow left"></span> Prev</div><div class="link"><span>Create initial AWS structure</span></div></a><a class="route-link auto-link next" href="/k8s-eks-flux/part-03/" aria-label="Base Applications"><div class="hint">Next <span class="arrow right"></span></div><div class="link"><span>Base Applications</span></div></a></nav><!--[--><!--]--></main><!--]--></div><!--[--><!----><!--]--><!--]--></div>
+    <script type="module" src="/k8s-eks-flux/assets/app-DVraMtkj.js" defer></script>
+  </body>
+</html>
