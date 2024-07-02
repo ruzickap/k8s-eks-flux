@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.0](https://github.com/ruzickap/k8s-eks-flux/compare/v0.0.1...v0.1.0) (2024-07-02)
+
+
+### Features
+
+* **dependabot:** remove dependabot, fix URLs ([8047fdc](https://github.com/ruzickap/k8s-eks-flux/commit/8047fdc6744c79c935b39c75bf156679b8d6e79e))
+* **gh:** add default GitHub repo files ([#151](https://github.com/ruzickap/k8s-eks-flux/issues/151)) ([97c4ee4](https://github.com/ruzickap/k8s-eks-flux/commit/97c4ee4c97049146e2a18637140018c3499642d1))
+* **gh:** add default GitHub repo files ([#152](https://github.com/ruzickap/k8s-eks-flux/issues/152)) ([bee8270](https://github.com/ruzickap/k8s-eks-flux/commit/bee82709c5142c0a4c2b2e9dbc69ebeeca142f85))
+* **gh:** add default GitHub repo files ([#154](https://github.com/ruzickap/k8s-eks-flux/issues/154)) ([147da12](https://github.com/ruzickap/k8s-eks-flux/commit/147da12cd8144f70d483b6a1ba032644420fd7a9))
+* **gh:** add default GitHub repo files ([#156](https://github.com/ruzickap/k8s-eks-flux/issues/156)) ([2f81c2d](https://github.com/ruzickap/k8s-eks-flux/commit/2f81c2d1503c57ecf9d491121ccb3e943e1929a5))
+* **gh:** add default GitHub repo files ([#165](https://github.com/ruzickap/k8s-eks-flux/issues/165)) ([cfec228](https://github.com/ruzickap/k8s-eks-flux/commit/cfec22834bbcece51d5bfd4ab0180d1f6c61ba70))
+* **gha:** unify GHA - renovate, megalinter, markdown, and others ([203231d](https://github.com/ruzickap/k8s-eks-flux/commit/203231d1a3b278a3d6f3925558aca14f3e18f18f))
+* **gha:** update gha + add ignore-unfixed to trivy ([#171](https://github.com/ruzickap/k8s-eks-flux/issues/171)) ([4eafe29](https://github.com/ruzickap/k8s-eks-flux/commit/4eafe294cf795b3df0f7b387c62733d4113c7edf))
+* **vuepress:** upgrade to latest version + pkg refresh ([#135](https://github.com/ruzickap/k8s-eks-flux/issues/135)) ([0352895](https://github.com/ruzickap/k8s-eks-flux/commit/035289575c94786f16676e0734e2439817311d9a))
+
+
+### Bug Fixes
+
+* **gha:** add ignore-fragments parameter to muffet ([#166](https://github.com/ruzickap/k8s-eks-flux/issues/166)) ([879df13](https://github.com/ruzickap/k8s-eks-flux/commit/879df13487a6a03e01cd4390b8d30e1b9f711b18))
+* **gha:** fix issue with renovate extends ([#162](https://github.com/ruzickap/k8s-eks-flux/issues/162)) ([5fd2cfc](https://github.com/ruzickap/k8s-eks-flux/commit/5fd2cfcfec9a8fc86c9fed53dddd7cba34fd90bc))
+* **gha:** fix links name ([#172](https://github.com/ruzickap/k8s-eks-flux/issues/172)) ([532cb58](https://github.com/ruzickap/k8s-eks-flux/commit/532cb5898190a459fb4a142004ccee904c1e1948))
+* **renovate:** disable dashboard ([#149](https://github.com/ruzickap/k8s-eks-flux/issues/149)) ([ad38807](https://github.com/ruzickap/k8s-eks-flux/commit/ad38807df325ab2052f8aaa2d50703974e9d4095))
+* **url:** fix broken URL(s) ([#159](https://github.com/ruzickap/k8s-eks-flux/issues/159)) ([bd0aedb](https://github.com/ruzickap/k8s-eks-flux/commit/bd0aedb209105a2300082cb9476c3905377ac1ea))
+* **vuepress:** fix npm issues with versions ([#145](https://github.com/ruzickap/k8s-eks-flux/issues/145)) ([0c14553](https://github.com/ruzickap/k8s-eks-flux/commit/0c145532d199c1a346331772f050c765ecc0abb1))
+
 ## v0.0.1
 
 - Update grafana dashboards, use "choice" for GH Action [`#70`](https://github.com/ruzickap/k8s-eks-flux/pull/70)
